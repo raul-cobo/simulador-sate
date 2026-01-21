@@ -18,6 +18,38 @@ from reportlab.lib.utils import ImageReader
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Simulador S.A.P.E.", page_icon="🧬", layout="wide")
+# --- 0. SISTEMA DE LOGIN SIMPLE ---
+def check_password():
+    """Retorna True si el usuario tiene la contraseña correcta."""
+    if "password_correct" not in st.session_state:
+        st.session_state.password_correct = False
+
+    def password_entered():
+        if st.session_state["password"] == st.secrets["general"]["password"]:
+            st.session_state.password_correct = True
+            del st.session_state["password"]  # Borrar contraseña de memoria
+        else:
+            st.session_state.password_correct = False
+
+    if st.session_state.password_correct:
+        return True
+
+    # Interfaz de Login
+    st.markdown("""
+        <style>
+            .stTextInput > div > div > input {text-align: center;}
+        </style>
+        """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.write("### 🔒 Acceso Restringido")
+        st.text_input("Introduce la clave de acceso:", type="password", key="password", on_change=password_entered)
+        st.caption("Sistema S.A.P.E. - Solo personal autorizado")
+    return False
+
+if not check_password():
+    st.stop()  # 🛑 AQUÍ SE DETIENE TODO SI NO HAY CLAVE
 
 if "supabase" not in st.secrets:
     st.error("⚠️ CRÍTICO: No existe el archivo .streamlit/secrets.toml con las claves.")
