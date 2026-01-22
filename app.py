@@ -15,6 +15,71 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
+import streamlit as st
+
+# --- INYECCIÓN CSS AUDEO ---
+def local_css():
+    st.markdown("""
+    <style>
+        /* 1. Ocultar elementos de marca de Streamlit (Hamburguesa, Footer, Deploy) */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .stDeployButton {display:none;}
+        
+        /* 2. Tipografía Global - Forzamos una fuente limpia y moderna */
+        html, body, [class*="css"] {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 300; /* Letra fina y elegante */
+        }
+
+        /* 3. Personalización de los BOTONES de Respuesta (Tarjetas) */
+        /* Hacemos que parezcan botones táctiles de una app financiera */
+        .stButton > button {
+            width: 100%;
+            border-radius: 8px; /* Bordes redondeados pero no mucho */
+            height: auto;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: 500;
+            background-color: #1E1E1E; /* Fondo botón oscuro (casi negro) */
+            color: #FFFFFF; /* Texto blanco */
+            border: 1px solid #333333; /* Borde sutil */
+            transition: all 0.3s ease;
+            text-align: left; /* Texto alineado a la izquierda para leer mejor */
+        }
+
+        /* Efecto al pasar el ratón por encima (Hover) */
+        .stButton > button:hover {
+            background-color: #0047AB; /* AZUL COBALTO AUDEO */
+            color: white;
+            border-color: #0047AB;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateY(-2px); /* Se levanta un poco */
+        }
+
+        /* Efecto al hacer click (Active) */
+        .stButton > button:active {
+            background-color: #002E6E;
+            transform: translateY(1px);
+        }
+
+        /* 4. Barra de Progreso - Color AUDEO */
+        div[data-testid="stProgressBar"] > div > div > div > div {
+            background-color: #D4AF37; /* DORADO (Au) */
+        }
+        
+        /* 5. Ajuste de márgenes superiores para que el logo suba */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+# Llamar a la función al inicio de la app
+local_css()
 
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Simulador S.A.P.E.", page_icon="🧬", layout="wide")
