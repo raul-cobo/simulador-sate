@@ -23,37 +23,28 @@ st.set_page_config(page_title="Audeo Intelligence", page_icon="🧬", layout="wi
 def local_css():
     st.markdown("""
     <style>
-        /* --- ELIMINACIÓN RADICAL DE ELEMENTOS --- */
-        
-        /* 1. Elimina la barra superior negra completa (Escalera, Perfil, etc.) */
-        header, [data-testid="stHeader"] {
+        /* 1. ELIMINACIÓN TOTAL DE CABECERA Y MENÚS */
+        /* Atacamos todas las capas posibles donde Streamlit guarda sus botones */
+        header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0px !important;
+        }
+
+        /* 2. ELIMINACIÓN DE BOTONES FLOTANTES (ADMIN) */
+        /* Esto busca específicamente el botón de "Manage App" y "Deploy" */
+        button[title="Manage app"], .stDeployButton, footer {
             display: none !important;
         }
 
-        /* 2. Elimina el menú de hamburguesa y el botón de Deploy (Corona) */
-        #MainMenu, .stDeployButton, [data-testid="stToolbar"] {
-            display: none !important;
-        }
-
-        /* 3. Elimina el pie de página (Made with Streamlit) */
-        footer {
-            display: none !important;
-        }
-
-        /* 4. Elimina cualquier botón de "Manage App" que Streamlit intente forzar */
-        .stAppDeployButton, .st-emotion-cache-1h9usn1, .st-emotion-cache-zq5wth {
-            display: none !important;
-        }
-
-        /* --- AJUSTES DE DISEÑO --- */
-        
-        /* Subir el contenido para que no quede un hueco blanco arriba */
+        /* 3. FORZAR QUE EL CONTENIDO SUBA AL TECHO */
+        /* Al quitar la barra, queda un hueco. Con esto lo eliminamos */
         .main .block-container {
-            padding-top: 0rem !important;
-            margin-top: -2rem !important;
+            padding-top: 0px !important;
+            margin-top: -50px !important;
         }
 
-        /* Botones de respuesta estilo Audeo */
+        /* 4. BOTONES DE RESPUESTA (TU DISEÑO) */
         .stButton > button {
             width: 100% !important;
             background-color: #1E1E1E !important;
@@ -63,10 +54,8 @@ def local_css():
             border-radius: 8px !important;
             text-align: left !important;
         }
-
         .stButton > button:hover {
             background-color: #0047AB !important;
-            border-color: #0047AB !important;
         }
     </style>
     """, unsafe_allow_html=True)
