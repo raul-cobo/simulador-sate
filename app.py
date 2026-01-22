@@ -9,161 +9,124 @@ import io
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
-
-# Librerías para PDF
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
 
-# --- 1. CONFIGURACIÓN INICIAL (Debe ir primero) ---
-st.set_page_config(page_title="Audeo Intelligence", page_icon="🧬", layout="wide")
+# --- 1. CONFIGURACIÓN INICIAL (Siempre arriba) ---
+st.set_page_config(page_title="Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. INYECCIÓN CSS (DISEÑO PREMIUM) ---
+# --- 2. INYECCIÓN CSS (DISEÑO NAVY & ELECTRIC) ---
 def local_css():
     st.markdown("""
     <style>
-        /* --- OCULTAR ELEMENTOS DE STREAMLIT (NUCLEAR) --- */
-        
-        /* Ocultar barra superior, hamburguesa y footer */
-        header[data-testid="stHeader"] { visibility: hidden; height: 0px; }
-        #MainMenu { visibility: hidden; }
-        .stDeployButton { display:none; }
-        footer { visibility: hidden; }
-        div[data-testid="stStatusWidget"] { visibility: hidden; }
+        /* --- LIMPIEZA DE INTERFAZ (NUCLEAR) --- */
+        header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] { display: none !important; }
+        button[title="Manage app"], .stDeployButton, footer { display: none !important; }
+        .main .block-container { padding-top: 1rem !important; margin-top: -2rem !important; }
 
-        /* --- DISEÑO AUDEO --- */
-        
-        /* Tipografía y Fondo */
+        /* --- FONDO Y TIPOGRAFÍA --- */
+        .stApp {
+            background-color: #050A1F; /* Navy Profundo */
+            color: #FFFFFF;
+        }
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        }
-        
-        /* Ajustar márgenes para que el contenido suba */
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 2rem !important;
+            font-weight: 300;
         }
 
-        /* Botones de Respuesta (Tarjetas) */
-        .stButton > button {
-            width: 100%;
-            border-radius: 8px;
-            height: auto;
-            padding: 15px 20px;
-            font-size: 18px;
-            font-weight: 500;
-            background-color: #1E1E1E; /* Fondo oscuro */
-            color: #FFFFFF; /* Texto blanco */
-            border: 1px solid #333333;
-            transition: all 0.3s ease;
-            text-align: left;
-        }
-
-        /* Efecto Hover (Azul Cobalto) */
-        .stButton > button:hover {
-            background-color: #0047AB;
+        /* --- INPUTS Y FORMULARIOS --- */
+        /* Hacemos que los campos de texto se vean integrados */
+        .stTextInput > div > div > input, .stNumberInput > div > div > input, .stSelectbox > div > div > div {
+            background-color: #0F1629;
             color: white;
-            border-color: #0047AB;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transform: translateY(-2px);
+            border: 1px solid #2D3748;
+            border-radius: 6px;
+        }
+        .stSelectbox > label, .stTextInput > label, .stNumberInput > label {
+            color: #A0AEC0 !important;
+            font-size: 0.9rem;
         }
 
-        /* Barra de progreso Dorada */
+        /* --- TARJETAS DE SECTOR (BOTONES GRANDES) --- */
+        /* Estos estilos transforman los botones de inicio en tarjetas */
+        .sector-btn > button {
+            background-color: #0F1629 !important;
+            border: 1px solid #5D5FEF !important; /* Borde Púrpura Eléctrico */
+            color: white !important;
+            height: 100px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            border-radius: 12px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .sector-btn > button:hover {
+            background-color: #5D5FEF !important; /* Púrpura al pasar ratón */
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(93, 95, 239, 0.4);
+        }
+
+        /* --- BOTONES DE RESPUESTA (PANTALLA PREGUNTAS) --- */
+        .answer-btn > button {
+            width: 100% !important;
+            background-color: #1A202C !important;
+            color: #E2E8F0 !important;
+            border: 1px solid #4A5568 !important;
+            padding: 20px !important;
+            border-radius: 8px !important;
+            text-align: left !important;
+            margin-bottom: 10px !important;
+            transition: all 0.2s !important;
+        }
+        .answer-btn > button:hover {
+            border-color: #5D5FEF !important;
+            color: #5D5FEF !important;
+            background-color: #0F1629 !important;
+        }
+
+        /* --- BARRA DE PROGRESO --- */
         div[data-testid="stProgressBar"] > div > div > div > div {
-            background-color: #D4AF37;
-        }
-        
-        /* Estilo para la narrativa */
-        .big-narrative {
-            font-size: 1.15rem; 
-            line-height: 1.6; 
-            color: #E0E0E0;
-            background-color: #262730; 
-            padding: 25px; 
-            border-radius: 10px;
-            border-left: 6px solid #00CC96; 
-            margin-bottom: 20px;
-        }
-        
-        /* Botón de Login específico */
-        .login-btn > button {
-            text-align: center !important;
-            background-color: #0047AB !important;
+            background-color: #5D5FEF !important; /* Púrpura */
         }
 
+        /* --- NARRATIVA --- */
+        .big-narrative {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #E2E8F0;
+            background-color: #0F1629;
+            padding: 30px;
+            border-radius: 12px;
+            border-left: 5px solid #5D5FEF;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            height: 100%;
+        }
+
+        /* --- HEADER LOGO --- */
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: -webkit-linear-gradient(left, #FFFFFF, #A0AEC0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-subtitle {
+            font-size: 1.2rem;
+            color: #5D5FEF;
+            font-weight: 400;
+            margin-bottom: 2rem;
+        }
     </style>
     """, unsafe_allow_html=True)
 
 local_css()
 
-# --- 3. SISTEMA DE LOGIN (CORREGIDO) ---
-def check_password():
-    """Retorna True si el usuario tiene la contraseña correcta."""
-    if st.session_state.get("password_correct", False):
-        return True
+# --- 3. LÓGICA DE NEGOCIO (CORE) ---
 
-    # Interfaz de Login
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.write("### 🔒 Acceso Restringido")
-        st.write(" ")
-        
-        # Input de contraseña SIN on_change para evitar recargas automáticas
-        password_input = st.text_input("Introduce la clave de acceso:", type="password", key="login_pass")
-        
-        st.write(" ")
-        # Botón manual para validar
-        if st.button("Entrar al Sistema", use_container_width=True):
-            if password_input == st.secrets["general"]["password"]:
-                st.session_state.password_correct = True
-                st.rerun()
-            else:
-                st.error("⛔ Clave incorrecta. Inténtalo de nuevo.")
-                
-        st.caption("Audeo Intelligence S.L. - Solo personal autorizado")
-    return False
-
-if not check_password():
-    st.stop()  # 🛑 AQUÍ SE DETIENE TODO SI NO HAY CLAVE
-
-# Verificación de secretos
-if "supabase" not in st.secrets:
-    st.error("⚠️ CRÍTICO: No existe el archivo .streamlit/secrets.toml con las claves.")
-    st.stop()
-
-# --- 4. MAPAS DE VARIABLES ---
-VARIABLE_MAP = {
-    "achievement": "achievement", "logro": "achievement",
-    "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
-    "innovativeness": "innovativeness", "innovacion": "innovativeness",
-    "locus_control": "locus_control", "locus": "locus_control",
-    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy",
-    "autonomy": "autonomy", "autonomia": "autonomy",
-    "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance",
-    "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability",
-    "honesty": "emotional_stability", "integrity": "emotional_stability", "ethics": "emotional_stability",
-    "collaboration": "self_efficacy",
-    "excitable": "excitable", "explosivo": "excitable",
-    "skeptical": "skeptical", "esceptico": "skeptical",
-    "passive_aggressive": "passive_aggressive", "pasivo": "passive_aggressive",
-    "arrogant": "arrogant", "arrogante": "arrogant", "narcissism": "arrogant", "ego": "arrogant",
-    "mischievous": "mischievous", "astuto": "mischievous", "travieso": "mischievous", "corruption": "mischievous",
-    "melodramatic": "melodramatic", "drama": "melodramatic", "victim": "melodramatic",
-    "cautious": "cautious", "cauto": "cautious", "miedo": "cautious",
-    "reserved": "reserved", "reservado": "reserved",
-    "diligent": "diligent", "diligente": "diligent", "perfectionism": "diligent",
-    "dependent": "dependent", "dependiente": "dependent", "obediente": "dependent",
-    "imaginative": "imaginative", "imaginativo": "imaginative"
-}
-
-LABELS_ES = {
-    "achievement": "Logro", "risk_propensity": "Riesgo", "innovativeness": "Innovación",
-    "locus_control": "Locus Control", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía",
-    "ambiguity_tolerance": "Tol. Incertidumbre", "emotional_stability": "Estabilidad"
-}
-
-SECTOR_MAP = {
+# Mapas de datos
+SECTOR_MAPPING = {
     "Startup Tecnológica (Scalable)": "TECH",
     "Consultoría / Servicios Profesionales": "CONSULTORIA",
     "Pequeña y Mediana Empresa (PYME)": "PYME",
@@ -173,12 +136,31 @@ SECTOR_MAP = {
     "Intraemprendimiento": "INTRA"
 }
 
-# --- 5. FUNCIONES ---
-def generate_short_id():
-    chars = string.ascii_uppercase + string.digits
-    part1 = ''.join(random.choices(chars, k=2))
-    part2 = ''.join(random.choices(chars, k=2))
-    return f"{part1}-{part2}"
+VARIABLE_MAP = {
+    "achievement": "achievement", "logro": "achievement",
+    "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
+    "innovativeness": "innovativeness", "innovacion": "innovativeness",
+    "locus_control": "locus_control", "locus": "locus_control",
+    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy",
+    "autonomy": "autonomy", "autonomia": "autonomy",
+    "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance",
+    "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability",
+    "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious",
+    "reserved": "reserved", "passive_aggressive": "passive_aggressive",
+    "arrogant": "arrogant", "mischievous": "mischievous",
+    "melodramatic": "melodramatic", "imaginative": "imaginative",
+    "diligent": "diligent", "dependent": "dependent"
+}
+
+LABELS_ES = {
+    "achievement": "Logro", "risk_propensity": "Riesgo", "innovativeness": "Innovación",
+    "locus_control": "Locus Control", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía",
+    "ambiguity_tolerance": "Tol. Incertidumbre", "emotional_stability": "Estabilidad"
+}
+
+# Funciones Auxiliares
+def generate_id():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 def init_session():
     if 'octagon' not in st.session_state:
@@ -189,333 +171,314 @@ def init_session():
         st.session_state.started = False 
         st.session_state.data = []
         st.session_state.choices_log = [""] * 30 
-        st.session_state.saved = False 
-        st.session_state.user_id = generate_short_id() 
-        st.session_state.user_data = {"name": "", "age": 30, "venture_type": "TECH", "experience": "Primer emprendimiento", "partners": "Solo"}
+        st.session_state.user_id = generate_id()
+        st.session_state.user_data = {}
 
-def load_all_questions():
+def load_questions():
     try:
         filename = 'SATE_v1.csv'
-        if not os.path.exists(filename):
-            st.error("⚠️ CRÍTICO: No encuentro 'SATE_v1.csv'.")
-            st.stop()
+        if not os.path.exists(filename): return []
         with open(filename, encoding='utf-8-sig') as f:
-            reader = list(csv.DictReader(f, delimiter=';'))
-            if len(reader) > 0 and 'SECTOR' in reader[0]: return reader
-        with open(filename, encoding='utf-8-sig') as f:
-            reader = list(csv.DictReader(f, delimiter=','))
-            if len(reader) > 0 and 'SECTOR' in reader[0]: return reader
-        st.error("❌ ERROR CSV: No encuentro la columna 'SECTOR'.")
-        st.stop()
-    except Exception as e:
-        st.error(f"❌ Error leyendo archivo: {e}")
-        st.stop()
+            return list(csv.DictReader(f, delimiter=';'))
+    except: return []
 
-def filter_questions_by_sector(all_rows, sector_code):
-    filtered = [row for row in all_rows if row.get('SECTOR', '').strip().upper() == sector_code]
-    if not filtered: filtered = [row for row in all_rows if row.get('SECTOR', '').strip().upper() == 'TECH']
-    return filtered 
-
-def parse_logic(logic_str, option_number, step_index):
-    if step_index < 30:
-        st.session_state.choices_log[step_index] = str(option_number)
+def parse_logic(logic_str, opt_idx, step):
+    st.session_state.choices_log[step] = str(opt_idx)
     if not logic_str: return
-    actions = str(logic_str).split('|')
-    for action in actions:
+    for action in logic_str.split('|'):
         parts = action.strip().split()
         if len(parts) < 2: continue
-        term = parts[0].lower().strip()
-        try: val = int(parts[1])
-        except ValueError: continue
-        var_key = VARIABLE_MAP.get(term, None)
-        if var_key:
-            if var_key in st.session_state.flags:
-                st.session_state.flags[var_key] = max(0, st.session_state.flags[var_key] + val)
-            elif var_key in st.session_state.octagon:
-                st.session_state.octagon[var_key] = max(0, min(100, st.session_state.octagon[var_key] + val))
+        var, val = VARIABLE_MAP.get(parts[0].lower()), int(parts[1])
+        if var in st.session_state.flags: st.session_state.flags[var] = max(0, st.session_state.flags[var] + val)
+        elif var in st.session_state.octagon: st.session_state.octagon[var] = max(0, min(100, st.session_state.octagon[var] + val))
 
-def calculate_final_score():
-    avg = sum(st.session_state.octagon.values()) / 8
-    f = st.session_state.flags
-    toxic_keys = ["mischievous", "arrogant", "passive_aggressive", "excitable", "melodramatic"]
-    toxic_score = sum([f[k] for k in toxic_keys])
-    toxic_penalty = toxic_score * 1.0 
-    excess_keys = ["diligent", "cautious", "dependent", "skeptical", "reserved", "imaginative"]
-    excess_penalty = 0
-    threshold = 50 
-    for k in excess_keys:
-        if f[k] > threshold: excess_penalty += (f[k] - threshold) * 0.25
-    total_penalty = toxic_penalty + excess_penalty
+def calculate_results():
+    o, f = st.session_state.octagon, st.session_state.flags
+    avg = sum(o.values()) / 8
+    
+    # Penalizaciones y Triggers
+    toxic = sum([f[k] for k in ["mischievous", "arrogant", "passive_aggressive", "excitable", "melodramatic"]])
+    excess = sum([max(0, f[k]-50)*0.25 for k in ["diligent", "cautious", "dependent", "skeptical", "reserved", "imaginative"]])
     
     triggers = []
-    o = st.session_state.octagon
     if f["mischievous"] > 25: triggers.append("RIESGO ÉTICO ALTO")
     if f["arrogant"] > 25: triggers.append("NARCISISMO / ARROGANCIA")
     if f["passive_aggressive"] > 20: triggers.append("CONFLICTIVIDAD PASIVA")
     if o["achievement"] > 85 and o["emotional_stability"] < 30: triggers.append("RIESGO DE BURNOUT")
-    if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("LUDÓPATA")
-    if f["diligent"] > 60: triggers.append("PARÁLISIS POR ANÁLISIS")
-    if f["dependent"] > 50: triggers.append("FALTA DE AUTONOMÍA")
-
-    ire = avg - total_penalty - (len(triggers) * 5)
-    ire = max(0, min(100, ire))
-    return round(ire, 2), round(avg, 2), toxic_score, triggers
-
-def generate_text_report(ire, avg, friction_points):
-    report_text = ""
-    if ire > 75: report_text += "Perfil: Alta Resiliencia. El usuario gestiona eficazmente la presión y los recursos.\n"
-    elif ire > 45: report_text += "Perfil: Equilibrado. Bases sólidas, aunque con áreas de mejora en la gestión del estrés.\n"
-    else: report_text += "Perfil: Riesgo. La brecha entre Potencial y Ejecución es peligrosa.\n"
+    if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("COMPORTAMIENTO TEMERARIO")
     
-    if friction_points < 15: report_text += "Nivel de Fricción: BAJO. Toma de decisiones fluida."
-    elif friction_points < 40: report_text += "Nivel de Fricción: MEDIO. Existen bloqueos defensivos."
-    else: report_text += "Nivel de Fricción: ALTO. El estilo de gestión genera conflictos."
-    return report_text
+    ire = max(0, min(100, avg - toxic - excess - (len(triggers)*5)))
+    return round(ire, 2), round(avg, 2), toxic, triggers
 
-# --- FUNCIÓN GENERAR PDF ---
-def create_pdf(ire, avg, toxic, triggers, user_data, octagon_data):
+def create_pdf_report(ire, avg, toxic, triggers, user, stats):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    w, h = A4
     
-    # Encabezado
-    p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, height - 50, "Audeo - Informe Ejecutivo")
+    # Cabecera
+    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy
+    p.rect(0, h-100, w, 100, fill=1)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont("Helvetica-Bold", 22)
+    p.drawString(50, h-60, "Audeo Intelligence | Informe S.A.P.E.")
     
+    # Datos
+    p.setFillColorRGB(0, 0, 0)
     p.setFont("Helvetica", 10)
-    p.drawString(50, height - 70, f"Usuario: {user_data.get('name', 'Anon')} | ID: {st.session_state.user_id}")
-    p.drawString(50, height - 85, f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    p.line(50, height - 95, width - 50, height - 95)
+    p.drawString(50, h-130, f"Candidato: {user.get('name')} | ID: {st.session_state.user_id}")
+    p.drawString(50, h-145, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
     
-    # Métricas Principales
-    y_pos = height - 130
+    # Resultados
     p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y_pos, f"IRE (Índice Resiliencia): {ire}/100")
-    p.drawString(300, y_pos, f"Potencial Promedio: {avg}")
-    y_pos -= 30
-    
-    # Interpretación
-    p.setFont("Helvetica", 12)
-    report_lines = generate_text_report(ire, avg, toxic).split('\n')
-    for line in report_lines:
-        p.drawString(50, y_pos, line)
-    y_pos -= 20
-    y_pos -= 20
-    
-    # Desglose Octógono
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, y_pos, "Desglose de Competencias:")
-    y_pos -= 20
-    p.setFont("Helvetica", 10)
-    
-    col = 0
-    start_y = y_pos
-    for k, v in octagon_data.items():
-        label = LABELS_ES.get(k, k)
-        if col == 0:
-            p.drawString(50, y_pos, f"{label}: {round(v, 1)}")
-        else:
-            p.drawString(300, y_pos, f"{label}: {round(v, 1)}")
-            y_pos -= 15
-        col = 1 - col
-        if col == 0: pass 
+    p.drawString(50, h-180, f"IRE (Índice de Resiliencia): {ire}/100")
+    p.drawString(50, h-200, f"Potencial Promedio: {avg}/100")
     
     # Alertas
-    y_pos = start_y - 100
+    y = h-240
     if triggers:
-        p.setFillColor(colors.red)
+        p.setFillColorRGB(0.8, 0, 0)
         p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, y_pos, "⚠️ ALERTAS DETECTADAS:")
-        y_pos -= 20
+        p.drawString(50, y, "ALERTAS DETECTADAS:")
+        y -= 20
         p.setFont("Helvetica", 10)
         for t in triggers:
-            p.drawString(50, y_pos, f"- {t}")
-            y_pos -= 15
+            p.drawString(60, y, f"• {t}")
+            y -= 15
     else:
-        p.setFillColor(colors.green)
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, y_pos, "✅ Sin alertas críticas detectadas.")
-    
-    # Pie de página
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Oblique", 8)
-    p.drawString(50, 30, "Documento confidencial. Generado por Audeo Intelligence Algorithms.")
+        p.setFillColorRGB(0, 0.5, 0)
+        p.drawString(50, y, "Sin alertas críticas detectadas.")
     
     p.showPage()
     p.save()
     buffer.seek(0)
     return buffer
 
-def save_result_to_supabase(ire, avg, friction, triggers):
-    try:
-        url_base = st.secrets["supabase"]["url"]
-        api_key = st.secrets["supabase"]["key"]
-        endpoint = f"{url_base}/rest/v1/resultados_sape"
-        headers = {
-            "apikey": api_key, "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json", "Prefer": "return=minimal"
-        }
-        data_payload = {
-            "user_id_anonimo": st.session_state.user_id,
-            "nombre_interno": st.session_state.user_data.get('name', 'Anon'),
-            "sector": st.session_state.user_data.get('venture_type', 'Unknown'),
-            "experiencia": st.session_state.user_data.get('experience', ''),
-            "respuestas": st.session_state.choices_log,
-            "score_logro": st.session_state.octagon['achievement'],
-            "score_riesgo": st.session_state.octagon['risk_propensity'],
-            "score_innovacion": st.session_state.octagon['innovativeness'],
-            "score_locus": st.session_state.octagon['locus_control'],
-            "score_autoeficacia": st.session_state.octagon['self_efficacy'],
-            "score_autonomia": st.session_state.octagon['autonomy'],
-            "score_ambiguedad": st.session_state.octagon['ambiguity_tolerance'],
-            "score_estabilidad": st.session_state.octagon['emotional_stability'],
-            "ire_final": float(ire), "potencial_final": float(avg),
-            "friccion_final": float(friction), "alertas": " | ".join(triggers) if triggers else "Ninguna"
-        }
-        response = requests.post(endpoint, json=data_payload, headers=headers)
-        if response.status_code in [200, 201]:
-            st.session_state.saved = True
-            st.success("✅ Resultados guardados en la nube correctamente.")
-        else:
-            st.error(f"❌ Error al guardar: {response.status_code} - {response.text}")
-    except Exception as e:
-        st.error(f"❌ Error de conexión: {e}")
-
-def draw_radar_chart():
-    raw_data = st.session_state.octagon
-    categories = [LABELS_ES.get(k, k) for k in raw_data.keys()]
-    values = list(raw_data.values())
-    categories = [*categories, categories[0]]
-    values = [*values, values[0]]
-    fig = go.Figure(data=[go.Scatterpolar(
-        r=values, theta=categories, fill='toself', name='Perfil',
-        line=dict(color='#00CC96'), fillcolor='rgba(0, 204, 150, 0.3)'
-    )])
+def radar_chart():
+    data = st.session_state.octagon
+    cat = [LABELS_ES.get(k) for k in data.keys()]
+    val = list(data.values())
+    cat += [cat[0]]
+    val += [val[0]]
+    
+    fig = go.Figure(go.Scatterpolar(
+        r=val, theta=cat, fill='toself', 
+        line=dict(color='#5D5FEF'), 
+        fillcolor='rgba(93, 95, 239, 0.2)'
+    ))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-        showlegend=False, height=300, margin=dict(t=20, b=20, l=40, r=40)
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 100], showticklabels=False, linecolor='#2D3748'),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=20, b=20)
     )
     return fig
 
-def cargar_logo():
-    nombres = ["logo.png", "logo.jpg", "logo.jpeg"]
-    for n in nombres:
-        if os.path.exists(n): return Image.open(n)
-    return None
+# --- 4. SISTEMA DE LOGIN ---
+def login_screen():
+    if st.session_state.get("auth", False): return True
+    
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("### 🔒 Acceso Audeo S.A.P.E.")
+        pwd = st.text_input("Clave de acceso", type="password", key="pwd_in")
+        if st.button("Entrar", use_container_width=True):
+            if pwd == st.secrets["general"]["password"]:
+                st.session_state.auth = True
+                st.rerun()
+            else:
+                st.error("Clave incorrecta")
+    return False
 
-# --- 6. FLUJO PRINCIPAL ---
+# --- 5. FLUJO PRINCIPAL ---
 init_session()
-logo_img = cargar_logo()
+
+if not login_screen():
+    st.stop()
+
+# LOGO
+try:
+    logo = Image.open("logo.png") # Asegúrate de tener logo.png o cambia a logo.jpg
+except:
+    logo = None
 
 if not st.session_state.started:
-    c_spacer_L, c_main, c_spacer_R = st.columns([1, 4, 1])
-    with c_main:
-        col_logo, col_text = st.columns([1.5, 4]) 
-        with col_logo:
-            if logo_img: st.image(logo_img, use_container_width=True)
-        with col_text:
-            st.title("Audeo Intelligence")
-            st.markdown("**Due Diligence de Talento Emprendedor**")
-    
-    with st.form("registro_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            name = st.text_input("Nombre Completo (Uso interno)")
-            age = st.number_input("Edad", min_value=18, max_value=99, value=30)
-            experience = st.selectbox("Experiencia", ["Primer emprendimiento", "Con emprendimientos sin éxito", "Con emprendimientos con éxito"])
-        with col2:
-            partners = st.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
-            venture_selection = st.selectbox("Sector", list(SECTOR_MAP.keys()))
-        st.markdown("---")
-        consent = st.checkbox("Autorizo el tratamiento de datos para el análisis.")
-        if st.form_submit_button("🚀 INICIAR SIMULACIÓN", use_container_width=True):
-            if not consent or len(name) < 2:
-                st.error("⚠️ Por favor, introduce tu nombre y acepta el tratamiento de datos.")
-            else:
-                all_csv_data = load_all_questions()
-                sector_code = SECTOR_MAP[venture_selection]
-                game_questions = filter_questions_by_sector(all_csv_data, sector_code)
-                if not game_questions: st.error(f"⚠️ ERROR: No hay preguntas para {sector_code}.")
-                else:
-                    st.session_state.data = game_questions
-                    st.session_state.user_data = {"name": name, "age": age, "venture_type": venture_selection, "experience": experience, "partners": partners}
-                    st.session_state.started = True
-                    st.rerun()
+    # --- PANTALLA DE INICIO (HOME) ---
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if logo: st.image(logo, use_container_width=True)
+    with c_title:
+        st.markdown('<div class="header-title">Simulador S.A.P.E.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="header-subtitle">Sistema de Análisis de la Personalidad Emprendedora</div>', unsafe_allow_html=True)
 
-elif st.session_state.finished:
-    ire, avg, flags, cocktails = calculate_final_score()
-    
-    if not st.session_state.saved: 
-        save_result_to_supabase(ire, avg, flags, cocktails) 
-    
-    col_logo_rep, col_text_rep = st.columns([1.5, 6]) 
-    with col_logo_rep:
-         if logo_img: st.image(logo_img, use_container_width=True)
-    with col_text_rep:
-        st.subheader("Informe Audeo") 
-        st.markdown(f"**ID Usuario:** {st.session_state.user_id} | **Perfil:** {st.session_state.user_data['experience']}")
-    
-    st.divider()
-    k1, k2, k3 = st.columns(3)
-    k1.metric("IRE (Resiliencia)", f"{ire}/100")
-    k2.metric("Potencial", avg)
-    k3.metric("Fricción", flags, delta_color="inverse")
+    st.markdown("---")
 
-    c_izq, c_der = st.columns([1, 1])
-    with c_izq:
-        st.plotly_chart(draw_radar_chart(), use_container_width=True)
-    with c_der:
-        st.markdown("### Resultados")
-        st.markdown(generate_text_report(ire, avg, flags))
-        if cocktails: st.error("⚠️ Alertas:\n" + "\n".join([f"- {c}" for c in cocktails]))
-        else: st.success("✅ Sin alertas graves.")
+    # Formulario de Datos Personales
+    c1, c2, c3 = st.columns(3)
+    name = c1.text_input("Nombre Completo (Uso interno)")
+    age = c2.number_input("Edad", 18, 90, 30)
+    gender = c3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
+
+    c4, c5, c6 = st.columns(3)
+    country = c4.selectbox("País / Región", ["España", "LATAM", "Europa", "Otros"])
+    situation = c5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
+    experience = c6.selectbox("Experiencia previa", ["Primer emprendimiento", "Emprendimientos sin éxito", "Emprendimientos con éxito"])
+
+    st.markdown("<br><h5>Selecciona el Sector del Proyecto para iniciar:</h5>", unsafe_allow_html=True)
+
+    # GRID DE SELECCIÓN DE SECTORES (TARJETAS)
+    def start_game(sector_name):
+        if not name:
+            st.error("⚠️ Por favor, introduce tu nombre antes de empezar.")
+        else:
+            all_q = load_questions()
+            code = SECTOR_MAPPING[sector_name]
+            qs = [q for q in all_q if q['SECTOR'].strip().upper() == code]
+            if not qs: qs = [q for q in all_q if q['SECTOR'].strip().upper() == "TECH"] # Fallback
+            
+            st.session_state.data = qs
+            st.session_state.user_data = {
+                "name": name, "age": age, "gender": gender, 
+                "country": country, "situation": situation, 
+                "experience": experience, "sector": sector_name
+            }
+            st.session_state.started = True
+            st.rerun()
+
+    # Fila 1 (4 opciones)
+    col_a, col_b, col_c, col_d = st.columns(4)
+    with col_a:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): start_game("Startup Tecnológica (Scalable)")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_b:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Consultoría /\nServicios Prof.", use_container_width=True): start_game("Consultoría / Servicios Profesionales")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_c:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): start_game("Pequeña y Mediana Empresa (PYME)")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_d:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Hostelería y\nRestauración", use_container_width=True): start_game("Hostelería y Restauración")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    st.divider()
+    # Fila 2 (3 opciones centradas)
+    st.markdown("<br>", unsafe_allow_html=True)
+    _, col_e, col_f, col_g, _ = st.columns([0.5, 1, 1, 1, 0.5])
+    with col_e:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Autoempleo /\nFreelance", use_container_width=True): start_game("Autoempleo / Freelance")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_f:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Emprendimiento\nSocial", use_container_width=True): start_game("Emprendimiento Social")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_g:
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+        if st.button("Intraemprendimiento\nCorporativo", use_container_width=True): start_game("Intraemprendimiento")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+elif not st.session_state.finished:
+    # --- PANTALLA DE PREGUNTAS (55% / 45%) ---
+    row = st.session_state.data[st.session_state.current_step]
     
-    # --- BOTÓN DE DESCARGA PDF ---
-    pdf_file = create_pdf(ire, avg, flags, cocktails, st.session_state.user_data, st.session_state.octagon)
-    st.download_button(
-        label="📄 DESCARGAR INFORME PDF",
-        data=pdf_file,
-        file_name=f"Informe_Audeo_{st.session_state.user_id}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+    # Barra de progreso personalizada
+    st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
     
-    if st.button("🔄 Reiniciar", use_container_width=True):
-        for k in list(st.session_state.keys()): del st.session_state[k]
-        st.rerun()
+    st.markdown(f"### {row['TITULO']}")
+    
+    col_narrative, col_options = st.columns([1.2, 1]) # 55% - 45% aprox
+    
+    with col_narrative:
+        st.markdown(f'<div class="big-narrative">{row["NARRATIVA"]}</div>', unsafe_allow_html=True)
+        
+    with col_options:
+        st.markdown("#### ¿Qué harías tú?")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        step = st.session_state.current_step
+        
+        # Clase CSS 'answer-btn' para estilo de tarjeta
+        st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
+        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}"):
+            parse_logic(row.get('OPCION_A_LOGIC'), 1, step)
+            st.session_state.current_step += 1
+            if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
+        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}"):
+            parse_logic(row.get('OPCION_B_LOGIC'), 2, step)
+            st.session_state.current_step += 1
+            if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
+            st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
+            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}"):
+                parse_logic(row.get('OPCION_C_LOGIC'), 3, step)
+                st.session_state.current_step += 1
+                if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
+            st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
+            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}"):
+                parse_logic(row.get('OPCION_D_LOGIC'), 4, step)
+                st.session_state.current_step += 1
+                if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    if len(st.session_state.data) > 0: st.progress(st.session_state.current_step / len(st.session_state.data))
-    if st.session_state.current_step < len(st.session_state.data):
-        row = st.session_state.data[st.session_state.current_step]
-        st.markdown(f"### {row['TITULO']}")
-        st.divider()
-        c_text, c_actions = st.columns([55, 45])
-        with c_text: st.markdown(f"""<div class="big-narrative">{row['NARRATIVA']}</div>""", unsafe_allow_html=True)
-        with c_actions:
-            st.markdown("##### Tu decisión:")
-            step = st.session_state.current_step
-            
-            # BOTONES DE RESPUESTA (Estilizados por CSS arriba)
-            if st.button(f"{row.get('OPCION_A_TXT')}", key=f"a_{step}", use_container_width=True): 
-                parse_logic(row.get('OPCION_A_LOGIC', ''), 1, step)
-                st.session_state.current_step += 1; st.rerun()
-            
-            if st.button(f"{row.get('OPCION_B_TXT')}", key=f"b_{step}", use_container_width=True): 
-                parse_logic(row.get('OPCION_B_LOGIC', ''), 2, step)
-                st.session_state.current_step += 1; st.rerun()
-            
-            if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
-                if st.button(f"{row.get('OPCION_C_TXT')}", key=f"c_{step}", use_container_width=True): 
-                    parse_logic(row.get('OPCION_C_LOGIC', ''), 3, step)
-                    st.session_state.current_step += 1; st.rerun()
-            
-            if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
-                if st.button(f"{row.get('OPCION_D_TXT')}", key=f"d_{step}", use_container_width=True): 
-                    parse_logic(row.get('OPCION_D_LOGIC', ''), 4, step)
-                    st.session_state.current_step += 1; st.rerun()
-    else:
-        st.session_state.finished = True
+    # --- PANTALLA DE RESULTADOS ---
+    ire, avg, toxic, triggers = calculate_results()
+    
+    # Cabecera resultados
+    c_res_logo, c_res_title = st.columns([1, 5])
+    with c_res_logo: 
+        if logo: st.image(logo)
+    with c_res_title:
+        st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
+        st.caption(f"ID: {st.session_state.user_id} | Sector: {st.session_state.user_data['sector']}")
+
+    st.divider()
+
+    # Métricas
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Índice IRE", f"{ire}/100", delta="Resiliencia", delta_color="normal")
+    k2.metric("Potencial", f"{avg}/100", delta="Media")
+    k3.metric("Fricción", toxic, delta="Riesgo", delta_color="inverse")
+
+    # Gráfico y Texto
+    c_chart, c_txt = st.columns([1, 1])
+    with c_chart:
+        st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_txt:
+        st.markdown("### Diagnóstico Ejecutivo")
+        if ire > 75: st.success("Perfil de Alta Resiliencia. Capacidad de gestión del estrés óptima.")
+        elif ire > 45: st.warning("Perfil Equilibrado. Requiere monitorización en situaciones de alta presión.")
+        else: st.error("Perfil de Riesgo. Se detectan bloqueos operativos significativos.")
+        
+        if triggers:
+            st.markdown("#### ⚠️ Alertas Críticas")
+            for t in triggers: st.markdown(f"- {t}")
+
+    # Descarga PDF
+    st.markdown("<br>", unsafe_allow_html=True)
+    pdf_data = create_pdf_report(ire, avg, toxic, triggers, st.session_state.user_data, st.session_state.octagon)
+    st.download_button("📥 Descargar Informe Completo (PDF)", pdf_data, f"SAPE_{st.session_state.user_id}.pdf", "application/pdf", use_container_width=True)
+    
+    if st.button("Reiniciar Simulación"):
+        st.session_state.clear()
         st.rerun()
