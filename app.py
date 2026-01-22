@@ -21,63 +21,69 @@ import streamlit as st
 def local_css():
     st.markdown("""
     <style>
-        /* 1. Ocultar elementos de marca de Streamlit (Hamburguesa, Footer, Deploy) */
+        /* --- OCULTAR ELEMENTOS DE STREAMLIT --- */
+        
+        /* 1. Ocultar la barra superior completa (donde sale la escalera y el perfil) */
+        header[data-testid="stHeader"] {
+            visibility: hidden;
+            height: 0px;
+        }
+        
+        /* 2. Ocultar el menú de hamburguesa (tres rayas) y el botón de Deploy (corona) */
         #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
         .stDeployButton {display:none;}
         
-        /* 2. Tipografía Global - Forzamos una fuente limpia y moderna */
-        html, body, [class*="css"] {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-weight: 300; /* Letra fina y elegante */
+        /* 3. Ocultar el pie de página "Made with Streamlit" */
+        footer {visibility: hidden;}
+        
+        /* 4. Ocultar la barra de estado de arriba a la derecha (Running...) */
+        div[data-testid="stStatusWidget"] {
+            visibility: hidden;
         }
 
-        /* 3. Personalización de los BOTONES de Respuesta (Tarjetas) */
-        /* Hacemos que parezcan botones táctiles de una app financiera */
+        /* --- DISEÑO AUDEO (BOTONES Y COLORES) --- */
+        
+        /* Tipografía limpia */
+        html, body, [class*="css"] {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        /* Botones estilo Tarjeta Financiera */
         .stButton > button {
             width: 100%;
-            border-radius: 8px; /* Bordes redondeados pero no mucho */
+            border-radius: 8px;
             height: auto;
             padding: 15px 20px;
             font-size: 18px;
             font-weight: 500;
-            background-color: #1E1E1E; /* Fondo botón oscuro (casi negro) */
+            background-color: #1E1E1E; /* Fondo oscuro */
             color: #FFFFFF; /* Texto blanco */
-            border: 1px solid #333333; /* Borde sutil */
+            border: 1px solid #333333;
             transition: all 0.3s ease;
-            text-align: left; /* Texto alineado a la izquierda para leer mejor */
+            text-align: left;
         }
 
-        /* Efecto al pasar el ratón por encima (Hover) */
+        /* Efecto Hover (Azul Cobalto) */
         .stButton > button:hover {
-            background-color: #0047AB; /* AZUL COBALTO AUDEO */
+            background-color: #0047AB; 
             color: white;
             border-color: #0047AB;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transform: translateY(-2px); /* Se levanta un poco */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transform: translateY(-2px);
         }
 
-        /* Efecto al hacer click (Active) */
-        .stButton > button:active {
-            background-color: #002E6E;
-            transform: translateY(1px);
-        }
-
-        /* 4. Barra de Progreso - Color AUDEO */
+        /* Barra de progreso Dorada */
         div[data-testid="stProgressBar"] > div > div > div > div {
-            background-color: #D4AF37; /* DORADO (Au) */
+            background-color: #D4AF37;
         }
         
-        /* 5. Ajuste de márgenes superiores para que el logo suba */
+        /* Ajustar el espacio superior para que el logo no quede pegado al techo */
         .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
+            padding-top: 1rem;
         }
 
     </style>
     """, unsafe_allow_html=True)
-
 # Llamar a la función al inicio de la app
 local_css()
 
