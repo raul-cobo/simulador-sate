@@ -5,7 +5,7 @@ import random
 import string
 import json
 import requests
-import io  # Necesario para el PDF
+import io
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
@@ -15,40 +15,37 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
-import streamlit as st
 
-# --- INYECCIÓN CSS AUDEO ---
+# --- 1. CONFIGURACIÓN INICIAL (Debe ir primero) ---
+st.set_page_config(page_title="Audeo Intelligence", page_icon="🧬", layout="wide")
+
+# --- 2. INYECCIÓN CSS (DISEÑO PREMIUM) ---
 def local_css():
     st.markdown("""
     <style>
-        /* --- OCULTAR ELEMENTOS DE STREAMLIT --- */
+        /* --- OCULTAR ELEMENTOS DE STREAMLIT (NUCLEAR) --- */
         
-        /* 1. Ocultar la barra superior completa (donde sale la escalera y el perfil) */
-        header[data-testid="stHeader"] {
-            visibility: hidden;
-            height: 0px;
-        }
-        
-        /* 2. Ocultar el menú de hamburguesa (tres rayas) y el botón de Deploy (corona) */
-        #MainMenu {visibility: hidden;}
-        .stDeployButton {display:none;}
-        
-        /* 3. Ocultar el pie de página "Made with Streamlit" */
-        footer {visibility: hidden;}
-        
-        /* 4. Ocultar la barra de estado de arriba a la derecha (Running...) */
-        div[data-testid="stStatusWidget"] {
-            visibility: hidden;
-        }
+        /* Ocultar barra superior, hamburguesa y footer */
+        header[data-testid="stHeader"] { visibility: hidden; height: 0px; }
+        #MainMenu { visibility: hidden; }
+        .stDeployButton { display:none; }
+        footer { visibility: hidden; }
+        div[data-testid="stStatusWidget"] { visibility: hidden; }
 
-        /* --- DISEÑO AUDEO (BOTONES Y COLORES) --- */
+        /* --- DISEÑO AUDEO --- */
         
-        /* Tipografía limpia */
+        /* Tipografía y Fondo */
         html, body, [class*="css"] {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
+        
+        /* Ajustar márgenes para que el contenido suba */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 2rem !important;
+        }
 
-        /* Botones estilo Tarjeta Financiera */
+        /* Botones de Respuesta (Tarjetas) */
         .stButton > button {
             width: 100%;
             border-radius: 8px;
@@ -65,7 +62,7 @@ def local_css():
 
         /* Efecto Hover (Azul Cobalto) */
         .stButton > button:hover {
-            background-color: #0047AB; 
+            background-color: #0047AB;
             color: white;
             border-color: #0047AB;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -77,71 +74,65 @@ def local_css():
             background-color: #D4AF37;
         }
         
-        /* Ajustar el espacio superior para que el logo no quede pegado al techo */
-        .block-container {
-            padding-top: 1rem;
+        /* Estilo para la narrativa */
+        .big-narrative {
+            font-size: 1.15rem; 
+            line-height: 1.6; 
+            color: #E0E0E0;
+            background-color: #262730; 
+            padding: 25px; 
+            border-radius: 10px;
+            border-left: 6px solid #00CC96; 
+            margin-bottom: 20px;
+        }
+        
+        /* Botón de Login específico */
+        .login-btn > button {
+            text-align: center !important;
+            background-color: #0047AB !important;
         }
 
     </style>
     """, unsafe_allow_html=True)
-# Llamar a la función al inicio de la app
+
 local_css()
 
-# --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="Simulador S.A.P.E.", page_icon="🧬", layout="wide")
-# --- 0. SISTEMA DE LOGIN SIMPLE ---
+# --- 3. SISTEMA DE LOGIN (CORREGIDO) ---
 def check_password():
     """Retorna True si el usuario tiene la contraseña correcta."""
-    if "password_correct" not in st.session_state:
-        st.session_state.password_correct = False
-
-    def password_entered():
-        if st.session_state["password"] == st.secrets["general"]["password"]:
-            st.session_state.password_correct = True
-            del st.session_state["password"]  # Borrar contraseña de memoria
-        else:
-            st.session_state.password_correct = False
-
-    if st.session_state.password_correct:
+    if st.session_state.get("password_correct", False):
         return True
 
     # Interfaz de Login
-    st.markdown("""
-        <style>
-            .stTextInput > div > div > input {text-align: center;}
-        </style>
-        """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.write("### 🔒 Acceso Restringido")
-        st.text_input("Introduce la clave de acceso:", type="password", key="password", on_change=password_entered)
-        st.caption("Sistema S.A.P.E. - Solo personal autorizado")
+        st.write(" ")
+        
+        # Input de contraseña SIN on_change para evitar recargas automáticas
+        password_input = st.text_input("Introduce la clave de acceso:", type="password", key="login_pass")
+        
+        st.write(" ")
+        # Botón manual para validar
+        if st.button("Entrar al Sistema", use_container_width=True):
+            if password_input == st.secrets["general"]["password"]:
+                st.session_state.password_correct = True
+                st.rerun()
+            else:
+                st.error("⛔ Clave incorrecta. Inténtalo de nuevo.")
+                
+        st.caption("Audeo Intelligence S.L. - Solo personal autorizado")
     return False
 
 if not check_password():
     st.stop()  # 🛑 AQUÍ SE DETIENE TODO SI NO HAY CLAVE
 
+# Verificación de secretos
 if "supabase" not in st.secrets:
     st.error("⚠️ CRÍTICO: No existe el archivo .streamlit/secrets.toml con las claves.")
     st.stop()
 
-st.markdown("""
-    <style>
-        .block-container { padding-top: 50px; padding-bottom: 3rem; }
-        .big-narrative {
-            font-size: 1.15rem; line-height: 1.6; color: #E0E0E0;
-            background-color: #262730; padding: 25px; border-radius: 10px;
-            border-left: 6px solid #00CC96; margin-bottom: 20px;
-        }
-        .stButton > button {
-            font-size: 1rem !important; height: auto; padding-top: 20px;
-            padding-bottom: 20px; width: 100%; white-space: pre-wrap;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 2. MAPAS DE VARIABLES ---
+# --- 4. MAPAS DE VARIABLES ---
 VARIABLE_MAP = {
     "achievement": "achievement", "logro": "achievement",
     "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
@@ -182,7 +173,7 @@ SECTOR_MAP = {
     "Intraemprendimiento": "INTRA"
 }
 
-# --- 3. FUNCIONES ---
+# --- 5. FUNCIONES ---
 def generate_short_id():
     chars = string.ascii_uppercase + string.digits
     part1 = ''.join(random.choices(chars, k=2))
@@ -289,7 +280,7 @@ def create_pdf(ire, avg, toxic, triggers, user_data, octagon_data):
     
     # Encabezado
     p.setFont("Helvetica-Bold", 18)
-    p.drawString(50, height - 50, "Informe S.A.P.E. - Resultados")
+    p.drawString(50, height - 50, "Audeo - Informe Ejecutivo")
     
     p.setFont("Helvetica", 10)
     p.drawString(50, height - 70, f"Usuario: {user_data.get('name', 'Anon')} | ID: {st.session_state.user_id}")
@@ -308,8 +299,7 @@ def create_pdf(ire, avg, toxic, triggers, user_data, octagon_data):
     report_lines = generate_text_report(ire, avg, toxic).split('\n')
     for line in report_lines:
         p.drawString(50, y_pos, line)
-        y_pos -= 20
-        
+    y_pos -= 20
     y_pos -= 20
     
     # Desglose Octógono
@@ -349,7 +339,7 @@ def create_pdf(ire, avg, toxic, triggers, user_data, octagon_data):
     # Pie de página
     p.setFillColor(colors.black)
     p.setFont("Helvetica-Oblique", 8)
-    p.drawString(50, 30, "Este informe es una herramienta de orientación y no constituye un diagnóstico clínico.")
+    p.drawString(50, 30, "Documento confidencial. Generado por Audeo Intelligence Algorithms.")
     
     p.showPage()
     p.save()
@@ -413,7 +403,7 @@ def cargar_logo():
         if os.path.exists(n): return Image.open(n)
     return None
 
-# --- 4. FLUJO PRINCIPAL ---
+# --- 6. FLUJO PRINCIPAL ---
 init_session()
 logo_img = cargar_logo()
 
@@ -424,8 +414,8 @@ if not st.session_state.started:
         with col_logo:
             if logo_img: st.image(logo_img, use_container_width=True)
         with col_text:
-            st.title("Simulador S.A.P.E.")
-            st.markdown("**Sistema de Análisis de la Personalidad Emprendedora**")
+            st.title("Audeo Intelligence")
+            st.markdown("**Due Diligence de Talento Emprendedor**")
     
     with st.form("registro_form"):
         col1, col2 = st.columns(2)
@@ -456,13 +446,13 @@ elif st.session_state.finished:
     ire, avg, flags, cocktails = calculate_final_score()
     
     if not st.session_state.saved: 
-        save_result_to_supabase(ire, avg, flags, cocktails)    
-        
+        save_result_to_supabase(ire, avg, flags, cocktails) 
+    
     col_logo_rep, col_text_rep = st.columns([1.5, 6]) 
     with col_logo_rep:
          if logo_img: st.image(logo_img, use_container_width=True)
     with col_text_rep:
-        st.subheader("Informe S.A.P.E.") 
+        st.subheader("Informe Audeo") 
         st.markdown(f"**ID Usuario:** {st.session_state.user_id} | **Perfil:** {st.session_state.user_data['experience']}")
     
     st.divider()
@@ -487,7 +477,7 @@ elif st.session_state.finished:
     st.download_button(
         label="📄 DESCARGAR INFORME PDF",
         data=pdf_file,
-        file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf",
+        file_name=f"Informe_Audeo_{st.session_state.user_id}.pdf",
         mime="application/pdf",
         use_container_width=True
     )
@@ -507,16 +497,21 @@ else:
         with c_actions:
             st.markdown("##### Tu decisión:")
             step = st.session_state.current_step
+            
+            # BOTONES DE RESPUESTA (Estilizados por CSS arriba)
             if st.button(f"{row.get('OPCION_A_TXT')}", key=f"a_{step}", use_container_width=True): 
                 parse_logic(row.get('OPCION_A_LOGIC', ''), 1, step)
                 st.session_state.current_step += 1; st.rerun()
+            
             if st.button(f"{row.get('OPCION_B_TXT')}", key=f"b_{step}", use_container_width=True): 
                 parse_logic(row.get('OPCION_B_LOGIC', ''), 2, step)
                 st.session_state.current_step += 1; st.rerun()
+            
             if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
                 if st.button(f"{row.get('OPCION_C_TXT')}", key=f"c_{step}", use_container_width=True): 
                     parse_logic(row.get('OPCION_C_LOGIC', ''), 3, step)
                     st.session_state.current_step += 1; st.rerun()
+            
             if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
                 if st.button(f"{row.get('OPCION_D_TXT')}", key=f"d_{step}", use_container_width=True): 
                     parse_logic(row.get('OPCION_D_LOGIC', ''), 4, step)
