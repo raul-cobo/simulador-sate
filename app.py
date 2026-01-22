@@ -23,75 +23,51 @@ st.set_page_config(page_title="Audeo Intelligence", page_icon="🧬", layout="wi
 def local_css():
     st.markdown("""
     <style>
-        /* --- OCULTAR ELEMENTOS DE STREAMLIT (NUCLEAR) --- */
+        /* --- ELIMINACIÓN RADICAL DE ELEMENTOS --- */
         
-        /* Ocultar barra superior, hamburguesa y footer */
-        header[data-testid="stHeader"] { visibility: hidden; height: 0px; }
-        #MainMenu { visibility: hidden; }
-        .stDeployButton { display:none; }
-        footer { visibility: hidden; }
-        div[data-testid="stStatusWidget"] { visibility: hidden; }
-
-        /* --- DISEÑO AUDEO --- */
-        
-        /* Tipografía y Fondo */
-        html, body, [class*="css"] {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        }
-        
-        /* Ajustar márgenes para que el contenido suba */
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 2rem !important;
+        /* 1. Elimina la barra superior negra completa (Escalera, Perfil, etc.) */
+        header, [data-testid="stHeader"] {
+            display: none !important;
         }
 
-        /* Botones de Respuesta (Tarjetas) */
+        /* 2. Elimina el menú de hamburguesa y el botón de Deploy (Corona) */
+        #MainMenu, .stDeployButton, [data-testid="stToolbar"] {
+            display: none !important;
+        }
+
+        /* 3. Elimina el pie de página (Made with Streamlit) */
+        footer {
+            display: none !important;
+        }
+
+        /* 4. Elimina cualquier botón de "Manage App" que Streamlit intente forzar */
+        .stAppDeployButton, .st-emotion-cache-1h9usn1, .st-emotion-cache-zq5wth {
+            display: none !important;
+        }
+
+        /* --- AJUSTES DE DISEÑO --- */
+        
+        /* Subir el contenido para que no quede un hueco blanco arriba */
+        .main .block-container {
+            padding-top: 0rem !important;
+            margin-top: -2rem !important;
+        }
+
+        /* Botones de respuesta estilo Audeo */
         .stButton > button {
-            width: 100%;
-            border-radius: 8px;
-            height: auto;
-            padding: 15px 20px;
-            font-size: 18px;
-            font-weight: 500;
-            background-color: #1E1E1E; /* Fondo oscuro */
-            color: #FFFFFF; /* Texto blanco */
-            border: 1px solid #333333;
-            transition: all 0.3s ease;
-            text-align: left;
+            width: 100% !important;
+            background-color: #1E1E1E !important;
+            color: white !important;
+            border: 1px solid #333333 !important;
+            padding: 15px !important;
+            border-radius: 8px !important;
+            text-align: left !important;
         }
 
-        /* Efecto Hover (Azul Cobalto) */
         .stButton > button:hover {
-            background-color: #0047AB;
-            color: white;
-            border-color: #0047AB;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            transform: translateY(-2px);
-        }
-
-        /* Barra de progreso Dorada */
-        div[data-testid="stProgressBar"] > div > div > div > div {
-            background-color: #D4AF37;
-        }
-        
-        /* Estilo para la narrativa */
-        .big-narrative {
-            font-size: 1.15rem; 
-            line-height: 1.6; 
-            color: #E0E0E0;
-            background-color: #262730; 
-            padding: 25px; 
-            border-radius: 10px;
-            border-left: 6px solid #00CC96; 
-            margin-bottom: 20px;
-        }
-        
-        /* Botón de Login específico */
-        .login-btn > button {
-            text-align: center !important;
             background-color: #0047AB !important;
+            border-color: #0047AB !important;
         }
-
     </style>
     """, unsafe_allow_html=True)
 
