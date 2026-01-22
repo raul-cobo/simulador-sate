@@ -47,10 +47,28 @@ def local_css():
             color: #A0AEC0 !important;
             font-size: 0.9rem;
         }
-        /* Ajuste para que el texto del checkbox sea legible */
         .stCheckbox p {
             color: #E2E8F0 !important;
             font-size: 0.95rem !important;
+        }
+
+        /* --- BOTÓN DE VALIDACIÓN (ENTRAR) --- */
+        .validate-btn > button {
+            width: 100% !important;
+            background-color: #5D5FEF !important; /* Púrpura Eléctrico */
+            color: white !important;
+            font-weight: bold !important;
+            padding: 15px !important;
+            border-radius: 8px !important;
+            border: none !important;
+            font-size: 18px !important;
+            margin-top: 20px !important;
+            transition: all 0.3s ease !important;
+        }
+        .validate-btn > button:hover {
+            background-color: #4B4DCE !important;
+            box-shadow: 0 0 15px rgba(93, 95, 239, 0.6);
+            transform: scale(1.02);
         }
 
         /* --- TARJETAS DE SECTOR (BOTONES GRANDES) --- */
@@ -180,6 +198,7 @@ def init_session():
         st.session_state.current_step = 0
         st.session_state.finished = False
         st.session_state.started = False 
+        st.session_state.data_verified = False # NUEVO ESTADO: Datos verificados
         st.session_state.data = []
         st.session_state.choices_log = [""] * 30 
         st.session_state.user_id = generate_id()
@@ -277,11 +296,11 @@ init_session()
 
 if not login_screen(): st.stop()
 
-# CARGAR LOGO (Nombre Corregido)
+# CARGAR LOGO
 try:
     logo = Image.open("logo_Audeo.png")
 except:
-    logo = None # Si falla, no rompe la app, solo no muestra logo
+    logo = None 
 
 if not st.session_state.started:
     # --- PANTALLA DE INICIO (HOME) ---
@@ -294,81 +313,99 @@ if not st.session_state.started:
 
     st.markdown("---")
 
-    # Formulario
-    c1, c2, c3 = st.columns(3)
-    name = c1.text_input("Nombre Completo (Uso interno)")
-    # EDAD CORREGIDA: value=None para que salga vacío
-    age = c2.number_input("Edad", min_value=18, max_value=99, value=None, placeholder="--")
-    gender = c3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
+    # --- FASE 1: RECOGIDA DE DATOS ---
+    if not st.session_state.data_verified:
+        st.write("#### 1. Identificación del Candidato")
+        
+        c1, c2, c3 = st.columns(3)
+        name = c1.text_input("Nombre Completo (Uso interno)")
+        age = c2.number_input("Edad", min_value=18, max_value=99, value=None, placeholder="--")
+        gender = c3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
 
-    c4, c5, c6 = st.columns(3)
-    country = c4.selectbox("País / Región", ["España", "LATAM", "Europa", "Otros"])
-    situation = c5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
-    experience = c6.selectbox("Experiencia previa", ["Primer emprendimiento", "Emprendimientos sin éxito", "Emprendimientos con éxito"])
+        c4, c5, c6 = st.columns(3)
+        country = c4.selectbox("País / Región", ["España", "LATAM", "Europa", "Otros"])
+        situation = c5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
+        experience = c6.selectbox("Experiencia previa", ["Primer emprendimiento", "Emprendimientos sin éxito", "Emprendimientos con éxito"])
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # CHECKBOX LEGAL Y ENLACE RGPD
-    consent = st.checkbox("He leído y acepto la Política de Privacidad y autorizo el tratamiento de mis datos para fines de investigación académica y estadística.")
-    st.markdown('<div class="legal-link"><a href="#" target="_blank">📄 Ver Documento de Protección de Datos (RGPD)</a></div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        consent = st.checkbox("He leído y acepto la Política de Privacidad y autorizo el tratamiento de mis datos.")
+        st.markdown('<div class="legal-link"><a href="#" target="_blank">📄 Ver Documento de Protección de Datos (RGPD)</a></div>', unsafe_allow_html=True)
+        
+        # BOTÓN GRANDE DE VALIDACIÓN
+        st.markdown('<div class="validate-btn">', unsafe_allow_html=True)
+        if st.button("🔐 VALIDAR DATOS Y ACCEDER AL SIMULADOR"):
+            if not name:
+                st.error("⚠️ Falta el Nombre.")
+            elif age is None:
+                st.error("⚠️ Falta la Edad.")
+            elif not consent:
+                st.error("⚠️ Debes aceptar la política de datos.")
+            else:
+                # Guardamos datos en sesión y avanzamos
+                st.session_state.user_data = {
+                    "name": name, "age": age, "gender": gender, 
+                    "country": country, "situation": situation, 
+                    "experience": experience
+                }
+                st.session_state.data_verified = True
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("<br><h5>Selecciona el Sector del Proyecto para iniciar:</h5>", unsafe_allow_html=True)
-
-    def start_game(sector_name):
-        if not name:
-            st.error("⚠️ Por favor, introduce tu nombre antes de empezar.")
-        elif age is None:
-            st.error("⚠️ Por favor, introduce tu edad.")
-        elif not consent:
-            st.error("⚠️ Debes aceptar el tratamiento de datos para continuar.")
-        else:
+    # --- FASE 2: SELECCIÓN DE SECTOR (SOLO SI VERIFICADO) ---
+    else:
+        st.success(f"✅ Datos verificados: {st.session_state.user_data['name']}")
+        st.markdown("#### 2. Selecciona el Sector del Proyecto para iniciar:")
+        
+        def start_game(sector_name):
             all_q = load_questions()
             code = SECTOR_MAPPING[sector_name]
             qs = [q for q in all_q if q['SECTOR'].strip().upper() == code]
             if not qs: qs = [q for q in all_q if q['SECTOR'].strip().upper() == "TECH"]
             
             st.session_state.data = qs
-            st.session_state.user_data = {
-                "name": name, "age": age, "gender": gender, 
-                "country": country, "situation": situation, 
-                "experience": experience, "sector": sector_name
-            }
+            st.session_state.user_data["sector"] = sector_name # Añadimos el sector a los datos ya guardados
             st.session_state.started = True
             st.rerun()
 
-    # GRID SECTORES
-    col_a, col_b, col_c, col_d = st.columns(4)
-    with col_a:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): start_game("Startup Tecnológica (Scalable)")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_b:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Consultoría /\nServicios Prof.", use_container_width=True): start_game("Consultoría / Servicios Profesionales")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_c:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): start_game("Pequeña y Mediana Empresa (PYME)")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_d:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Hostelería y\nRestauración", use_container_width=True): start_game("Hostelería y Restauración")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    _, col_e, col_f, col_g, _ = st.columns([0.5, 1, 1, 1, 0.5])
-    with col_e:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Autoempleo /\nFreelance", use_container_width=True): start_game("Autoempleo / Freelance")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_f:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Emprendimiento\nSocial", use_container_width=True): start_game("Emprendimiento Social")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col_g:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Intraemprendimiento\nCorporativo", use_container_width=True): start_game("Intraemprendimiento")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # GRID SECTORES
+        col_a, col_b, col_c, col_d = st.columns(4)
+        with col_a:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): start_game("Startup Tecnológica (Scalable)")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_b:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Consultoría /\nServicios Prof.", use_container_width=True): start_game("Consultoría / Servicios Profesionales")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_c:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): start_game("Pequeña y Mediana Empresa (PYME)")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_d:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Hostelería y\nRestauración", use_container_width=True): start_game("Hostelería y Restauración")
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        _, col_e, col_f, col_g, _ = st.columns([0.5, 1, 1, 1, 0.5])
+        with col_e:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Autoempleo /\nFreelance", use_container_width=True): start_game("Autoempleo / Freelance")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_f:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Emprendimiento\nSocial", use_container_width=True): start_game("Emprendimiento Social")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with col_g:
+            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
+            if st.button("Intraemprendimiento\nCorporativo", use_container_width=True): start_game("Intraemprendimiento")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        if st.button("⬅️ Corregir mis datos"):
+            st.session_state.data_verified = False
+            st.rerun()
 
 elif not st.session_state.finished:
     # --- PANTALLA PREGUNTAS ---
