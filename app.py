@@ -15,20 +15,17 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "CAMUFLAJE" (TIÑE EL FANTASMA DE AZUL) ---
+# --- 2. CSS ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. TEÑIR LA BARRA SUPERIOR DE NAVY (Para que el "fantasma" sea invisible) */
-        header, [data-testid="stHeader"], .stAppHeader { 
-            background-color: #050A1F !important;
-            border-bottom: none !important;
-        }
+        /* OCULTAR HEADER Y DECORACIÓN NATIVA */
+        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+        div[data-testid="stDecoration"] { display: none !important; }
         
-        /* 2. AJUSTAR MÁRGENES PARA SUBIR EL LOGO */
+        /* ELIMINAR MÁRGENES SUPERIORES (Subir todo al techo) */
         .main .block-container { 
-            padding-top: 2rem !important; 
-            padding-bottom: 1rem !important;
+            padding-top: 1rem !important; 
             margin-top: 0 !important;
             max-width: 95% !important;
         }
@@ -36,7 +33,7 @@ def local_css():
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
         
-        /* TEXTOS BLANCOS */
+        /* TEXTOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #FFFFFF !important; 
         }
@@ -54,7 +51,7 @@ def local_css():
         }
         .stButton > button:hover { background-color: #5D5FEF !important; border-color: #FFFFFF !important; }
         
-        /* LOGIN CARD (Ahora debajo del logo) */
+        /* LOGIN CARD */
         .login-card { 
             background-color: white; 
             padding: 3rem; 
@@ -66,7 +63,7 @@ def local_css():
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
-        /* TEXTO HEADER (Páginas internas) */
+        /* HEADER INTERNO */
         .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
         .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
@@ -79,7 +76,7 @@ def local_css():
             background-color: #5D5FEF !important; color: white !important; border: 1px solid white !important; font-weight: bold !important;
         }
         
-        /* SECTORES GIGANTES */
+        /* SECTORES */
         div[data-testid="column"] button {
              width: 100% !important; border: 2px solid #2D3748 !important; background-color: #0F1629 !important; color: white !important; border-radius: 15px !important;
         }
@@ -136,9 +133,9 @@ def calculate_results():
     friction = sum(f.values()) * 0.5
     triggers = []
     friction_reasons = []
-    if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica sobre velocidad.")
-    if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Tendencia a buscar confirmación externa.")
-    if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar ante datos negativos.")
+    if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica.")
+    if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Busca confirmación externa.")
+    if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar.")
     if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
     if f["arrogant"] > 25: triggers.append("Estilo Dominante")
     if f["passive_aggressive"] > 20: triggers.append("Fricción Relacional")
@@ -224,8 +221,9 @@ def render_header():
     # Logo blanco a la izquierda, Título grande a la derecha
     c1, c2 = st.columns([1, 4])
     with c1:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
+        # INTENTO CARGA DIRECTA
+        try: st.image("logo_blanco.png", use_container_width=True)
+        except: st.write("logo_blanco.png no encontrado")
     with c2:
         st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
@@ -237,15 +235,11 @@ init_session()
 # LOGIN
 if not st.session_state.get("auth", False):
     
-    # 1. LOGO GIGANTE ARRIBA (TAPANDO HUECOS - USAMOS EL BLANCO PARA QUE SE VEA EN AZUL)
-    # Si usamos logo_original (color) sobre azul navy se verá mal.
-    # Usaremos logo_blanco sobre el fondo azul para que presida el login.
+    # 1. LOGO GIGANTE ARRIBA
     c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
     with c_l2:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
-        else:
-            st.header("AUDEO")
+        # FORZAMOS LA CARGA, SI FALLA SE VE EL ERROR (BUENO PARA DEBUG)
+        st.image("logo_original.png", use_container_width=True)
 
     # 2. TARJETA LOGIN
     c1, c2, c3 = st.columns([1, 2, 1])
