@@ -15,27 +15,27 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "QUIRÚRGICO" (ELIMINA RECUADROS Y AJUSTA LOGOS) ---
+# --- 2. CSS "NUCLEAR" (ELIMINA RECUADROS Y AJUSTA LOGOS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. OCULTAR HEADER NATIVO Y FORZAR FONDO OSCURO (Para evitar flash blanco) */
+        /* 1. OCULTAR HEADER NATIVO Y FORZAR FONDO OSCURO */
         header, [data-testid="stHeader"], .stAppHeader { 
             display: none !important; 
             background-color: #050A1F !important;
+            height: 0px !important;
         }
         
-        /* 2. SUBIR CONTENIDO PARA TAPAR HUECOS */
+        /* 2. ELIMINAR EL HUECO SUPERIOR (PADDING 0) */
         .main .block-container { 
-            padding-top: 1rem !important; 
+            padding-top: 0rem !important; 
             padding-bottom: 1rem !important;
-            margin-top: -50px !important; /* Truco para subir todo arriba del todo */
+            margin-top: 1rem !important;
             max-width: 95% !important;
         }
 
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
-        html, body { background-color: #050A1F !important; } /* Prevenir fondo blanco al cargar */
         
         /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -62,7 +62,7 @@ def local_css():
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            margin-top: 20px;
+            margin-top: 10px; /* Pegado al logo */
         }
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
@@ -220,27 +220,40 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
+# --- FUNCIÓN RENDERIZADO HEADER WEB (Logo + Texto) ---
+def render_header():
+    # Logo blanco a la izquierda, Título grande a la derecha
+    c1, c2 = st.columns([1, 4])
+    with c1:
+        if os.path.exists("logo_blanco.png"):
+            st.image("logo_blanco.png", use_container_width=True)
+    with c2:
+        st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+    st.markdown("---")
+
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# LOGIN SCREEN
+# LOGIN
 if not st.session_state.get("auth", False):
-    # ESTRUCTURA CLÁSICA DE COLUMNAS (MÁS SIMPLE = MENOS PROBLEMAS)
-    st.write("") # Espaciador mínimo
     
-    # 1. LOGO GRANDE ARRIBA (Centrado)
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
+    # 1. LOGO GIGANTE ARRIBA (TAPANDO HUECOS)
+    # Centrado puro
+    col_izq, col_centro, col_der = st.columns([1, 2, 1])
+    with col_centro:
         if os.path.exists("logo_original.png"):
+            # Imagen grande
             st.image("logo_original.png", use_container_width=True)
         else:
             st.header("AUDEO")
 
-    # 2. TARJETA LOGIN
+    # 2. TARJETA LOGIN (Debajo del logo)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.markdown("<h3>Acceso Corporativo</h3>", unsafe_allow_html=True)
+        
         pwd = st.text_input("Clave de acceso", type="password")
         if st.button("ENTRAR", use_container_width=True):
             if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
@@ -248,15 +261,8 @@ if not st.session_state.get("auth", False):
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- HEADER GLOBAL EN CADA PÁGINA (LOGO BLANCO IZQ - TEXTO GRANDE DER) ---
-c1, c2 = st.columns([1, 4])
-with c1:
-    if os.path.exists("logo_blanco.png"):
-        st.image("logo_blanco.png", use_container_width=True)
-with c2:
-    st.markdown('<p class="header-text-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-    st.markdown('<p class="header-text-sub">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
-st.markdown("---")
+# --- HEADER GLOBAL TRAS LOGIN ---
+render_header()
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
