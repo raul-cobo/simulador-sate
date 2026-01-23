@@ -15,25 +15,34 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS ---
+# --- 2. CSS "CAMUFLAJE" (SOLUCIÓN AL RECUADRO BLANCO) ---
 def local_css():
     st.markdown("""
     <style>
-        /* OCULTAR HEADER Y DECORACIÓN NATIVA */
-        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
-        div[data-testid="stDecoration"] { display: none !important; }
+        /* 1. CAMUFLAR EL HEADER NATIVO (Hacerlo del color del fondo) */
+        header, [data-testid="stHeader"], .stAppHeader { 
+            background-color: #050A1F !important; /* Mismo color que el fondo */
+            border-bottom: none !important;
+        }
         
-        /* ELIMINAR MÁRGENES SUPERIORES (Subir todo al techo) */
+        /* Ocultar la barra de decoración de colores */
+        div[data-testid="stDecoration"] { 
+            visibility: hidden !important; 
+            height: 0px !important;
+        }
+
+        /* 2. SUBIR EL CONTENIDO (Pegado arriba) */
         .main .block-container { 
-            padding-top: 1rem !important; 
+            padding-top: 2rem !important; 
             margin-top: 0 !important;
             max-width: 95% !important;
         }
 
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
+        html, body { background-color: #050A1F !important; }
         
-        /* TEXTOS */
+        /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #FFFFFF !important; 
         }
@@ -51,7 +60,7 @@ def local_css():
         }
         .stButton > button:hover { background-color: #5D5FEF !important; border-color: #FFFFFF !important; }
         
-        /* LOGIN CARD */
+        /* LOGIN CARD (Blanca) */
         .login-card { 
             background-color: white; 
             padding: 3rem; 
@@ -63,7 +72,7 @@ def local_css():
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
-        /* HEADER INTERNO */
+        /* HEADER INTERNO (Logo Izq + Texto Der) */
         .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
         .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
@@ -76,7 +85,7 @@ def local_css():
             background-color: #5D5FEF !important; color: white !important; border: 1px solid white !important; font-weight: bold !important;
         }
         
-        /* SECTORES */
+        /* SECTORES GIGANTES */
         div[data-testid="column"] button {
              width: 100% !important; border: 2px solid #2D3748 !important; background-color: #0F1629 !important; color: white !important; border-radius: 15px !important;
         }
@@ -221,9 +230,8 @@ def render_header():
     # Logo blanco a la izquierda, Título grande a la derecha
     c1, c2 = st.columns([1, 4])
     with c1:
-        # INTENTO CARGA DIRECTA
-        try: st.image("logo_blanco.png", use_container_width=True)
-        except: st.write("logo_blanco.png no encontrado")
+        if os.path.exists("logo_blanco.png"):
+            st.image("logo_blanco.png", use_container_width=True)
     with c2:
         st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
@@ -234,14 +242,16 @@ init_session()
 
 # LOGIN
 if not st.session_state.get("auth", False):
-    
-    # 1. LOGO GIGANTE ARRIBA
-    c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
-    with c_l2:
-        # FORZAMOS LA CARGA, SI FALLA SE VE EL ERROR (BUENO PARA DEBUG)
-        st.image("logo_original.png", use_container_width=True)
+    # 1. LOGO GRANDE CENTRADO (En la zona superior, sobre el fondo azul)
+    # Usamos logo_blanco.png para que contraste con el fondo azul oscuro que ahora cubre todo
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        if os.path.exists("logo_blanco.png"):
+            st.image("logo_blanco.png", use_container_width=True)
+        else:
+            st.header("AUDEO")
 
-    # 2. TARJETA LOGIN
+    # 2. TARJETA LOGIN (Debajo del logo)
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
