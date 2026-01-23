@@ -15,27 +15,24 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "NUCLEAR" (ELIMINA RECUADROS Y AJUSTA LOGOS) ---
+# --- 2. CSS "FUERZA BRUTA" (TAPAR HUECOS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. OCULTAR HEADER NATIVO Y FORZAR FONDO OSCURO */
-        header, [data-testid="stHeader"], .stAppHeader { 
-            display: none !important; 
-            background-color: #050A1F !important;
-            height: 0px !important;
-        }
+        /* 1. OCULTAR TODOS LOS ELEMENTOS SUPERIORES DE STREAMLIT */
+        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+        div[data-testid="stDecoration"] { display: none !important; } /* La barrita de colores */
         
-        /* 2. ELIMINAR EL HUECO SUPERIOR (PADDING 0) */
+        /* 2. FORZAR AL CONTENIDO A SUBIR AL TECHO (Margen Negativo) */
         .main .block-container { 
             padding-top: 0rem !important; 
-            padding-bottom: 1rem !important;
-            margin-top: 1rem !important;
+            margin-top: -60px !important; /* SUBIMOS TODO 60px PARA TAPAR EL HUECO */
             max-width: 95% !important;
         }
 
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
+        html, body { background-color: #050A1F !important; } /* Parche para bordes blancos */
         
         /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -62,12 +59,12 @@ def local_css():
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            margin-top: 10px; /* Pegado al logo */
+            margin-top: 10px;
         }
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
-        /* TEXTO HEADER (Páginas internas) */
+        /* HEADER INTERNO (LOGO IZQ - TEXTO DER) */
         .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
         .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
@@ -240,8 +237,8 @@ if not st.session_state.get("auth", False):
     
     # 1. LOGO GIGANTE ARRIBA (TAPANDO HUECOS)
     # Centrado puro
-    col_izq, col_centro, col_der = st.columns([1, 2, 1])
-    with col_centro:
+    c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
+    with c_l2:
         if os.path.exists("logo_original.png"):
             # Imagen grande
             st.image("logo_original.png", use_container_width=True)
@@ -253,7 +250,6 @@ if not st.session_state.get("auth", False):
     with c2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.markdown("<h3>Acceso Corporativo</h3>", unsafe_allow_html=True)
-        
         pwd = st.text_input("Clave de acceso", type="password")
         if st.button("ENTRAR", use_container_width=True):
             if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
