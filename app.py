@@ -17,140 +17,176 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. INYECCIÓN CSS (DISEÑO NAVY & ELECTRIC) ---
+# --- 2. INYECCIÓN CSS (CORRECCIÓN DE COLORES Y DISEÑO) ---
 def local_css():
     st.markdown("""
     <style>
-        /* --- LIMPIEZA DE INTERFAZ (NUCLEAR) --- */
+        /* Ocultar elementos nativos */
         header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] { display: none !important; }
-        button[title="Manage app"], .stDeployButton, footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; margin-top: -2rem !important; }
+        footer, .stDeployButton { display: none !important; }
+        .main .block-container { padding-top: 2rem !important; }
 
-        /* --- FONDO Y TIPOGRAFÍA --- */
+        /* FONDO GLOBAL */
         .stApp {
             background-color: #050A1F; /* Navy Profundo */
             color: #FFFFFF;
         }
-        html, body, [class*="css"] {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-weight: 300;
+
+        /* TEXTOS GENERALES (Forzar blanco para que se lea) */
+        h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {
+            color: #FFFFFF !important;
         }
 
-        /* --- TARJETA LOGIN BLANCA --- */
-        .login-card {
-            background-color: white;
-            padding: 3rem;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            margin-bottom: 20px;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
+        /* INPUTS Y CAJAS DE TEXTO (Arreglo del fondo blanco) */
+        .stTextInput > div > div > input, 
+        .stNumberInput > div > div > input, 
+        .stSelectbox > div > div > div {
+            background-color: #0F1629 !important; /* Fondo oscuro */
+            color: white !important;
+            border: 1px solid #5D5FEF !important;
+        }
+        /* Color del texto dentro de los selectbox */
+        div[data-testid="stSelectbox"] div[role="listbox"] ul {
+            background-color: #0F1629 !important;
         }
         
-        /* --- INPUTS MODIFICADOS --- */
-        .stTextInput > div > div > input, .stNumberInput > div > div > input, .stSelectbox > div > div > div {
-            background-color: #0F1629;
-            color: white;
-            border: 1px solid #2D3748;
-            border-radius: 6px;
+        /* BOTONES (Arreglo del blanco sobre blanco) */
+        .stButton > button {
+            background-color: #1A202C !important; /* Fondo oscuro */
+            color: #FFFFFF !important; /* Texto blanco */
+            border: 1px solid #5D5FEF !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
         }
-        .stSelectbox > label, .stTextInput > label, .stNumberInput > label, .stCheckbox > label {
-            color: #A0AEC0 !important;
-            font-size: 0.9rem;
+        .stButton > button:hover {
+            background-color: #5D5FEF !important;
+            border-color: #FFFFFF !important;
+            color: #FFFFFF !important;
         }
-        .stCheckbox p { color: #E2E8F0 !important; font-size: 0.95rem !important; }
-
-        /* --- BOTONES --- */
-        .validate-btn > button {
-            width: 100% !important;
+        
+        /* BOTÓN DE VALIDAR (VERDE/AZUL DESTACADO) */
+        .validate-btn button {
             background-color: #5D5FEF !important;
             color: white !important;
-            font-weight: bold !important;
-            padding: 15px !important;
-            border-radius: 8px !important;
+            font-size: 1.2rem !important;
+            padding: 1rem !important;
             border: none !important;
+        }
+
+        /* TARJETAS DE SECTOR */
+        .sector-card button {
+            height: 120px !important;
             font-size: 1.1rem !important;
-        }
-        .validate-btn > button:hover { background-color: #4B4DCE !important; transform: scale(1.02); }
-
-        .sector-btn > button {
             background-color: #0F1629 !important;
-            border: 1px solid #5D5FEF !important;
             color: white !important;
-            height: 100px !important;
-            font-weight: 600 !important;
-            border-radius: 12px !important;
+            border: 2px solid #2D3748 !important;
         }
-        .sector-btn > button:hover { background-color: #5D5FEF !important; transform: translateY(-5px); }
-
-        .answer-btn > button {
-            width: 100% !important;
+        .sector-card button:hover {
+            border-color: #5D5FEF !important;
             background-color: #1A202C !important;
+        }
+
+        /* CAJA DE LOGIN (Blanca) */
+        .login-card {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+        }
+        /* Ajuste específico para inputs dentro del login (para que se vean oscuros sobre blanco) */
+        .login-card input {
+            color: white !important;
+        }
+        
+        /* HEADER PERSONALIZADO */
+        .custom-header {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+        .custom-sub {
+            font-size: 1.1rem;
+            color: #5D5FEF;
+            margin-bottom: 2rem;
+        }
+
+        /* TEXTO DEL DIAGNÓSTICO (Resultados) */
+        .diag-text {
+            background-color: #0F1629;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #5D5FEF;
             color: #E2E8F0 !important;
-            border: 1px solid #4A5568 !important;
-            padding: 20px !important;
-            border-radius: 8px !important;
-            text-align: left !important;
         }
-        .answer-btn > button:hover { border-color: #5D5FEF !important; color: #5D5FEF !important; background-color: #0F1629 !important; }
-
-        /* --- BARRA DE PROGRESO Y NARRATIVA --- */
-        div[data-testid="stProgressBar"] > div > div > div > div { background-color: #5D5FEF !important; }
-        .big-narrative {
-            font-size: 1.25rem; line-height: 1.6; color: #E2E8F0;
-            background-color: #0F1629; padding: 30px; border-radius: 12px;
-            border-left: 5px solid #5D5FEF;
-        }
-
-        /* --- HEADER LOGO --- */
-        .header-title {
-            font-size: 2.5rem; font-weight: 700;
-            background: -webkit-linear-gradient(left, #FFFFFF, #A0AEC0);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .header-subtitle { font-size: 1.2rem; color: #5D5FEF; font-weight: 400; margin-bottom: 2rem; }
-        .legal-link a { color: #5D5FEF !important; text-decoration: none; font-size: 0.85rem; }
     </style>
     """, unsafe_allow_html=True)
 
 local_css()
 
-# --- 3. LÓGICA DE NEGOCIO ---
-SECTOR_MAPPING = {
-    "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA",
-    "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA",
-    "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL",
+# --- 3. LÓGICA DE VARIABLES Y ETIQUETAS ---
+
+# Nombres exactos solicitados para el informe (8 Dimensiones)
+LABELS_ES = {
+    "achievement": "Necesidad de Logro",
+    "risk_propensity": "Propensión al Riesgo",
+    "innovativeness": "Innovatividad",
+    "locus_control": "Locus de Control Interno",
+    "self_efficacy": "Autoeficacia",
+    "autonomy": "Autonomía",
+    "ambiguity_tolerance": "Optimismo / Tolerancia a la Incertidumbre",
+    "emotional_stability": "Tolerancia al Estrés / Estabilidad Emocional"
+}
+
+# Mapeo de variables internas a las 8 dimensiones
+VARIABLE_MAP = {
+    # Achievement
+    "achievement": "achievement", "logro": "achievement",
+    # Risk
+    "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
+    # Innovativeness
+    "innovativeness": "innovativeness", "innovacion": "innovativeness",
+    # Locus
+    "locus_control": "locus_control", "locus": "locus_control",
+    # Self Efficacy
+    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy",
+    # Autonomy
+    "autonomy": "autonomy", "autonomia": "autonomy",
+    # Ambiguity / Optimism
+    "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance",
+    # Stability
+    "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability",
+    
+    # Flags (Fricción)
+    "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", 
+    "reserved": "reserved", "passive_aggressive": "passive_aggressive",
+    "arrogant": "arrogant", "mischievous": "mischievous", 
+    "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent"
+}
+
+SECTOR_MAP = {
+    "Startup Tecnológica (Scalable)": "TECH",
+    "Consultoría / Servicios Profesionales": "CONSULTORIA",
+    "Pequeña y Mediana Empresa (PYME)": "PYME",
+    "Hostelería y Restauración": "HOSTELERIA",
+    "Autoempleo / Freelance": "AUTOEMPLEO",
+    "Emprendimiento Social": "SOCIAL",
     "Intraemprendimiento": "INTRA"
 }
 
-VARIABLE_MAP = {
-    "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
-    "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control",
-    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy",
-    "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability",
-    "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive",
-    "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "imaginative": "imaginative", "diligent": "diligent", "dependent": "dependent"
-}
-
-LABELS_ES = {
-    "achievement": "Logro", "risk_propensity": "Riesgo", "innovativeness": "Innovación", "locus_control": "Locus Control",
-    "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Incertidumbre", "emotional_stability": "Estabilidad"
-}
-
+# --- 4. FUNCIONES DE LÓGICA ---
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 def init_session():
     if 'octagon' not in st.session_state:
-        st.session_state.octagon = {k: 50 for k in ["achievement", "risk_propensity", "innovativeness", "locus_control", "self_efficacy", "autonomy", "ambiguity_tolerance", "emotional_stability"]}
-        st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "imaginative", "diligent", "dependent"]}
+        # Inicializamos las 8 dimensiones base en 50
+        st.session_state.octagon = {k: 50 for k in LABELS_ES.keys()}
+        st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
         st.session_state.current_step = 0
         st.session_state.finished = False
         st.session_state.started = False 
         st.session_state.data_verified = False
         st.session_state.data = []
-        st.session_state.choices_log = [""] * 30 
         st.session_state.user_id = generate_id()
         st.session_state.user_data = {}
 
@@ -161,417 +197,411 @@ def load_questions():
         with open(filename, encoding='utf-8-sig') as f: return list(csv.DictReader(f, delimiter=';'))
     except: return []
 
-def parse_logic(logic_str, opt_idx, step):
-    st.session_state.choices_log[step] = str(opt_idx)
+def parse_logic(logic_str):
     if not logic_str: return
     for action in logic_str.split('|'):
         parts = action.strip().split()
         if len(parts) < 2: continue
-        var, val = VARIABLE_MAP.get(parts[0].lower()), int(parts[1])
-        if var in st.session_state.flags: st.session_state.flags[var] = max(0, st.session_state.flags[var] + val)
-        elif var in st.session_state.octagon: st.session_state.octagon[var] = max(0, min(100, st.session_state.octagon[var] + val))
+        var_code = parts[0].lower().strip()
+        try: val = int(parts[1])
+        except: continue
+        
+        target = VARIABLE_MAP.get(var_code)
+        if target:
+            if target in st.session_state.octagon:
+                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
+            elif target in st.session_state.flags:
+                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
-# --- CÁLCULO PROFESIONAL ---
 def calculate_results():
-    o, f = st.session_state.octagon, st.session_state.flags
+    o = st.session_state.octagon
+    f = st.session_state.flags
+    
+    # Promedio Potencial
     avg = sum(o.values()) / 8
     
-    # Penalizaciones suavizadas
-    toxic_raw = sum([f[k] for k in ["mischievous", "arrogant", "passive_aggressive", "excitable", "melodramatic"]])
-    toxic_penalty = toxic_raw * 0.4
+    # Cálculo de Fricción
+    friction_sum = sum(f.values())
+    friction_final = friction_sum * 0.5 # Factor de ajuste
     
-    excess_raw = sum([max(0, f[k]-50) for k in ["diligent", "cautious", "dependent", "skeptical", "reserved", "imaginative"]])
-    excess_penalty = excess_raw * 0.1
-    
+    # Triggers (Texto profesional)
     triggers = []
+    if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
+    if f["arrogant"] > 25: triggers.append("Estilo Dominante / Rigidez Potencial")
+    if f["passive_aggressive"] > 20: triggers.append("Fricción Relacional Latente")
+    if o["achievement"] > 85 and o["emotional_stability"] < 40: triggers.append("Riesgo de Agotamiento Operativo (Burnout)")
+    if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("Perfil de Riesgo Desmedido")
+    if f["diligent"] > 60: triggers.append("Bloqueo por Sobre-Análisis")
+    if f["dependent"] > 55: triggers.append("Alta Necesidad de Supervisión")
+
+    # IRE
+    ire = avg - (friction_final * 0.8) - (len(triggers) * 3)
+    ire = max(0, min(100, ire))
     
-    # Terminología profesional
-    if f["mischievous"] > 25: triggers.append("RIESGO DE DESALINEAMIENTO NORMATIVO")
-    if f["arrogant"] > 25: triggers.append("ESTILO DOMINANTE / POSIBLE RIGIDEZ")
-    if f["passive_aggressive"] > 20: triggers.append("FRICCIÓN RELACIONAL LATENTE")
-    if o["achievement"] > 85 and o["emotional_stability"] < 30: triggers.append("RIESGO DE AGOTAMIENTO OPERATIVO (BURNOUT)")
-    if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("PERFIL DE RIESGO DESMEDIDO")
-    if f["diligent"] > 60: triggers.append("BLOQUEO POR SOBRE-ANÁLISIS")
-    if f["dependent"] > 55: triggers.append("NECESIDAD DE SUPERVISIÓN CONTINUA")
+    return round(ire, 2), round(avg, 2), round(friction_final, 2), triggers
 
-    ire = max(0, min(100, avg - toxic_penalty - excess_penalty - (len(triggers)*2.5)))
-    return round(ire, 2), round(avg, 2), round(toxic_penalty, 2), triggers
+# --- GENERADOR DE TEXTOS EXPLICATIVOS (BASE CONOCIMIENTO) ---
+def get_ire_text(score):
+    if score > 75: return "Nivel de viabilidad positivo. El índice confirma que el perfil opera en un rango de alta sostenibilidad."
+    if score > 50: return "Nivel de viabilidad medio. El perfil es funcional pero requiere monitorizar los costes operativos derivados de la fricción."
+    return "Nivel de viabilidad comprometido. La discrepancia entre potencial y ejecución sugiere riesgos de continuidad."
 
-# --- PDF ESTILO AUDITORÍA (HIGH TICKET) ---
-def create_pdf_report(ire, avg, toxic, triggers, user, stats):
+def get_potential_text(score):
+    if score > 75: return "Nivel Alto. El sujeto dispone de recursos cognitivos y actitudinales superiores para afrontar la complejidad del sector."
+    if score > 50: return "Nivel Medio. Recursos suficientes para la operativa estándar, con áreas específicas de desarrollo."
+    return "Nivel Bajo. Se requiere un plan de desarrollo intensivo en competencias basales."
+
+def get_risk_text(triggers):
+    if not triggers: return "No se detectan indicadores críticos que comprometan la operativa inmediata."
+    return "Se detectan patrones conductuales que pueden generar ineficiencias o conflictos si no se gestionan (ver detalle abajo)."
+
+# --- PDF ESTILO "ANÁLISIS PROFESIONAL" (DIAGONAL) ---
+def create_pdf_report(ire, avg, friction, triggers, user, stats):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
     
-    # 1. CABECERA CORPORATIVA NAVY
-    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy Audeo
-    p.rect(0, h-120, w, 120, fill=1, stroke=0)
+    # 1. DISEÑO DE CABECERA (DIAGONAL)
+    # Parte Azul (Abajo izquierda)
+    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy
+    path = p.beginPath()
+    path.moveTo(0, h)      # Top Left (fuera)
+    path.lineTo(0, h-120)  # Bajamos 120
+    path.lineTo(w, h-40)   # Subimos a la derecha
+    path.lineTo(w, h)      # Top Right
+    path.close()
+    p.fillPath(path)
     
-    # Logo en Cabecera (Blanco simulado o carga archivo)
-    try:
-        # Intentamos cargar el logo original para ponerlo sobre una caja blanca pequeña o directo si es blanco
-        # Para que quede profesional, pintamos el texto en blanco
-        p.setFillColorRGB(1, 1, 1)
-        p.setFont("Helvetica-Bold", 24)
-        p.drawString(50, h-60, "AUDEO INTELLIGENCE")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, h-80, "Due Diligence de Talento Emprendedor")
-        
-        # Si existe el logo original, lo ponemos en pequeñito a la derecha
-        logo_path = "logo_original.png"
-        if os.path.exists(logo_path):
-             # Caja blanca para el logo
-            p.setFillColorRGB(1, 1, 1)
-            p.rect(w-120, h-100, 80, 80, fill=1, stroke=0)
-            p.drawImage(logo_path, w-115, h-95, width=70, height=70, preserveAspectRatio=True, mask='auto')
+    # 2. LOGO (Izquierda, sobre zona limpia o recuadro si es necesario)
+    # En este diseño diagonal, la esquina superior izquierda es Navy.
+    # Pondremos el Logo en BLANCO si existe 'logo_blanco.png', si no un recuadro blanco y el original.
+    logo_file = "logo_blanco.png" if os.path.exists("logo_blanco.png") else None
+    
+    if logo_file:
+        try:
+            p.drawImage(logo_file, 40, h-90, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        except: pass
+    else:
+        # Plan B: Recuadro blanco
+        if os.path.exists("logo_original.png"):
+            p.setFillColorRGB(1,1,1)
+            p.rect(40, h-100, 130, 70, fill=1, stroke=0)
+            try:
+                p.drawImage("logo_original.png", 50, h-90, width=110, height=50, preserveAspectRatio=True, mask='auto')
+            except: pass
 
-    except:
-        pass
+    # TÍTULO DEL INFORME (Alineado a la derecha en la zona blanca/azul)
+    p.setFillColorRGB(0.02, 0.04, 0.12) # Texto oscuro para la zona blanca (derecha abajo)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawRightString(w-40, h-70, "INFORME TÉCNICO S.A.P.E.")
+    p.setFont("Helvetica", 10)
+    p.setFillColorRGB(0.4, 0.4, 0.4)
+    p.drawRightString(w-40, h-85, "Sistema de Análisis de la Personalidad Emprendedora")
 
-    # 2. DATOS DEL CANDIDATO
-    p.setFillColorRGB(0, 0, 0)
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, h-160, "DATOS DEL ANÁLISIS")
-    p.line(50, h-165, w-50, h-165)
+    # 3. DATOS DE IDENTIFICACIÓN
+    y_start = h - 150
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(40, y_start, f"ID Usuario: {st.session_state.user_id}")
+    p.drawString(40, y_start-15, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
+    p.drawString(40, y_start-30, f"Sector: {user.get('sector', 'N/A')}")
+    
+    # 4. MÉTRICAS PRINCIPALES (Texto explicado)
+    y = y_start - 70
+    p.setFont("Helvetica-Bold", 14)
+    p.setFillColorRGB(0.02, 0.04, 0.12)
+    p.drawString(40, y, "1. Métricas Principales")
+    p.line(40, y-5, w-40, y-5)
+    y -= 30
+    
+    # Bloque Potencial
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, f"POTENCIAL ({avg}/100):")
+    p.setFont("Helvetica", 10)
+    text_pot = get_potential_text(avg)
+    p.drawString(200, y, text_pot)
+    y -= 20
+    
+    # Bloque Fricción
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, f"FRICCIÓN ({friction}/100):")
+    p.setFont("Helvetica", 10)
+    if friction < 20: txt_fric = "Nivel bajo. Resistencia operativa mínima."
+    elif friction < 45: txt_fric = "Nivel medio. Presencia moderada de bloqueos conductuales."
+    else: txt_fric = "Nivel alto. Importante coste operativo por conductas defensivas."
+    p.drawString(200, y, txt_fric)
+    y -= 20
+    
+    # Bloque IRE
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, f"IRE FINAL ({ire}/100):")
+    p.setFont("Helvetica", 10)
+    text_ire = get_ire_text(ire)
+    p.drawString(200, y, text_ire)
+    y -= 40
+    
+    # 5. ANÁLISIS DIMENSIONAL (Perfil Competencial)
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(40, y, "2. Análisis Dimensional (Perfil Competencial)")
+    p.line(40, y-5, w-40, y-5)
+    y -= 30
     
     p.setFont("Helvetica", 10)
-    p.drawString(50, h-185, f"Candidato: {user.get('name')}")
-    p.drawString(300, h-185, f"ID Referencia: {st.session_state.user_id}")
-    p.drawString(50, h-205, f"Sector: {user.get('sector')}")
-    p.drawString(300, h-205, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
-
-    # 3. RESULTADOS MACRO (CAJAS DE COLOR)
-    y_metrics = h-260
+    p.drawString(40, y, "Desglose de las 8 dimensiones evaluadas:")
+    y -= 25
     
-    # Caja IRE
-    p.setFillColorRGB(0.95, 0.95, 0.95) # Gris muy claro
-    p.roundRect(50, y_metrics-40, 200, 60, 5, fill=1, stroke=0)
-    p.setFillColorRGB(0, 0, 0)
+    # Tabla de barras
+    for k, v in stats.items():
+        label = LABELS_ES.get(k, k)
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(50, y, label)
+        
+        # Barra gris
+        p.setFillColorRGB(0.9, 0.9, 0.9)
+        p.rect(250, y, 200, 8, fill=1, stroke=0)
+        
+        # Barra valor
+        if v > 75: p.setFillColorRGB(0.2, 0.6, 0.2) # Verde
+        elif v > 45: p.setFillColorRGB(0.2, 0.3, 0.7) # Azul
+        else: p.setFillColorRGB(0.8, 0.3, 0.3) # Rojo
+        
+        bar_w = (v/100)*200
+        p.rect(250, y, bar_w, 8, fill=1, stroke=0)
+        
+        p.setFillColorRGB(0,0,0)
+        p.drawString(460, y, str(round(v, 1)))
+        y -= 20
+        
+    y -= 20
+    
+    # 6. ALERTAS
     p.setFont("Helvetica-Bold", 14)
-    p.drawCentredString(150, y_metrics-10, "Índice IRE")
-    p.setFont("Helvetica-Bold", 26)
-    if ire > 70: p.setFillColorRGB(0, 0.6, 0) # Verde
-    elif ire > 45: p.setFillColorRGB(0.8, 0.6, 0) # Naranja
-    else: p.setFillColorRGB(0.8, 0, 0) # Rojo
-    p.drawCentredString(150, y_metrics-35, f"{ire}/100")
-
-    # Caja POTENCIAL
-    p.setFillColorRGB(0.95, 0.95, 0.95)
-    p.roundRect(300, y_metrics-40, 200, 60, 5, fill=1, stroke=0)
-    p.setFillColorRGB(0, 0, 0)
-    p.setFont("Helvetica-Bold", 14)
-    p.drawCentredString(400, y_metrics-10, "Potencial Operativo")
-    p.setFont("Helvetica-Bold", 26)
-    p.drawCentredString(400, y_metrics-35, f"{avg}/100")
-
-    # 4. ALERTAS Y RIESGOS
-    y_pos = y_metrics - 100
-    p.setFillColorRGB(0, 0, 0)
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, y_pos, "DETECCIÓN DE RIESGOS Y ALERTAS")
-    p.line(50, y_pos-5, w-50, y_pos-5)
-    y_pos -= 30
+    p.drawString(40, y, "3. Detección de Riesgos y Alertas")
+    p.line(40, y-5, w-40, y-5)
+    y -= 30
+    
+    p.setFont("Helvetica", 10)
+    text_risk = get_risk_text(triggers)
+    p.drawString(50, y, text_risk)
+    y -= 20
     
     if triggers:
         for t in triggers:
-            # Icono de alerta rojo
-            p.setFillColorRGB(0.8, 0.1, 0.1)
-            p.setFont("Helvetica-Bold", 14)
-            p.drawString(50, y_pos, "!") 
-            # Texto alerta
-            p.setFillColorRGB(0.2, 0.2, 0.2)
-            p.setFont("Helvetica", 10)
-            p.drawString(70, y_pos, t)
-            y_pos -= 20
-    else:
-        p.setFillColorRGB(0, 0.5, 0)
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(50, y_pos, "✓ No se han detectado indicadores críticos de riesgo en esta evaluación.")
-        y_pos -= 20
+            p.setFillColorRGB(0.7, 0, 0)
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(60, y, f"• {t}")
+            # Explicación genérica de impacto (se podría personalizar más)
+            p.setFillColorRGB(0.3, 0.3, 0.3)
+            p.setFont("Helvetica", 9)
+            p.drawString(80, y-12, "Impacto: Posible reducción de la eficiencia en toma de decisiones.")
+            y -= 30
 
-    # 5. DESGLOSE COMPETENCIAL
-    y_pos -= 30
-    p.setFillColorRGB(0, 0, 0)
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, y_pos, "PERFIL COMPETENCIAL (OCTÓGONO)")
-    p.line(50, y_pos-5, w-50, y_pos-5)
-    y_pos -= 30
-
-    # Dibujar barritas simples
-    p.setFont("Helvetica", 9)
-    for k, v in stats.items():
-        label = LABELS_ES.get(k, k)
-        # Nombre
-        p.setFillColorRGB(0,0,0)
-        p.drawString(50, y_pos, label)
-        # Barra fondo
-        p.setFillColorRGB(0.9, 0.9, 0.9)
-        p.rect(180, y_pos, 200, 8, fill=1, stroke=0)
-        # Barra valor (Azul Audeo)
-        p.setFillColorRGB(0.36, 0.37, 0.93) # #5D5FEF
-        bar_width = (v / 100) * 200
-        p.rect(180, y_pos, bar_width, 8, fill=1, stroke=0)
-        # Valor numérico
-        p.setFillColorRGB(0,0,0)
-        p.drawString(390, y_pos, str(round(v, 1)))
-        y_pos -= 20
-        
-        if y_pos < 50:
-            p.showPage()
-            y_pos = h - 50
-
-    # FOOTER
-    p.setFont("Helvetica-Oblique", 8)
-    p.setFillColorRGB(0.5, 0.5, 0.5)
-    p.drawCentredString(w/2, 30, "Documento confidencial generado por Audeo Intelligence Algorithms. Prohibida su distribución.")
-    
     p.showPage()
     p.save()
     buffer.seek(0)
     return buffer
 
-# --- GRÁFICA OPTIMIZADA ---
 def radar_chart():
     data = st.session_state.octagon
     cat = [LABELS_ES.get(k) for k in data.keys()]
     val = list(data.values())
     cat += [cat[0]]; val += [val[0]]
-    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF', width=2), fillcolor='rgba(93, 95, 239, 0.2)'))
+    fig = go.Figure(go.Scatterpolar(
+        r=val, theta=cat, fill='toself', 
+        line=dict(color='#5D5FEF', width=2),
+        fillcolor='rgba(93, 95, 239, 0.2)'
+    ))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False, linecolor='#2D3748'), bgcolor='rgba(0,0,0,0)'),
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False, linecolor='#4A5568'), bgcolor='rgba(0,0,0,0)'),
         paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white', size=11),
+        font=dict(color='white', size=12),
         showlegend=False,
-        margin=dict(l=30, r=30, t=20, b=20),
+        margin=dict(l=40, r=40, t=20, b=20),
         dragmode=False
     )
-    fig.update_xaxes(fixedrange=True)
-    fig.update_yaxes(fixedrange=True)
     return fig
 
-# --- 4. SISTEMA DE LOGIN ---
-def login_screen():
-    if st.session_state.get("auth", False): return True
-    
-    # Centrado absoluto con columnas
-    c1, c2, c3 = st.columns([1, 6, 1])
-    with c2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        # TARJETA BLANCA DE LOGIN
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        
-        # Intentamos cargar logo
-        try:
-            logo_login = Image.open("logo_original.png")
-            st.image(logo_login, width=250) 
-        except:
-            st.warning("⚠️ Sube 'logo_original.png'")
+# --- 5. LOGO HELPER ---
+def get_logo_image():
+    # Prioridad: 1. Blanco, 2. Original. Para la web fondo oscuro, mejor blanco.
+    if os.path.exists("logo_blanco.png"): return Image.open("logo_blanco.png")
+    if os.path.exists("logo_original.png"): return Image.open("logo_original.png")
+    return None
 
-        st.markdown("<h3 style='color:black; margin-top:20px;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
-        
-        # Inputs dentro de la tarjeta blanca (truco: usar st.form o simplemente inputs)
-        # Nota: Los inputs de streamlit por defecto son oscuros por mi CSS global.
-        # Para que se vean bien en lo blanco, el CSS de inputs ya tiene borde y fondo oscuro que contrasta bien.
-        
-        pwd = st.text_input("Clave de acceso", type="password", key="pwd_in")
-        
-        if st.button("ENTRAR AL SISTEMA", use_container_width=True):
-            if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
-            else: st.error("⛔ Credenciales no válidas")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
-            
-    return False
-
-# --- 5. FLUJO PRINCIPAL ---
+# --- 6. FLUJO DE PANTALLAS ---
 init_session()
+logo_main = get_logo_image()
 
-if not login_screen(): st.stop()
-
-# CARGAR LOGOS
-try:
-    logo_header = Image.open("logo_blanco.png") 
-    logo_final = Image.open("logo_original.png") 
-except:
-    logo_header = None
-    logo_final = None
-
-if not st.session_state.started:
-    # --- PANTALLA DE INICIO ---
-    c_head_logo, c_head_txt = st.columns([0.8, 5])
-    with c_head_logo:
-        if logo_header: st.image(logo_header, use_container_width=True)
-    with c_head_txt:
-        st.markdown('<div class="header-title">AUDEO | S.A.P.E.</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="header-subtitle">Sistema de Análisis de la Personalidad Emprendedora</div>', unsafe_allow_html=True)
-    st.markdown("---")
-
-    # FASE 1: RECOGIDA DE DATOS
-    if not st.session_state.data_verified:
-        st.write("#### 1. Identificación del Candidato")
-        
-        c1, c2, c3 = st.columns(3)
-        name = c1.text_input("Nombre Completo (Uso interno)")
-        age = c2.number_input("Edad", min_value=18, max_value=99, value=None, placeholder="--")
-        gender = c3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
-
-        c4, c5, c6 = st.columns(3)
-        country = c4.selectbox("País / Región", ["España", "LATAM", "Europa", "Otros"])
-        situation = c5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
-        experience = c6.selectbox("Experiencia previa", ["Primer emprendimiento", "Emprendimientos sin éxito", "Emprendimientos con éxito"])
-
+# LOGIN
+if not st.session_state.get("auth", False):
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
         st.markdown("<br>", unsafe_allow_html=True)
-        consent = st.checkbox("He leído y acepto la Política de Privacidad y autorizo el tratamiento de mis datos.")
-        st.markdown('<div class="legal-link"><a href="#" target="_blank">📄 Ver Documento de Protección de Datos (RGPD)</a></div>', unsafe_allow_html=True)
-        
-        st.markdown('<div class="validate-btn">', unsafe_allow_html=True)
-        if st.button("🔐 VALIDAR DATOS Y ACCEDER AL SIMULADOR"):
-            if not name: st.error("⚠️ Falta el Nombre.")
-            elif age is None: st.error("⚠️ Falta la Edad.")
-            elif not consent: st.error("⚠️ Debes aceptar la política de datos.")
+        with st.container():
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
+            if os.path.exists("logo_original.png"):
+                st.image("logo_original.png", width=250)
             else:
-                st.session_state.user_data = {"name": name, "age": age, "gender": gender, "country": country, "situation": situation, "experience": experience}
-                st.session_state.data_verified = True
-                st.rerun()
+                st.header("AUDEO")
+            
+            st.markdown("<h3 style='color:black !important;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
+            
+            password = st.text_input("Clave de acceso", type="password")
+            if st.button("ENTRAR AL SISTEMA", use_container_width=True):
+                if password == st.secrets["general"]["password"]:
+                    st.session_state.auth = True
+                    st.rerun()
+                else:
+                    st.error("Credenciales incorrectas")
+            st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+# CABECERA COMÚN (En todas las páginas tras login)
+c_h1, c_h2 = st.columns([0.5, 4])
+with c_h1:
+    if logo_main: st.image(logo_main, use_container_width=True)
+with c_h2:
+    st.markdown('<div class="custom-header">Simulador S.A.P.E.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="custom-sub">Sistema de Análisis de la Personalidad Emprendedora</div>', unsafe_allow_html=True)
+
+st.markdown("---")
+
+# PANTALLA 1: DATOS
+if not st.session_state.data_verified:
+    st.markdown("#### 1. Identificación del/a Candidato/a")
+    
+    col1, col2 = st.columns(2)
+    name = col1.text_input("Nombre Completo")
+    age = col2.number_input("Edad", min_value=18, max_value=99, value=None, placeholder="--")
+    
+    col3, col4 = st.columns(2)
+    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
+    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"])
+    
+    col5, col6 = st.columns(2)
+    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
+    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"])
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+    # Enlace simulado que no recarga (javascript void) o a una web externa real
+    st.markdown('<a href="https://www.audeo.es/privacidad" target="_blank" style="color:#5D5FEF;">📄 Ver Documento de Protección de Datos</a>', unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="validate-btn">', unsafe_allow_html=True)
+    if st.button("🔐 VALIDAR DATOS Y CONTINUAR"):
+        if name and age and consent:
+            st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
+            st.session_state.data_verified = True
+            st.rerun()
+        else:
+            st.error("Por favor, completa nombre, edad y acepta la privacidad.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# PANTALLA 2: SECTOR
+elif not st.session_state.started:
+    st.success(f"Bienvenido/a, {st.session_state.user_data['name']}")
+    st.markdown("#### 2. Selecciona el Sector del Proyecto:")
+    
+    def go_sector(sec):
+        all_q = load_questions()
+        code = SECTOR_MAP[sec]
+        # Filtrado simple por si falla el CSV
+        qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
+        if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
+        st.session_state.data = qs
+        st.session_state.user_data["sector"] = sec
+        st.session_state.started = True
+        st.rerun()
+
+    c1, c2, c3, c4 = st.columns(4)
+    # Usamos clases CSS para hacer botones grandes
+    with c1: 
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Tecnología / Startup"): go_sector("Startup Tecnológica (Scalable)")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True) 
+        if st.button("Consultoría"): go_sector("Consultoría / Servicios Profesionales")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3: 
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Comercio / PYME"): go_sector("Pequeña y Mediana Empresa (PYME)")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c4: 
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Hostelería"): go_sector("Hostelería y Restauración")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # FASE 2: SELECCIÓN DE SECTOR
-    else:
-        st.success(f"✅ Identidad verificada: {st.session_state.user_data['name']}")
-        st.markdown("#### 2. Selecciona el Sector del Proyecto para iniciar:")
-        
-        def start_game(sector_name):
-            all_q = load_questions()
-            code = SECTOR_MAPPING[sector_name]
-            qs = [q for q in all_q if q['SECTOR'].strip().upper() == code]
-            if not qs: qs = [q for q in all_q if q['SECTOR'].strip().upper() == "TECH"]
-            st.session_state.data = qs
-            st.session_state.user_data["sector"] = sector_name
-            st.session_state.started = True
-            st.rerun()
-
-        col_a, col_b, col_c, col_d = st.columns(4)
-        with col_a:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): start_game("Startup Tecnológica (Scalable)")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Consultoría /\nServicios Prof.", use_container_width=True): start_game("Consultoría / Servicios Profesionales")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_c:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): start_game("Pequeña y Mediana Empresa (PYME)")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_d:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Hostelería y\nRestauración", use_container_width=True): start_game("Hostelería y Restauración")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        _, col_e, col_f, col_g, _ = st.columns([0.5, 1, 1, 1, 0.5])
-        with col_e:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Autoempleo /\nFreelance", use_container_width=True): start_game("Autoempleo / Freelance")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_f:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Emprendimiento\nSocial", use_container_width=True): start_game("Emprendimiento Social")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_g:
-            st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-            if st.button("Intraemprendimiento\nCorporativo", use_container_width=True): start_game("Intraemprendimiento")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        if st.button("⬅️ Corregir mis datos"): st.session_state.data_verified = False; st.rerun()
-
+# PANTALLA 3: JUEGO
 elif not st.session_state.finished:
-    # --- PANTALLA PREGUNTAS ---
-    c_q_logo, _ = st.columns([0.5, 5])
-    with c_q_logo:
-        if logo_header: st.image(logo_header, use_container_width=True)
-    
-    st.markdown("---")
-    
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
+    
     st.markdown(f"### {row['TITULO']}")
     
-    col_narrative, col_options = st.columns([1.2, 1]) 
-    with col_narrative:
-        st.markdown(f'<div class="big-narrative">{row["NARRATIVA"]}</div>', unsafe_allow_html=True)
-    with col_options:
-        st.markdown("#### ¿Qué harías tú?")
-        st.markdown("<br>", unsafe_allow_html=True)
+    c_text, c_opt = st.columns([1.5, 1])
+    with c_text:
+        st.markdown(f'<div class="diag-text" style="font-size:1.2rem;">{row["NARRATIVA"]}</div>', unsafe_allow_html=True)
+    with c_opt:
+        st.markdown("#### Tu decisión:")
         step = st.session_state.current_step
         
-        st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
-        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}"):
-            parse_logic(row.get('OPCION_A_LOGIC'), 1, step)
+        # Opciones
+        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
+            parse_logic(row.get('OPCION_A_LOGIC'))
             st.session_state.current_step += 1
             if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
-        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}"):
-            parse_logic(row.get('OPCION_B_LOGIC'), 2, step)
+            
+        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True):
+            parse_logic(row.get('OPCION_B_LOGIC'))
             st.session_state.current_step += 1
             if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        
+            
         if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
-            st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
-            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}"):
-                parse_logic(row.get('OPCION_C_LOGIC'), 3, step)
+            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True):
+                parse_logic(row.get('OPCION_C_LOGIC'))
                 st.session_state.current_step += 1
                 if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
                 st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
 
-        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
-            st.markdown('<div class="answer-btn">', unsafe_allow_html=True)
-            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}"):
-                parse_logic(row.get('OPCION_D_LOGIC'), 4, step)
-                st.session_state.current_step += 1
-                if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
+# PANTALLA 4: RESULTADOS
 else:
-    # --- PANTALLA RESULTADOS ---
-    c_res_logo, c_res_title = st.columns([1, 5])
-    with c_res_logo: 
-        if logo_final: st.image(logo_final)
-    with c_res_title:
-        st.header(f"Informe Ejecutivo S.A.P.E. | {st.session_state.user_data['name']}")
-        st.caption(f"ID Referencia: {st.session_state.user_id} | Sector: {st.session_state.user_data['sector']}")
-
-    st.divider()
+    ire, avg, friction, triggers = calculate_results()
     
-    ire, avg, toxic, triggers = calculate_results()
+    st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
     
     k1, k2, k3 = st.columns(3)
-    k1.metric("Índice IRE", f"{ire}/100", delta="Resiliencia"); k2.metric("Potencial", f"{avg}/100"); k3.metric("Nivel de Fricción", toxic, delta_color="inverse")
-
-    c_chart, c_txt = st.columns([1, 1])
-    with c_chart: 
-        st.plotly_chart(radar_chart(), use_container_width=True, config={'displayModeBar': False})
-    with c_txt:
+    k1.metric("Índice IRE", f"{ire}/100")
+    k2.metric("Potencial", f"{avg}/100")
+    k3.metric("Fricción", friction, delta_color="inverse")
+    
+    c_chart, c_desc = st.columns([1, 1])
+    with c_chart:
+        st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_desc:
         st.markdown("### Diagnóstico")
-        if ire > 75: st.success("Perfil de Alta Resiliencia. Capacidad de gestión óptima.")
-        elif ire > 45: st.warning("Perfil Equilibrado. Requiere seguimiento.")
-        else: st.error("Perfil con Riesgos Operativos Detectados.")
-        
+        # Textos claros sobre fondo oscuro
+        st.markdown(f'<div class="diag-text">{get_ire_text(ire)}</div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         if triggers:
-            st.markdown("#### ⚠️ Áreas de Atención Prioritaria")
-            for t in triggers: st.markdown(f"- {t}")
+             st.error("Alertas: " + ", ".join(triggers))
+        else:
+             st.success("Perfil sin alertas críticas.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    pdf_data = create_pdf_report(ire, avg, toxic, triggers, st.session_state.user_data, st.session_state.octagon)
-    st.download_button("📥 DESCARGAR INFORME EJECUTIVO (PDF)", pdf_data, f"SAPE_{st.session_state.user_id}.pdf", "application/pdf", use_container_width=True)
+    pdf_bytes = create_pdf_report(ire, avg, friction, triggers, st.session_state.user_data, st.session_state.octagon)
     
-    if st.button("Reiniciar Simulación"): st.session_state.clear(); st.rerun()
+    st.download_button(
+        "📥 DESCARGAR INFORME COMPLETO (PDF)",
+        pdf_bytes,
+        file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
+    
+    if st.button("Reiniciar"):
+        st.session_state.clear()
+        st.rerun()
