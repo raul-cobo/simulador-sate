@@ -15,33 +15,40 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. INYECCIÓN CSS (CORRECCIONES VISUALES DEFINITIVAS) ---
+# --- 2. INYECCIÓN CSS (CORRECCIÓN TOTAL DE MÁRGENES Y LOGOS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* Ocultar elementos nativos de Streamlit */
-        header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] { display: none !important; }
-        footer, .stDeployButton { display: none !important; }
+        /* 1. ELIMINAR EL RECUADRO FANTASMA SUPERIOR (NUCLEAR) */
+        header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] { 
+            display: none !important; 
+            height: 0px !important;
+        }
         
-        /* Eliminar márgenes superiores para quitar el hueco blanco */
-        .main .block-container { padding-top: 1rem !important; margin-top: 0 !important; }
+        /* Eliminar padding superior del contenedor principal para que suba todo */
+        .main .block-container { 
+            padding-top: 2rem !important; /* Espacio mínimo justo */
+            padding-bottom: 1rem !important;
+            margin-top: 0 !important; 
+            max-width: 95% !important;
+        }
 
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
         
-        /* TEXTOS BLANCOS (Global) */
+        /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #FFFFFF !important; 
         }
 
-        /* INPUTS (Oscuros con texto blanco) */
+        /* INPUTS */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
             background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
         }
         div[role="listbox"] div { color: #FFFFFF !important; background-color: #0F1629 !important; }
         .stCheckbox label p { color: #FFFFFF !important; }
 
-        /* BOTONES DE RESPUESTA Y NAVEGACIÓN */
+        /* BOTONES GENERALES */
         .stButton > button {
             background-color: #1A202C !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important; border-radius: 8px !important;
         }
@@ -54,36 +61,14 @@ def local_css():
             border: 1px solid white !important;
             font-weight: bold !important;
         }
-        .stDownloadButton > button:hover { background-color: #4B4DCE !important; }
 
-        /* BOTONES DE SECTOR (GIGANTES) */
-        .sector-card button {
-            height: 250px !important; /* Altura forzada */
-            width: 100% !important;
-            white-space: normal !important; /* Texto en varias líneas */
-            font-size: 1.5rem !important;
-            font-weight: bold !important;
-            background-color: #0F1629 !important;
-            color: white !important;
-            border: 2px solid #2D3748 !important;
-            border-radius: 15px !important;
-            display: flex;
-            align-items: center;
-            justify_content: center;
-            line-height: 1.5 !important;
-        }
-        .sector-card button:hover {
-            border-color: #5D5FEF !important;
-            background-color: #1A202C !important;
-            transform: scale(1.02);
-        }
-
-        /* CAJA DE LOGIN (Centrado perfecto con Flexbox) */
+        /* --- LOGIN CENTRADO SIN SCROLL --- */
         .login-container {
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 80vh; /* Ocupa casi toda la pantalla vertical */
+            align-items: center; /* Centrado vertical perfecto */
+            height: 80vh; /* Altura de la pantalla visible */
+            width: 100%;
         }
         .login-card { 
             background-color: white; 
@@ -94,7 +79,6 @@ def local_css():
             width: 100%;
             max-width: 500px;
         }
-        /* Forzamos negro SOLO dentro de la login-card */
         .login-card h1, .login-card h2, .login-card h3, .login-card p, .login-card div, .login-card span {
             color: #000000 !important;
         }
@@ -103,10 +87,45 @@ def local_css():
             color: #000000 !important; 
             border: 1px solid #ccc !important; 
         }
-        
-        /* HEADER EN APP (Logo izquierda, Titulo derecha) */
-        .custom-header-title { font-size: 2.2rem; font-weight: bold; color: white !important; margin: 0; line-height: 1.2;}
-        .custom-header-sub { font-size: 1.1rem; color: #5D5FEF !important; margin: 0; }
+
+        /* HEADER INTERNO (LOGO IZQ - TEXTO DER) */
+        .header-box {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2D3748;
+            padding-bottom: 20px;
+        }
+        .header-title-text {
+            font-size: 2.2rem !important;
+            font-weight: bold !important;
+            color: white !important;
+            line-height: 1.1;
+            margin: 0;
+        }
+        .header-subtitle-text {
+            font-size: 1.1rem !important;
+            color: #5D5FEF !important;
+            margin: 0;
+        }
+
+        /* SECTORES GIGANTES */
+        .sector-btn button {
+            height: 200px !important;
+            width: 100% !important;
+            font-size: 1.4rem !important;
+            font-weight: bold !important;
+            white-space: normal !important;
+            border: 2px solid #2D3748 !important;
+            background-color: #0F1629 !important;
+            border-radius: 15px !important;
+        }
+        .sector-btn button:hover {
+            border-color: #5D5FEF !important;
+            background-color: #1A202C !important;
+            transform: scale(1.02);
+        }
 
         /* TEXTO RESULTADOS */
         .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; margin-bottom: 10px; }
@@ -119,7 +138,7 @@ def local_css():
 
 local_css()
 
-# --- 3. VARIABLES Y LÓGICA ---
+# --- 3. LÓGICA DEL SISTEMA ---
 LABELS_ES = {
     "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo",
     "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno",
@@ -233,13 +252,10 @@ def calculate_results():
     if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("Perfil de Riesgo Desmedido")
     
     ire = max(0, min(100, avg - (friction * 0.8) - (len(triggers) * 3)))
-    
-    # Cálculo del Delta (Diferencial)
     delta = round(avg - ire, 2)
-    
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- FUNCIÓN AUXILIAR PARA TEXTO QUE SE CORTA ---
+# --- PDF GENERATOR ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -258,36 +274,40 @@ def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spaci
     for line in lines:
         c.drawString(x, y, line)
         y -= line_spacing
-    return y # Devolvemos la nueva posición Y
+    return y 
 
-# --- PDF GENERATOR ---
+def draw_pdf_header(p, w, h):
+    # Cabecera Azul Sólida
+    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy
+    p.rect(0, h-120, w, 120, fill=1, stroke=0)
+    
+    # Recuadro Blanco para Logo (Izquierda)
+    p.setFillColorRGB(1, 1, 1)
+    p.rect(30, h-100, 160, 80, fill=1, stroke=0)
+    
+    # Logo
+    if os.path.exists("logo_original.png"):
+        try:
+            img = ImageReader("logo_original.png")
+            p.drawImage(img, 40, h-95, width=140, height=70, preserveAspectRatio=True, mask='auto')
+        except: pass
+    
+    # Título (Derecha)
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawRightString(w-30, h-50, "INFORME TÉCNICO S.A.P.E.")
+    p.setFont("Helvetica", 10)
+    p.drawRightString(w-30, h-65, "Sistema de Análisis de la Personalidad Emprendedora")
+
 def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
     
-    # --- 1. CABECERA AZUL COMPLETA (Sin diagonal) ---
-    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy Audeo
-    p.rect(0, h-120, w, 120, fill=1, stroke=0)
+    # PÁGINA 1
+    draw_pdf_header(p, w, h)
     
-    # LOGO EN RECUADRO BLANCO (Izquierda)
-    if os.path.exists("logo_original.png"):
-        # Caja blanca para el logo
-        p.setFillColorRGB(1, 1, 1)
-        p.rect(30, h-100, 150, 80, fill=1, stroke=0) # Caja
-        try:
-            img = ImageReader("logo_original.png")
-            p.drawImage(img, 40, h-95, width=130, height=70, preserveAspectRatio=True, mask='auto')
-        except: pass
-    
-    # TÍTULO (Derecha, texto blanco sobre azul)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont("Helvetica-Bold", 20)
-    p.drawRightString(w-30, h-50, "INFORME TÉCNICO S.A.P.E.")
-    p.setFont("Helvetica", 10)
-    p.drawRightString(w-30, h-65, "Sistema de Análisis de la Personalidad Emprendedora")
-    
-    # --- 2. DATOS ---
+    # Datos
     y_start = h - 160
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10)
@@ -295,54 +315,39 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawString(200, y_start, f"Fecha de Análisis: {datetime.now().strftime('%d/%m/%Y')}")
     p.drawString(400, y_start, f"Sector: {user.get('sector', 'N/A')}")
     
-    # --- 3. MÉTRICAS ---
     y = y_start - 40
+    
+    # 1. Métricas
     p.setFont("Helvetica-Bold", 12)
     p.setFillColorRGB(0.02, 0.04, 0.12)
     p.drawString(40, y, "1. Métricas Principales")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    # Helper para dibujar texto ajustado (Para que no se salga)
-    def print_metric(label, val, desc_func, extra_desc=None):
+    def print_metric(label, val, desc):
         nonlocal y
         p.setFont("Helvetica-Bold", 10)
         p.drawString(50, y, f"{label} ({val} / 100):")
         p.setFont("Helvetica", 10)
-        p.drawString(190, y, desc_func)
-        y -= 15
-        if extra_desc:
-            p.setFont("Helvetica", 9)
-            # Usamos el wrapper para el texto largo
-            y = draw_wrapped_text(p, extra_desc, 50, y, 480, "Helvetica", 9)
-        y -= 20
+        p.drawString(190, y, desc)
+        y -= 25
 
-    print_metric("POTENCIAL", avg, get_potential_text(avg), 
-                 "Recursos cognitivos y actitudinales basales para afrontar la complejidad operativa del sector.")
+    print_metric("POTENCIAL", avg, get_potential_text(avg))
+    print_metric("FRICCIÓN", friction, get_friction_text(friction))
+    print_metric("IRE FINAL", ire, get_ire_text(ire))
     
-    print_metric("FRICCIÓN", friction, get_friction_text(friction), 
-                 "Presencia de conductas de comprobación, validación externa o cautela que ralentizan la toma de decisiones.")
-    
-    # DELTA (DIFERENCIAL)
     p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, f"DELTA (Diferencial) ({delta}):")
+    p.drawString(50, y, f"DELTA ({delta}):")
     p.setFont("Helvetica", 10)
-    p.drawString(190, y, "Pérdida de eficiencia.")
-    y -= 15
-    p.setFont("Helvetica", 9)
-    y = draw_wrapped_text(p, f"Discrepancia entre el Potencial ({avg}) y el IRE ({ire}). Representa el coste operativo autoimpuesto por mecanismos de control.", 50, y, 480, "Helvetica", 9)
-    y -= 20
+    p.drawString(190, y, "Pérdida de eficiencia por fricción operativa.")
+    y -= 40
 
-    print_metric("IRE FINAL", ire, get_ire_text(ire), 
-                 "El índice ajustado confirma la viabilidad técnica y sostenibilidad a largo plazo.")
-
-    # --- 4. ANÁLISIS DIMENSIONAL ---
+    # 2. Análisis Dimensional
     p.setFont("Helvetica-Bold", 12)
     p.drawString(40, y, "2. Análisis Dimensional (Perfil Competencial)")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    # Barras
     sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
     top_3 = sorted_stats[:3]
     low_3 = sorted_stats[-3:]
@@ -353,31 +358,27 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.setFillColorRGB(0,0,0)
         p.drawString(50, y, label)
         
-        # Barra Fondo
         p.setFillColorRGB(0.9, 0.9, 0.9)
         p.rect(250, y, 200, 8, fill=1, stroke=0)
         
         bar_len = (v/100)*200
         if v <= 75:
-            # Normal (Verde Audeo)
             p.setFillColorRGB(0.2, 0.6, 0.4)
             p.rect(250, y, bar_len, 8, fill=1, stroke=0)
         else:
-            # Exceso (Verde -> Rojo)
             safe_len = (75/100)*200
             excess_len = bar_len - safe_len
             p.setFillColorRGB(0.2, 0.6, 0.4)
             p.rect(250, y, safe_len, 8, fill=1, stroke=0)
-            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo Exceso
+            p.setFillColorRGB(0.8, 0.2, 0.2)
             p.rect(250 + safe_len, y, excess_len, 8, fill=1, stroke=0)
         
         p.setFillColorRGB(0,0,0)
         p.drawString(460, y, str(round(v, 1)))
         y -= 15
     
-    y -= 10
+    y -= 15
     
-    # Textos Dinámicos
     p.setFont("Helvetica-Bold", 10)
     p.drawString(40, y, "Fortalezas Consolidadas")
     y -= 15
@@ -390,6 +391,12 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         y -= 5
 
     y -= 10
+    
+    if y < 150:
+        p.showPage()
+        draw_pdf_header(p, w, h)
+        y = h - 160
+    
     p.setFont("Helvetica-Bold", 10)
     p.drawString(40, y, "Áreas de Desarrollo")
     y -= 15
@@ -402,20 +409,19 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         y = draw_wrapped_text(p, text_line, 50, y, 480, "Helvetica", 9)
         y -= 5
 
-    if y < 100:
+    y -= 30
+    
+    if y < 150:
         p.showPage()
-        y = h - 100
+        draw_pdf_header(p, w, h)
+        y = h - 160
 
-    # --- 5. FRICCIÓN ---
-    y -= 20
+    # 3. Fricción
     p.setFont("Helvetica-Bold", 12)
     p.drawString(40, y, "3. Análisis de la Fricción")
     p.line(40, y-5, w-40, y-5)
     y -= 30
-    
     p.setFont("Helvetica", 9)
-    p.setFillColorRGB(0,0,0)
-    
     if friction_reasons:
         for reason in friction_reasons:
             p.drawString(50, y, f"• {reason}")
@@ -424,22 +430,26 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.drawString(50, y, "• No se detectan patrones de fricción significativos.")
         y -= 15
 
-    # --- 6. CONCLUSIÓN ---
     y -= 20
+    
+    if y < 100:
+        p.showPage()
+        draw_pdf_header(p, w, h)
+        y = h - 160
+
+    # 4. Conclusión
     p.setFont("Helvetica-Bold", 12)
     p.drawString(40, y, "4. Conclusión y Recomendación")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    p.setFont("Helvetica", 9)
     concl = f"El perfil es técnicamente viable. La discrepancia entre Potencial ({avg}) e IRE ({ire}) marca el margen de mejora (Delta: {delta})."
     y = draw_wrapped_text(p, concl, 40, y, 480, "Helvetica", 9)
     y -= 10
     p.setFont("Helvetica-Bold", 9)
     p.drawString(40, y, "Recomendación:")
-    y -= 12
-    p.setFont("Helvetica", 9)
-    rec_text = "Se debe trabajar en la reducción de los tiempos de deliberación. El objetivo es aumentar la velocidad de decisión, reduciendo las comprobaciones de seguridad redundantes."
+    y -= 15
+    rec_text = "Se recomienda trabajar en la reducción de tiempos de deliberación y aumentar la velocidad de decisión, reduciendo las comprobaciones de seguridad redundantes."
     y = draw_wrapped_text(p, rec_text, 40, y, 480, "Helvetica", 9)
 
     p.showPage()
@@ -458,9 +468,9 @@ def get_potential_text(score):
     return "Nivel Bajo."
 
 def get_friction_text(score):
-    if score < 20: return "Nivel bajo-medio."
-    if score < 40: return "Nivel medio."
-    return "Nivel alto."
+    if score < 20: return "Nivel bajo. Resistencia mínima."
+    if score < 40: return "Nivel medio. Bloqueos moderados."
+    return "Nivel alto. Importante coste operativo."
 
 def get_risk_text(triggers):
     if not triggers: return "No se detectan indicadores críticos."
@@ -475,48 +485,42 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- HEADER CONSTANTE ---
-def draw_header():
-    # Header con columnas: Logo (Blanco) a la izquierda, Título derecha
-    c1, c2 = st.columns([0.5, 4])
-    with c1:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
-    with c2:
-        st.markdown('<p class="custom-header-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="custom-header-sub">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
-    st.markdown("---")
-
 # --- 5. APP PRINCIPAL ---
 init_session()
 
 # LOGIN
 if not st.session_state.get("auth", False):
-    # Centrado vertical usando columnas vacías
-    _, col_center, _ = st.columns([1, 2, 1])
-    with col_center:
-        st.markdown('<div class="login-container"><div class="login-card">', unsafe_allow_html=True)
+    # Contenedor FLEX para centrar sin scroll
+    st.markdown("""
+        <div class="login-container">
+            <div class="login-card">
+    """, unsafe_allow_html=True)
+    
+    # 1. Logo
+    if os.path.exists("logo_original.png"):
+        st.image("logo_original.png", width=250)
+    
+    # 2. Título
+    st.markdown("<h3>Audeo | Simulador S.A.P.E.</h3>", unsafe_allow_html=True)
+    st.markdown("<p>Acceso Corporativo Seguro</p>", unsafe_allow_html=True)
+    
+    pwd = st.text_input("Clave de acceso", type="password")
+    if st.button("ENTRAR AL SISTEMA", use_container_width=True):
+        if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
+        else: st.error("Acceso denegado")
         
-        # 1. Logo Centrado
-        if os.path.exists("logo_original.png"):
-            # Usamos una columna interna de Streamlit para que st.image centre bien
-            c_img1, c_img2, c_img3 = st.columns([1, 4, 1])
-            with c_img2:
-                st.image("logo_original.png", use_container_width=True)
-        
-        st.markdown("<h3>Audeo | Simulador S.A.P.E.</h3>", unsafe_allow_html=True)
-        st.markdown("<p>Acceso Corporativo Seguro</p>", unsafe_allow_html=True)
-        
-        pwd = st.text_input("Clave de acceso", type="password")
-        if st.button("ENTRAR AL SISTEMA", use_container_width=True):
-            if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
-            else: st.error("Acceso denegado")
-            
-        st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
     st.stop()
 
-# CABECERA GLOBAL (Aparece en todas las páginas internas)
-draw_header()
+# --- HEADER GLOBAL EN CADA PÁGINA (LOGO BLANCO IZQ - TEXTO GRANDE DER) ---
+c1, c2 = st.columns([1, 4])
+with c1:
+    if os.path.exists("logo_blanco.png"):
+        st.image("logo_blanco.png", use_container_width=True)
+with c2:
+    st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="header-subtitle-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+st.markdown("---")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
@@ -562,22 +566,21 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # BOTONERA GIGANTE
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
         st.markdown('</div>', unsafe_allow_html=True)
     with c2:
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True) 
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
         st.markdown('</div>', unsafe_allow_html=True)
     with c3: 
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
         st.markdown('</div>', unsafe_allow_html=True)
     with c4: 
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -585,15 +588,15 @@ elif not st.session_state.started:
     
     c5, c6, c7, c8 = st.columns(4)
     with c5:
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
         st.markdown('</div>', unsafe_allow_html=True)
     with c6:
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
         st.markdown('</div>', unsafe_allow_html=True)
     with c7:
-        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -611,7 +614,6 @@ elif not st.session_state.finished:
         st.markdown("#### Tu decisión:")
         step = st.session_state.current_step
         
-        # Botones de respuesta
         if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
             parse_logic(row.get('OPCION_A_LOGIC'))
             st.session_state.current_step += 1
@@ -663,10 +665,9 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Generación PDF
+    # PDF
     pdf_bytes = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
     
-    # Botón de descarga CSS forzado
     st.download_button(
         label="📥 DESCARGAR INFORME COMPLETO (PDF)",
         data=pdf_bytes,
