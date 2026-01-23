@@ -15,15 +15,14 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "FLAT DESIGN" (CERO SOMBRAS, TODO BLANCO) ---
+# --- 2. CSS "INVISIBLE CARD" (ELIMINACIÓN TOTAL DE SOMBRAS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. ELIMINACIÓN TOTAL DE LA BARRA NATIVA */
+        /* 1. RESET TOTAL DEL HEADER NATIVO */
         header, [data-testid="stHeader"], .stAppHeader { 
             background-color: #FFFFFF !important;
-            box-shadow: none !important; /* IMPORTANTE: MATA LA SOMBRA SUPERIOR */
-            border-bottom: none !important;
+            box-shadow: none !important;
             height: 0px !important;
             visibility: hidden !important;
         }
@@ -35,7 +34,7 @@ def local_css():
             color: #0E1117 !important; 
         }
 
-        /* 3. INPUTS (Diseño plano) */
+        /* 3. INPUTS (Diseño plano con borde fino) */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
             background-color: #FAFAFA !important; 
             color: #000000 !important; 
@@ -45,7 +44,7 @@ def local_css():
         div[role="listbox"] div { background-color: #FFFFFF !important; color: #000000 !important; }
         .stCheckbox label p { color: #000000 !important; }
 
-        /* 4. BOTONES (Azul Audeo Plano) */
+        /* 4. BOTONES */
         .stButton > button {
             background-color: #050A1F !important; 
             color: #FFFFFF !important; 
@@ -59,15 +58,15 @@ def local_css():
             color: #FFFFFF !important;
         }
         
-        /* 5. TARJETA DE LOGIN (SOLO BORDE, SIN SOMBRA) */
+        /* 5. TARJETA DE LOGIN (AQUÍ ESTÁ LA SOLUCIÓN) */
+        /* Eliminamos cualquier rastro de caja, borde o sombra */
         .login-card { 
-            background-color: #FFFFFF; 
-            padding: 3rem; 
-            border-radius: 12px; 
+            background-color: transparent !important; /* Transparente para que se funda */
+            padding: 2rem; 
             text-align: center; 
-            border: 1px solid #E0E0E0; /* Borde sutil */
-            box-shadow: none !important; /* CERO SOMBRA */
-            margin-top: 10px;
+            border: none !important;      /* CERO BORDE */
+            box-shadow: none !important;  /* CERO SOMBRA */
+            margin-top: 0px;
         }
         .login-card h3 { color: #050A1F !important; font-weight: bold; }
         .login-card p { color: #666 !important; }
@@ -82,7 +81,7 @@ def local_css():
 
         /* RESULTADOS */
         .diag-text { 
-            background-color: #F4F6F8; 
+            background-color: #F8F9FA; 
             padding: 15px; 
             border-radius: 8px; 
             border-left: 5px solid #050A1F; 
@@ -102,8 +101,11 @@ def local_css():
              border-color: #5D5FEF !important; background-color: #F0F2F6 !important;
         }
         
-        /* AJUSTE DE MARGEN SUPERIOR PARA LOGO */
-        .main .block-container { padding-top: 1rem !important; max-width: 95% !important; }
+        /* MARGEN SUPERIOR */
+        .main .block-container { 
+            padding-top: 1rem !important; 
+            max-width: 95% !important; 
+        }
     </style>
     """, unsafe_allow_html=True)
 
