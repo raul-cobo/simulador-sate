@@ -32,31 +32,41 @@ def local_css():
             color: #FFFFFF;
         }
 
-        /* TEXTOS GENERALES (Forzar blanco para que se lea) */
-        h1, h2, h3, h4, h5, h6, p, label, .stMarkdown {
+        /* FUERZA EL TEXTO BLANCO EN EL FONDO OSCURO */
+        h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, div[data-testid="stMarkdownContainer"] p {
             color: #FFFFFF !important;
         }
 
-        /* INPUTS Y CAJAS DE TEXTO (Arreglo del fondo blanco) */
-        .stTextInput > div > div > input, 
-        .stNumberInput > div > div > input, 
-        .stSelectbox > div > div > div {
-            background-color: #0F1629 !important; /* Fondo oscuro */
-            color: white !important;
+        /* --- ARREGLO DE INPUTS (TEXTO NEGRO SOBRE BLANCO O VICEVERSA) --- */
+        /* Inputs normales */
+        .stTextInput input, .stNumberInput input {
+            background-color: #0F1629 !important;
+            color: #FFFFFF !important;
             border: 1px solid #5D5FEF !important;
         }
-        /* Color del texto dentro de los selectbox */
-        div[data-testid="stSelectbox"] div[role="listbox"] ul {
+        /* Selectbox */
+        div[data-testid="stSelectbox"] > div > div {
+            background-color: #0F1629 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #5D5FEF !important;
+        }
+        /* Texto dentro del desplegable */
+        div[role="listbox"] div {
+            color: #FFFFFF !important;
             background-color: #0F1629 !important;
         }
         
-        /* BOTONES (Arreglo del blanco sobre blanco) */
+        /* CHECKBOX */
+        .stCheckbox label p {
+            color: #FFFFFF !important;
+        }
+
+        /* --- BOTONES --- */
         .stButton > button {
-            background-color: #1A202C !important; /* Fondo oscuro */
-            color: #FFFFFF !important; /* Texto blanco */
+            background-color: #1A202C !important;
+            color: #FFFFFF !important;
             border: 1px solid #5D5FEF !important;
             border-radius: 8px !important;
-            font-weight: 500 !important;
         }
         .stButton > button:hover {
             background-color: #5D5FEF !important;
@@ -71,6 +81,7 @@ def local_css():
             font-size: 1.2rem !important;
             padding: 1rem !important;
             border: none !important;
+            font-weight: bold !important;
         }
 
         /* TARJETAS DE SECTOR */
@@ -86,29 +97,42 @@ def local_css():
             background-color: #1A202C !important;
         }
 
-        /* CAJA DE LOGIN (Blanca) */
+        /* CAJA DE LOGIN (Blanca con texto negro forzoso) */
         .login-card {
             background-color: white;
             padding: 2rem;
             border-radius: 15px;
             text-align: center;
         }
-        /* Ajuste específico para inputs dentro del login (para que se vean oscuros sobre blanco) */
+        .login-card h3, .login-card p {
+            color: #000000 !important;
+        }
+        /* Inputs dentro del login (Excepción para que se vean oscuros) */
         .login-card input {
-            color: white !important;
+            background-color: #f0f2f6 !important;
+            color: #000000 !important;
+            border: 1px solid #ccc !important;
         }
         
         /* HEADER PERSONALIZADO */
         .custom-header {
             font-size: 2rem;
             font-weight: bold;
-            color: white;
+            color: white !important;
             margin-bottom: 0.5rem;
         }
         .custom-sub {
             font-size: 1.1rem;
-            color: #5D5FEF;
+            color: #5D5FEF !important;
             margin-bottom: 2rem;
+        }
+
+        /* RESULTADOS CLAROS */
+        div[data-testid="stMetricValue"] {
+            color: #FFFFFF !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            color: #A0AEC0 !important;
         }
 
         /* TEXTO DEL DIAGNÓSTICO (Resultados) */
@@ -118,6 +142,12 @@ def local_css():
             border-radius: 8px;
             border-left: 4px solid #5D5FEF;
             color: #E2E8F0 !important;
+            margin-bottom: 10px;
+        }
+        /* Arreglo para que el texto dentro de diag-text sea visible */
+        .diag-text p {
+            color: #E2E8F0 !important;
+            margin: 0;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -138,26 +168,15 @@ LABELS_ES = {
     "emotional_stability": "Tolerancia al Estrés / Estabilidad Emocional"
 }
 
-# Mapeo de variables internas a las 8 dimensiones
 VARIABLE_MAP = {
-    # Achievement
     "achievement": "achievement", "logro": "achievement",
-    # Risk
     "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
-    # Innovativeness
     "innovativeness": "innovativeness", "innovacion": "innovativeness",
-    # Locus
     "locus_control": "locus_control", "locus": "locus_control",
-    # Self Efficacy
     "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy",
-    # Autonomy
     "autonomy": "autonomy", "autonomia": "autonomy",
-    # Ambiguity / Optimism
     "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance",
-    # Stability
     "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability",
-    
-    # Flags (Fricción)
     "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", 
     "reserved": "reserved", "passive_aggressive": "passive_aggressive",
     "arrogant": "arrogant", "mischievous": "mischievous", 
@@ -179,7 +198,6 @@ def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string
 
 def init_session():
     if 'octagon' not in st.session_state:
-        # Inicializamos las 8 dimensiones base en 50
         st.session_state.octagon = {k: 50 for k in LABELS_ES.keys()}
         st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
         st.session_state.current_step = 0
@@ -205,7 +223,6 @@ def parse_logic(logic_str):
         var_code = parts[0].lower().strip()
         try: val = int(parts[1])
         except: continue
-        
         target = VARIABLE_MAP.get(var_code)
         if target:
             if target in st.session_state.octagon:
@@ -216,15 +233,10 @@ def parse_logic(logic_str):
 def calculate_results():
     o = st.session_state.octagon
     f = st.session_state.flags
-    
-    # Promedio Potencial
     avg = sum(o.values()) / 8
-    
-    # Cálculo de Fricción
     friction_sum = sum(f.values())
-    friction_final = friction_sum * 0.5 # Factor de ajuste
+    friction_final = friction_sum * 0.5 
     
-    # Triggers (Texto profesional)
     triggers = []
     if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
     if f["arrogant"] > 25: triggers.append("Estilo Dominante / Rigidez Potencial")
@@ -234,26 +246,25 @@ def calculate_results():
     if f["diligent"] > 60: triggers.append("Bloqueo por Sobre-Análisis")
     if f["dependent"] > 55: triggers.append("Alta Necesidad de Supervisión")
 
-    # IRE
     ire = avg - (friction_final * 0.8) - (len(triggers) * 3)
     ire = max(0, min(100, ire))
     
     return round(ire, 2), round(avg, 2), round(friction_final, 2), triggers
 
-# --- GENERADOR DE TEXTOS EXPLICATIVOS (BASE CONOCIMIENTO) ---
+# --- GENERADOR DE TEXTOS EXPLICATIVOS ---
 def get_ire_text(score):
-    if score > 75: return "Nivel de viabilidad positivo. El índice confirma que el perfil opera en un rango de alta sostenibilidad."
-    if score > 50: return "Nivel de viabilidad medio. El perfil es funcional pero requiere monitorizar los costes operativos derivados de la fricción."
-    return "Nivel de viabilidad comprometido. La discrepancia entre potencial y ejecución sugiere riesgos de continuidad."
+    if score > 75: return "Nivel positivo. El índice confirma que el perfil opera en un rango de alta sostenibilidad."
+    if score > 50: return "Nivel medio. El perfil es funcional pero requiere monitorizar los costes operativos."
+    return "Nivel comprometido. La discrepancia entre potencial y ejecución sugiere riesgos de continuidad."
 
 def get_potential_text(score):
-    if score > 75: return "Nivel Alto. El sujeto dispone de recursos cognitivos y actitudinales superiores para afrontar la complejidad del sector."
-    if score > 50: return "Nivel Medio. Recursos suficientes para la operativa estándar, con áreas específicas de desarrollo."
+    if score > 75: return "Nivel Alto. Recursos cognitivos y actitudinales superiores para afrontar la complejidad."
+    if score > 50: return "Nivel Medio. Recursos suficientes para la operativa estándar."
     return "Nivel Bajo. Se requiere un plan de desarrollo intensivo en competencias basales."
 
 def get_risk_text(triggers):
     if not triggers: return "No se detectan indicadores críticos que comprometan la operativa inmediata."
-    return "Se detectan patrones conductuales que pueden generar ineficiencias o conflictos si no se gestionan (ver detalle abajo)."
+    return "Se detectan patrones conductuales que pueden generar ineficiencias o conflictos (ver detalle)."
 
 # --- PDF ESTILO "ANÁLISIS PROFESIONAL" (DIAGONAL) ---
 def create_pdf_report(ire, avg, friction, triggers, user, stats):
@@ -262,119 +273,106 @@ def create_pdf_report(ire, avg, friction, triggers, user, stats):
     w, h = A4
     
     # 1. DISEÑO DE CABECERA (DIAGONAL)
-    # Parte Azul (Abajo izquierda)
-    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy
+    # Triángulo inferior (Azul Navy)
+    p.setFillColorRGB(0.02, 0.04, 0.12) 
     path = p.beginPath()
-    path.moveTo(0, h)      # Top Left (fuera)
-    path.lineTo(0, h-120)  # Bajamos 120
-    path.lineTo(w, h-40)   # Subimos a la derecha
-    path.lineTo(w, h)      # Top Right
+    path.moveTo(0, h)      
+    path.lineTo(0, h-140)  
+    path.lineTo(w, h-50)   
+    path.lineTo(w, h)      
     path.close()
     p.fillPath(path)
     
-    # 2. LOGO (Izquierda, sobre zona limpia o recuadro si es necesario)
-    # En este diseño diagonal, la esquina superior izquierda es Navy.
-    # Pondremos el Logo en BLANCO si existe 'logo_blanco.png', si no un recuadro blanco y el original.
-    logo_file = "logo_blanco.png" if os.path.exists("logo_blanco.png") else None
+    # 2. LOGO (Izquierda, en la zona blanca/azul)
+    # Preferimos el logo original grande a la izquierda
+    logo_file = "logo_original.png" if os.path.exists("logo_original.png") else None
     
     if logo_file:
         try:
-            p.drawImage(logo_file, 40, h-90, width=120, height=60, preserveAspectRatio=True, mask='auto')
+            # Lo ponemos a la izquierda, arriba, sobre el blanco
+            p.drawImage(logo_file, 40, h-80, width=140, height=70, preserveAspectRatio=True, mask='auto')
         except: pass
-    else:
-        # Plan B: Recuadro blanco
-        if os.path.exists("logo_original.png"):
-            p.setFillColorRGB(1,1,1)
-            p.rect(40, h-100, 130, 70, fill=1, stroke=0)
-            try:
-                p.drawImage("logo_original.png", 50, h-90, width=110, height=50, preserveAspectRatio=True, mask='auto')
-            except: pass
 
-    # TÍTULO DEL INFORME (Alineado a la derecha en la zona blanca/azul)
-    p.setFillColorRGB(0.02, 0.04, 0.12) # Texto oscuro para la zona blanca (derecha abajo)
-    p.setFont("Helvetica-Bold", 18)
-    p.drawRightString(w-40, h-70, "INFORME TÉCNICO S.A.P.E.")
+    # 3. TÍTULO DEL INFORME (Alineado a la derecha sobre el fondo azul)
+    p.setFillColorRGB(1, 1, 1) # Texto Blanco sobre el azul
+    p.setFont("Helvetica-Bold", 16)
+    p.drawRightString(w-40, h-30, "INFORME S.A.P.E.")
     p.setFont("Helvetica", 10)
-    p.setFillColorRGB(0.4, 0.4, 0.4)
-    p.drawRightString(w-40, h-85, "Sistema de Análisis de la Personalidad Emprendedora")
+    p.drawRightString(w-40, h-45, "Sistema de Análisis de la Personalidad Emprendedora")
 
-    # 3. DATOS DE IDENTIFICACIÓN
-    y_start = h - 150
+    # 4. DATOS DE IDENTIFICACIÓN
+    y_start = h - 160
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 11)
     p.drawString(40, y_start, f"ID Usuario: {st.session_state.user_id}")
     p.drawString(40, y_start-15, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
     p.drawString(40, y_start-30, f"Sector: {user.get('sector', 'N/A')}")
     
-    # 4. MÉTRICAS PRINCIPALES (Texto explicado)
-    y = y_start - 70
+    # 5. MÉTRICAS PRINCIPALES CON EXPLICACIÓN
+    y = y_start - 80
     p.setFont("Helvetica-Bold", 14)
     p.setFillColorRGB(0.02, 0.04, 0.12)
     p.drawString(40, y, "1. Métricas Principales")
     p.line(40, y-5, w-40, y-5)
-    y -= 30
+    y -= 25
     
     # Bloque Potencial
     p.setFont("Helvetica-Bold", 11)
     p.drawString(50, y, f"POTENCIAL ({avg}/100):")
-    p.setFont("Helvetica", 10)
+    p.setFont("Helvetica", 9)
+    # Texto explicativo debajo
     text_pot = get_potential_text(avg)
-    p.drawString(200, y, text_pot)
-    y -= 20
+    p.drawString(50, y-12, text_pot)
+    y -= 35
     
     # Bloque Fricción
     p.setFont("Helvetica-Bold", 11)
     p.drawString(50, y, f"FRICCIÓN ({friction}/100):")
-    p.setFont("Helvetica", 10)
+    p.setFont("Helvetica", 9)
     if friction < 20: txt_fric = "Nivel bajo. Resistencia operativa mínima."
-    elif friction < 45: txt_fric = "Nivel medio. Presencia moderada de bloqueos conductuales."
+    elif friction < 45: txt_fric = "Nivel medio. Presencia moderada de bloqueos."
     else: txt_fric = "Nivel alto. Importante coste operativo por conductas defensivas."
-    p.drawString(200, y, txt_fric)
-    y -= 20
+    p.drawString(50, y-12, txt_fric)
+    y -= 35
     
     # Bloque IRE
     p.setFont("Helvetica-Bold", 11)
     p.drawString(50, y, f"IRE FINAL ({ire}/100):")
-    p.setFont("Helvetica", 10)
+    p.setFont("Helvetica", 9)
     text_ire = get_ire_text(ire)
-    p.drawString(200, y, text_ire)
-    y -= 40
+    p.drawString(50, y-12, text_ire)
+    y -= 50
     
-    # 5. ANÁLISIS DIMENSIONAL (Perfil Competencial)
+    # 6. ANÁLISIS DIMENSIONAL
     p.setFont("Helvetica-Bold", 14)
     p.drawString(40, y, "2. Análisis Dimensional (Perfil Competencial)")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    p.setFont("Helvetica", 10)
-    p.drawString(40, y, "Desglose de las 8 dimensiones evaluadas:")
-    y -= 25
-    
-    # Tabla de barras
     for k, v in stats.items():
         label = LABELS_ES.get(k, k)
         p.setFont("Helvetica-Bold", 9)
         p.drawString(50, y, label)
         
-        # Barra gris
+        # Barra gris fondo
         p.setFillColorRGB(0.9, 0.9, 0.9)
-        p.rect(250, y, 200, 8, fill=1, stroke=0)
+        p.rect(280, y, 200, 8, fill=1, stroke=0)
         
         # Barra valor
-        if v > 75: p.setFillColorRGB(0.2, 0.6, 0.2) # Verde
-        elif v > 45: p.setFillColorRGB(0.2, 0.3, 0.7) # Azul
-        else: p.setFillColorRGB(0.8, 0.3, 0.3) # Rojo
+        if v > 75: p.setFillColorRGB(0.2, 0.6, 0.2) 
+        elif v > 45: p.setFillColorRGB(0.2, 0.3, 0.7) 
+        else: p.setFillColorRGB(0.8, 0.3, 0.3) 
         
         bar_w = (v/100)*200
-        p.rect(250, y, bar_w, 8, fill=1, stroke=0)
+        p.rect(280, y, bar_w, 8, fill=1, stroke=0)
         
         p.setFillColorRGB(0,0,0)
-        p.drawString(460, y, str(round(v, 1)))
+        p.drawString(490, y, str(round(v, 1)))
         y -= 20
         
     y -= 20
     
-    # 6. ALERTAS
+    # 7. ALERTAS
     p.setFont("Helvetica-Bold", 14)
     p.drawString(40, y, "3. Detección de Riesgos y Alertas")
     p.line(40, y-5, w-40, y-5)
@@ -390,11 +388,7 @@ def create_pdf_report(ire, avg, friction, triggers, user, stats):
             p.setFillColorRGB(0.7, 0, 0)
             p.setFont("Helvetica-Bold", 10)
             p.drawString(60, y, f"• {t}")
-            # Explicación genérica de impacto (se podría personalizar más)
-            p.setFillColorRGB(0.3, 0.3, 0.3)
-            p.setFont("Helvetica", 9)
-            p.drawString(80, y-12, "Impacto: Posible reducción de la eficiencia en toma de decisiones.")
-            y -= 30
+            y -= 15
 
     p.showPage()
     p.save()
@@ -423,7 +417,6 @@ def radar_chart():
 
 # --- 5. LOGO HELPER ---
 def get_logo_image():
-    # Prioridad: 1. Blanco, 2. Original. Para la web fondo oscuro, mejor blanco.
     if os.path.exists("logo_blanco.png"): return Image.open("logo_blanco.png")
     if os.path.exists("logo_original.png"): return Image.open("logo_original.png")
     return None
@@ -456,7 +449,7 @@ if not st.session_state.get("auth", False):
             st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# CABECERA COMÚN (En todas las páginas tras login)
+# CABECERA COMÚN
 c_h1, c_h2 = st.columns([0.5, 4])
 with c_h1:
     if logo_main: st.image(logo_main, use_container_width=True)
@@ -484,7 +477,6 @@ if not st.session_state.data_verified:
     
     st.markdown("<br>", unsafe_allow_html=True)
     consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-    # Enlace simulado que no recarga (javascript void) o a una web externa real
     st.markdown('<a href="https://www.audeo.es/privacidad" target="_blank" style="color:#5D5FEF;">📄 Ver Documento de Protección de Datos</a>', unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
@@ -506,7 +498,6 @@ elif not st.session_state.started:
     def go_sector(sec):
         all_q = load_questions()
         code = SECTOR_MAP[sec]
-        # Filtrado simple por si falla el CSV
         qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
         if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
         st.session_state.data = qs
@@ -515,7 +506,6 @@ elif not st.session_state.started:
         st.rerun()
 
     c1, c2, c3, c4 = st.columns(4)
-    # Usamos clases CSS para hacer botones grandes
     with c1: 
         st.markdown('<div class="sector-card">', unsafe_allow_html=True)
         if st.button("Tecnología / Startup"): go_sector("Startup Tecnológica (Scalable)")
@@ -532,6 +522,22 @@ elif not st.session_state.started:
         st.markdown('<div class="sector-card">', unsafe_allow_html=True)
         if st.button("Hostelería"): go_sector("Hostelería y Restauración")
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Segunda fila de sectores
+    c5, c6, c7, c8 = st.columns(4)
+    with c5:
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Autoempleo"): go_sector("Autoempleo / Freelance")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c6:
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Emp. Social"): go_sector("Emprendimiento Social")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c7:
+        st.markdown('<div class="sector-card">', unsafe_allow_html=True)
+        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
+        st.markdown('</div>', unsafe_allow_html=True)
+
 
 # PANTALLA 3: JUEGO
 elif not st.session_state.finished:
@@ -542,12 +548,11 @@ elif not st.session_state.finished:
     
     c_text, c_opt = st.columns([1.5, 1])
     with c_text:
-        st.markdown(f'<div class="diag-text" style="font-size:1.2rem;">{row["NARRATIVA"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
     with c_opt:
         st.markdown("#### Tu decisión:")
         step = st.session_state.current_step
         
-        # Opciones
         if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
             parse_logic(row.get('OPCION_A_LOGIC'))
             st.session_state.current_step += 1
@@ -583,8 +588,8 @@ else:
         st.plotly_chart(radar_chart(), use_container_width=True)
     with c_desc:
         st.markdown("### Diagnóstico")
-        # Textos claros sobre fondo oscuro
-        st.markdown(f'<div class="diag-text">{get_ire_text(ire)}</div>', unsafe_allow_html=True)
+        # Aseguramos que el texto se vea con <p> y estilo forzado
+        st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         if triggers:
              st.error("Alertas: " + ", ".join(triggers))
