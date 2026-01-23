@@ -15,22 +15,25 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. INYECCIÓN CSS (CORRECCIÓN TOTAL DE MÁRGENES Y LOGOS) ---
+# --- 2. INYECCIÓN CSS (FOCALIZADO EN ELIMINAR HUECOS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. ELIMINAR EL RECUADRO FANTASMA SUPERIOR (NUCLEAR) */
+        /* 1. ELIMINAR BARRA SUPERIOR Y MÁRGENES (NUCLEAR) */
         header, [data-testid="stHeader"], .stAppHeader, [data-testid="stToolbar"] { 
             display: none !important; 
+            visibility: hidden !important;
             height: 0px !important;
         }
         
-        /* Eliminar padding superior del contenedor principal para que suba todo */
+        footer { display: none !important; }
+
+        /* 2. SUBIR EL CONTENIDO AL MÁXIMO (MATAR EL RECUADRO FANTASMA) */
         .main .block-container { 
-            padding-top: 2rem !important; /* Espacio mínimo justo */
+            padding-top: 2rem !important; /* Solo un poco de aire, no un hueco gigante */
             padding-bottom: 1rem !important;
-            margin-top: 0 !important; 
-            max-width: 95% !important;
+            margin-top: 0 !important;
+            max-width: 90% !important;
         }
 
         /* FONDO GLOBAL */
@@ -48,38 +51,22 @@ def local_css():
         div[role="listbox"] div { color: #FFFFFF !important; background-color: #0F1629 !important; }
         .stCheckbox label p { color: #FFFFFF !important; }
 
-        /* BOTONES GENERALES */
+        /* BOTONES */
         .stButton > button {
             background-color: #1A202C !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important; border-radius: 8px !important;
         }
         .stButton > button:hover { background-color: #5D5FEF !important; border-color: #FFFFFF !important; }
         
-        /* BOTÓN DE DESCARGA */
-        .stDownloadButton > button {
-            background-color: #5D5FEF !important;
-            color: white !important;
-            border: 1px solid white !important;
-            font-weight: bold !important;
-        }
-
-        /* --- LOGIN CENTRADO SIN SCROLL --- */
-        .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center; /* Centrado vertical perfecto */
-            height: 80vh; /* Altura de la pantalla visible */
-            width: 100%;
-        }
+        /* LOGIN CARD (Ahora más compacta y centrada con columnas) */
         .login-card { 
             background-color: white; 
             padding: 3rem; 
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            width: 100%;
-            max-width: 500px;
+            margin-top: 10px;
         }
-        .login-card h1, .login-card h2, .login-card h3, .login-card p, .login-card div, .login-card span {
+        .login-card h3, .login-card p, .login-card div, .login-card label {
             color: #000000 !important;
         }
         .login-card input { 
@@ -88,129 +75,46 @@ def local_css():
             border: 1px solid #ccc !important; 
         }
 
-        /* HEADER INTERNO (LOGO IZQ - TEXTO DER) */
-        .header-box {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #2D3748;
-            padding-bottom: 20px;
-        }
-        .header-title-text {
-            font-size: 2.2rem !important;
-            font-weight: bold !important;
-            color: white !important;
-            line-height: 1.1;
-            margin: 0;
-        }
-        .header-subtitle-text {
-            font-size: 1.1rem !important;
-            color: #5D5FEF !important;
-            margin: 0;
-        }
-
-        /* SECTORES GIGANTES */
-        .sector-btn button {
-            height: 200px !important;
-            width: 100% !important;
-            font-size: 1.4rem !important;
-            font-weight: bold !important;
-            white-space: normal !important;
-            border: 2px solid #2D3748 !important;
-            background-color: #0F1629 !important;
-            border-radius: 15px !important;
-        }
-        .sector-btn button:hover {
-            border-color: #5D5FEF !important;
-            background-color: #1A202C !important;
-            transform: scale(1.02);
-        }
-
-        /* TEXTO RESULTADOS */
-        .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; margin-bottom: 10px; }
+        /* HEADER INTERNO (Para páginas de dentro) */
+        .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; color: white !important; margin: 0; }
+        .header-subtitle-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0; }
+        
+        /* RESULTADOS */
+        .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
         .diag-text p { color: #E2E8F0 !important; margin: 0; }
         
-        /* VALIDAR BTN */
-        .validate-btn button { background-color: #5D5FEF !important; font-size: 1.2rem !important; border: none !important; margin-top: 20px;}
+        /* SECTORES */
+        div[data-testid="column"] button {
+             width: 100% !important; border: 2px solid #2D3748 !important; background-color: #0F1629 !important; color: white !important; border-radius: 15px !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
 local_css()
 
-# --- 3. LÓGICA DEL SISTEMA ---
-LABELS_ES = {
-    "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo",
-    "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno",
-    "self_efficacy": "Autoeficacia", "autonomy": "Autonomía",
-    "ambiguity_tolerance": "Tol. Ambigüedad",
-    "emotional_stability": "Estabilidad Emocional"
-}
+# --- 3. LÓGICA ---
+LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 
 NARRATIVES_DB = {
-    "emotional_stability": {
-        "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión. Indica una gestión óptima del estrés y nula reactividad impulsiva.",
-        "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida. Puede presentar bloqueos operativos en situaciones de crisis."
-    },
-    "autonomy": {
-        "high": "Puntuación muy alta. Fuerte independencia operativa y de criterio. No requiere supervisión externa y posee iniciativa para liderar.",
-        "low": "Dependencia operativa. Requiere validación constante y directrices claras para avanzar."
-    },
-    "achievement": {
-        "high": "Nivel alto. Clara orientación a resultados y estándares de excelencia. Prioriza la finalización de tareas.",
-        "low": "Baja orientación a resultados. Puede diluirse en procesos sin cerrar etapas críticas."
-    },
-    "risk_propensity": {
-        "high": "Alta tolerancia al riesgo. Disposición a actuar en escenarios de incertidumbre financiera u operativa.",
-        "low": "Perfil conservador. Prioriza la seguridad. Puede incurrir en costes de oportunidad por falta de decisión."
-    },
-    "ambiguity_tolerance": {
-        "high": "Alta capacidad de gestión del caos. Opera con confort sin tener toda la información disponible.",
-        "low": "Nivel medio-bajo. Requiere información estructurada antes de proceder. En fases iniciales deriva en retrasos."
-    },
-    "innovativeness": {
-        "high": "Perfil disruptivo. Tendencia a generar nuevos enfoques y modelos de negocio.",
-        "low": "Nivel medio. Tiende a la optimización de procesos existentes más que a la disrupción creativa."
-    },
-    "locus_control": {
-        "high": "Locus Interno fuerte. Asume la responsabilidad de los resultados y cree en su capacidad de influir.",
-        "low": "Tendencia a atribuir resultados a factores externos. Puede reducir la proactividad correctiva."
-    },
-    "self_efficacy": {
-        "high": "Confianza sólida en las propias capacidades técnicas y de gestión.",
-        "low": "Dudas sobre la propia capacidad que pueden llevar a la parálisis por análisis."
-    }
+    "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
+    "autonomy": { "high": "Puntuación muy alta. Fuerte independencia operativa.", "low": "Dependencia operativa. Requiere validación constante." },
+    "achievement": { "high": "Nivel alto. Clara orientación a resultados.", "low": "Baja orientación a resultados." },
+    "risk_propensity": { "high": "Alta tolerancia al riesgo.", "low": "Perfil conservador. Prioriza la seguridad." },
+    "ambiguity_tolerance": { "high": "Alta capacidad de gestión del caos.", "low": "Nivel medio-bajo. Requiere información estructurada." },
+    "innovativeness": { "high": "Perfil disruptivo.", "low": "Nivel medio. Tiende a la optimización de procesos." },
+    "locus_control": { "high": "Locus Interno fuerte.", "low": "Tendencia a atribuir resultados a factores externos." },
+    "self_efficacy": { "high": "Confianza sólida en las propias capacidades.", "low": "Dudas sobre la propia capacidad." }
 }
 
-VARIABLE_MAP = {
-    "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity",
-    "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control",
-    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy",
-    "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance",
-    "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", 
-    "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", 
-    "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent"
-}
-
-SECTOR_MAP = {
-    "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA",
-    "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA",
-    "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA"
-}
+VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
+SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA" }
 
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
 def init_session():
     if 'octagon' not in st.session_state:
         st.session_state.octagon = {k: 50 for k in LABELS_ES.keys()}
         st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
-        st.session_state.current_step = 0
-        st.session_state.finished = False
-        st.session_state.started = False 
-        st.session_state.data_verified = False
-        st.session_state.data = []
-        st.session_state.user_id = generate_id()
-        st.session_state.user_data = {}
+        st.session_state.current_step = 0; st.session_state.finished = False; st.session_state.started = False; st.session_state.data_verified = False; st.session_state.data = []; st.session_state.user_id = generate_id(); st.session_state.user_data = {}
 
 def load_questions():
     try:
@@ -229,258 +133,95 @@ def parse_logic(logic_str):
         except: continue
         target = VARIABLE_MAP.get(var_code)
         if target:
-            if target in st.session_state.octagon:
-                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
-            elif target in st.session_state.flags:
-                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
+            if target in st.session_state.octagon: st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
+            elif target in st.session_state.flags: st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
 def calculate_results():
     o, f = st.session_state.octagon, st.session_state.flags
     avg = sum(o.values()) / 8
     friction = sum(f.values()) * 0.5
     triggers = []
-    
     friction_reasons = []
     if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica sobre velocidad.")
     if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Tendencia a buscar confirmación externa.")
     if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar ante datos negativos.")
-    
     if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
     if f["arrogant"] > 25: triggers.append("Estilo Dominante / Rigidez Potencial")
     if f["passive_aggressive"] > 20: triggers.append("Fricción Relacional Latente")
     if o["achievement"] > 85 and o["emotional_stability"] < 40: triggers.append("Riesgo de Agotamiento Operativo (Burnout)")
     if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("Perfil de Riesgo Desmedido")
-    
     ire = max(0, min(100, avg - (friction * 0.8) - (len(triggers) * 3)))
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR ---
+# --- PDF HELPERS ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
     lines = []
     current_line = []
-    
     for word in words:
         current_line.append(word)
         width = c.stringWidth(" ".join(current_line), font_name, font_size)
-        if width > max_width:
-            current_line.pop()
-            lines.append(" ".join(current_line))
-            current_line = [word]
+        if width > max_width: current_line.pop(); lines.append(" ".join(current_line)); current_line = [word]
     lines.append(" ".join(current_line))
-    
-    for line in lines:
-        c.drawString(x, y, line)
-        y -= line_spacing
+    for line in lines: c.drawString(x, y, line); y -= line_spacing
     return y 
 
 def draw_pdf_header(p, w, h):
-    # Cabecera Azul Sólida
-    p.setFillColorRGB(0.02, 0.04, 0.12) # Navy
-    p.rect(0, h-120, w, 120, fill=1, stroke=0)
-    
-    # Recuadro Blanco para Logo (Izquierda)
-    p.setFillColorRGB(1, 1, 1)
-    p.rect(30, h-100, 160, 80, fill=1, stroke=0)
-    
-    # Logo
+    p.setFillColorRGB(0.02, 0.04, 0.12); p.rect(0, h-120, w, 120, fill=1, stroke=0)
+    p.setFillColorRGB(1, 1, 1); p.rect(30, h-100, 160, 80, fill=1, stroke=0)
     if os.path.exists("logo_original.png"):
-        try:
-            img = ImageReader("logo_original.png")
-            p.drawImage(img, 40, h-95, width=140, height=70, preserveAspectRatio=True, mask='auto')
+        try: img = ImageReader("logo_original.png"); p.drawImage(img, 40, h-95, width=140, height=70, preserveAspectRatio=True, mask='auto')
         except: pass
-    
-    # Título (Derecha)
-    p.setFillColorRGB(1, 1, 1)
-    p.setFont("Helvetica-Bold", 18)
-    p.drawRightString(w-30, h-50, "INFORME TÉCNICO S.A.P.E.")
-    p.setFont("Helvetica", 10)
-    p.drawRightString(w-30, h-65, "Sistema de Análisis de la Personalidad Emprendedora")
+    p.setFillColorRGB(1, 1, 1); p.setFont("Helvetica-Bold", 18); p.drawRightString(w-30, h-50, "INFORME TÉCNICO S.A.P.E."); p.setFont("Helvetica", 10); p.drawRightString(w-30, h-65, "Sistema de Análisis de la Personalidad Emprendedora")
 
 def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    w, h = A4
-    
-    # PÁGINA 1
+    buffer = io.BytesIO(); p = canvas.Canvas(buffer, pagesize=A4); w, h = A4
     draw_pdf_header(p, w, h)
+    y_start = h - 160; p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y_start, f"ID Usuario: {st.session_state.user_id}"); p.drawString(200, y_start, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}"); p.drawString(400, y_start, f"Sector: {user.get('sector', 'N/A')}")
+    y = y_start - 40; p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "1. Métricas Principales"); p.line(40, y-5, w-40, y-5); y -= 30
     
-    # Datos
-    y_start = h - 160
-    p.setFillColorRGB(0,0,0)
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y_start, f"ID Usuario: {st.session_state.user_id}")
-    p.drawString(200, y_start, f"Fecha de Análisis: {datetime.now().strftime('%d/%m/%Y')}")
-    p.drawString(400, y_start, f"Sector: {user.get('sector', 'N/A')}")
+    def print_metric(label, val, desc): nonlocal y; p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"{label} ({val} / 100):"); p.setFont("Helvetica", 10); p.drawString(190, y, desc); y -= 25
     
-    y = y_start - 40
-    
-    # 1. Métricas
-    p.setFont("Helvetica-Bold", 12)
-    p.setFillColorRGB(0.02, 0.04, 0.12)
-    p.drawString(40, y, "1. Métricas Principales")
-    p.line(40, y-5, w-40, y-5)
-    y -= 30
-    
-    def print_metric(label, val, desc):
-        nonlocal y
-        p.setFont("Helvetica-Bold", 10)
-        p.drawString(50, y, f"{label} ({val} / 100):")
-        p.setFont("Helvetica", 10)
-        p.drawString(190, y, desc)
-        y -= 25
-
     print_metric("POTENCIAL", avg, get_potential_text(avg))
     print_metric("FRICCIÓN", friction, get_friction_text(friction))
     print_metric("IRE FINAL", ire, get_ire_text(ire))
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"DELTA ({delta}):"); p.setFont("Helvetica", 10); p.drawString(190, y, "Pérdida de eficiencia por fricción operativa."); y -= 40
     
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(50, y, f"DELTA ({delta}):")
-    p.setFont("Helvetica", 10)
-    p.drawString(190, y, "Pérdida de eficiencia por fricción operativa.")
-    y -= 40
-
-    # 2. Análisis Dimensional
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y, "2. Análisis Dimensional (Perfil Competencial)")
-    p.line(40, y-5, w-40, y-5)
-    y -= 30
-    
+    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. Análisis Dimensional"); p.line(40, y-5, w-40, y-5); y -= 30
     sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
-    top_3 = sorted_stats[:3]
-    low_3 = sorted_stats[-3:]
-
     for k, v in stats.items():
-        label = LABELS_ES.get(k, k)
-        p.setFont("Helvetica-Bold", 9)
-        p.setFillColorRGB(0,0,0)
-        p.drawString(50, y, label)
-        
-        p.setFillColorRGB(0.9, 0.9, 0.9)
-        p.rect(250, y, 200, 8, fill=1, stroke=0)
-        
-        bar_len = (v/100)*200
-        if v <= 75:
-            p.setFillColorRGB(0.2, 0.6, 0.4)
-            p.rect(250, y, bar_len, 8, fill=1, stroke=0)
-        else:
-            safe_len = (75/100)*200
-            excess_len = bar_len - safe_len
-            p.setFillColorRGB(0.2, 0.6, 0.4)
-            p.rect(250, y, safe_len, 8, fill=1, stroke=0)
-            p.setFillColorRGB(0.8, 0.2, 0.2)
-            p.rect(250 + safe_len, y, excess_len, 8, fill=1, stroke=0)
-        
-        p.setFillColorRGB(0,0,0)
-        p.drawString(460, y, str(round(v, 1)))
-        y -= 15
-    
-    y -= 15
-    
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y, "Fortalezas Consolidadas")
-    y -= 15
-    p.setFont("Helvetica", 9)
-    for i, (k, v) in enumerate(top_3):
-        title = LABELS_ES.get(k)
-        raw_text = NARRATIVES_DB.get(k, {}).get("high", "Desempeño destacado.")
-        text_line = f"{i+1}. {title} ({round(v)}/100): {raw_text}"
-        y = draw_wrapped_text(p, text_line, 50, y, 480, "Helvetica", 9)
-        y -= 5
-
+        p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0,0,0); p.drawString(50, y, LABELS_ES.get(k, k)); p.setFillColorRGB(0.9, 0.9, 0.9); p.rect(250, y, 200, 8, fill=1, stroke=0); bar_len = (v/100)*200
+        if v <= 75: p.setFillColorRGB(0.2, 0.6, 0.4); p.rect(250, y, bar_len, 8, fill=1, stroke=0)
+        else: safe = (75/100)*200; exc = bar_len - safe; p.setFillColorRGB(0.2, 0.6, 0.4); p.rect(250, y, safe, 8, fill=1, stroke=0); p.setFillColorRGB(0.8, 0.2, 0.2); p.rect(250 + safe, y, exc, 8, fill=1, stroke=0)
+        p.setFillColorRGB(0,0,0); p.drawString(460, y, str(round(v, 1))); y -= 15
+    y -= 15; p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Fortalezas"); y -= 15; p.setFont("Helvetica", 9)
+    for i, (k, v) in enumerate(sorted_stats[:3]): y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get('high', '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 10
-    
-    if y < 150:
-        p.showPage()
-        draw_pdf_header(p, w, h)
-        y = h - 160
-    
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y, "Áreas de Desarrollo")
-    y -= 15
-    p.setFont("Helvetica", 9)
-    for i, (k, v) in enumerate(low_3):
-        title = LABELS_ES.get(k)
-        mode = "low" if v < 60 else "high"
-        raw_text = NARRATIVES_DB.get(k, {}).get(mode, "Requiere atención.")
-        text_line = f"{i+1}. {title} ({round(v)}/100): {raw_text}"
-        y = draw_wrapped_text(p, text_line, 50, y, 480, "Helvetica", 9)
-        y -= 5
-
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Áreas de Desarrollo"); y -= 15; p.setFont("Helvetica", 9)
+    for i, (k, v) in enumerate(sorted_stats[-3:]): mode = "low" if v < 60 else "high"; y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get(mode, '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 30
-    
-    if y < 150:
-        p.showPage()
-        draw_pdf_header(p, w, h)
-        y = h - 160
-
-    # 3. Fricción
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y, "3. Análisis de la Fricción")
-    p.line(40, y-5, w-40, y-5)
-    y -= 30
-    p.setFont("Helvetica", 9)
-    if friction_reasons:
-        for reason in friction_reasons:
-            p.drawString(50, y, f"• {reason}")
-            y -= 15
-    else:
-        p.drawString(50, y, "• No se detectan patrones de fricción significativos.")
-        y -= 15
-
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Fricción"); p.line(40, y-5, w-40, y-5); y -= 30; p.setFont("Helvetica", 9)
+    if friction_reasons: 
+        for r in friction_reasons: p.drawString(50, y, f"• {r}"); y -= 15
+    else: p.drawString(50, y, "• Sin fricción significativa.")
     y -= 20
-    
-    if y < 100:
-        p.showPage()
-        draw_pdf_header(p, w, h)
-        y = h - 160
+    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión"); p.line(40, y-5, w-40, y-5); y -= 30
+    y = draw_wrapped_text(p, f"El perfil es técnicamente viable. Delta de eficiencia: {delta}.", 40, y, 480, "Helvetica", 9); y -= 10
+    p.setFont("Helvetica-Bold", 9); p.drawString(40, y, "Recomendación:"); y -= 15
+    y = draw_wrapped_text(p, "Reducir tiempos de deliberación y comprobaciones redundantes.", 40, y, 480, "Helvetica", 9)
+    p.showPage(); p.save(); buffer.seek(0); return buffer
 
-    # 4. Conclusión
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y, "4. Conclusión y Recomendación")
-    p.line(40, y-5, w-40, y-5)
-    y -= 30
-    
-    concl = f"El perfil es técnicamente viable. La discrepancia entre Potencial ({avg}) e IRE ({ire}) marca el margen de mejora (Delta: {delta})."
-    y = draw_wrapped_text(p, concl, 40, y, 480, "Helvetica", 9)
-    y -= 10
-    p.setFont("Helvetica-Bold", 9)
-    p.drawString(40, y, "Recomendación:")
-    y -= 15
-    rec_text = "Se recomienda trabajar en la reducción de tiempos de deliberación y aumentar la velocidad de decisión, reduciendo las comprobaciones de seguridad redundantes."
-    y = draw_wrapped_text(p, rec_text, 40, y, 480, "Helvetica", 9)
-
-    p.showPage()
-    p.save()
-    buffer.seek(0)
-    return buffer
-
-def get_ire_text(score):
-    if score > 75: return "Nivel positivo. Rango de alta sostenibilidad."
-    if score > 50: return "Nivel medio. Viable pero con coste operativo."
-    return "Nivel comprometido. Riesgos de continuidad."
-
-def get_potential_text(score):
-    if score > 75: return "Nivel Notable."
-    if score > 50: return "Nivel Medio."
-    return "Nivel Bajo."
-
-def get_friction_text(score):
-    if score < 20: return "Nivel bajo. Resistencia mínima."
-    if score < 40: return "Nivel medio. Bloqueos moderados."
-    return "Nivel alto. Importante coste operativo."
-
-def get_risk_text(triggers):
-    if not triggers: return "No se detectan indicadores críticos."
-    return "Patrones detectados:"
-
+def get_ire_text(s): return "Nivel positivo." if s > 75 else "Nivel medio." if s > 50 else "Nivel comprometido."
+def get_potential_text(s): return "Nivel Notable." if s > 75 else "Nivel Medio." if s > 50 else "Nivel Bajo."
+def get_friction_text(s): return "Nivel bajo." if s < 20 else "Nivel medio." if s < 40 else "Nivel alto."
 def radar_chart():
-    data = st.session_state.octagon
-    cat = [LABELS_ES.get(k) for k in data.keys()]
-    val = list(data.values())
-    cat += [cat[0]]; val += [val[0]]
+    data = st.session_state.octagon; cat = [LABELS_ES.get(k) for k in data.keys()]; val = list(data.values()); cat += [cat[0]]; val += [val[0]]
     fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
@@ -490,29 +231,34 @@ init_session()
 
 # LOGIN
 if not st.session_state.get("auth", False):
-    # Contenedor FLEX para centrar sin scroll
-    st.markdown("""
-        <div class="login-container">
-            <div class="login-card">
-    """, unsafe_allow_html=True)
+    # ESTRUCTURA DE COLUMNAS PURA (Como en el ejemplo antiguo que funcionaba)
+    # Sin Flexbox, sin contenedores raros. Solo columnas y st.image.
     
-    # 1. Logo
-    if os.path.exists("logo_original.png"):
-        st.image("logo_original.png", width=250)
+    # 1. Espaciador arriba (opcional, o dejar que el padding-top haga su trabajo)
+    st.write("") 
     
-    # 2. Título
-    st.markdown("<h3>Audeo | Simulador S.A.P.E.</h3>", unsafe_allow_html=True)
-    st.markdown("<p>Acceso Corporativo Seguro</p>", unsafe_allow_html=True)
-    
-    pwd = st.text_input("Clave de acceso", type="password")
-    if st.button("ENTRAR AL SISTEMA", use_container_width=True):
-        if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
-        else: st.error("Acceso denegado")
-        
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    # 2. LOGO GIGANTE ARRIBA (Sustituyendo el recuadro fantasma)
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    with col_l2:
+        if os.path.exists("logo_original.png"):
+            st.image("logo_original.png", use_container_width=True)
+        else:
+            st.header("AUDEO")
+
+    # 3. TARJETA LOGIN
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown("<h3>Simulador S.A.P.E.</h3>", unsafe_allow_html=True)
+        st.markdown("<p>Acceso Corporativo Seguro</p>", unsafe_allow_html=True)
+        pwd = st.text_input("Clave de acceso", type="password")
+        if st.button("ENTRAR", use_container_width=True):
+            if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
+            else: st.error("Acceso denegado")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- HEADER GLOBAL EN CADA PÁGINA (LOGO BLANCO IZQ - TEXTO GRANDE DER) ---
+# --- HEADER GLOBAL (Para todas las páginas internas) ---
 c1, c2 = st.columns([1, 4])
 with c1:
     if os.path.exists("logo_blanco.png"):
@@ -524,158 +270,74 @@ st.markdown("---")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
-    st.markdown("#### 1. Identificación del/a Candidato/a")
-    col1, col2 = st.columns(2)
-    name = col1.text_input("Nombre Completo")
-    age = col2.number_input("Edad", min_value=18, max_value=99, value=None, placeholder="--")
-    
-    col3, col4 = st.columns(2)
-    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
-    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"])
-    
-    col5, col6 = st.columns(2)
-    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
-    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"])
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-    st.markdown('<a href="https://www.audeo.es/privacidad" target="_blank" style="color:#5D5FEF;">📄 Ver Documento de Protección de Datos</a>', unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="validate-btn">', unsafe_allow_html=True)
-    if st.button("🔐 VALIDAR DATOS Y CONTINUAR"):
-        if name and age and consent:
-            st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
-            st.session_state.data_verified = True
-            st.rerun()
-        else:
-            st.error("Por favor, completa los campos obligatorios.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("#### 1. Identificación")
+    col1, col2 = st.columns(2); name = col1.text_input("Nombre"); age = col2.number_input("Edad", 18, 99)
+    col3, col4 = st.columns(2); gender = col3.selectbox("Género", ["Masculino", "Femenino"]); country = col4.selectbox("País", ["España", "LATAM", "Otros"])
+    col5, col6 = st.columns(2); situation = col5.selectbox("Situación", ["Solo", "Socios"]); experience = col6.selectbox("Experiencia", ["Primera", "Con éxito", "Sin éxito"])
+    consent = st.checkbox("Acepto Política de Privacidad.")
+    if st.button("VALIDAR"):
+        if name and age and consent: st.session_state.user_data = {"name": name, "sector": ""}; st.session_state.data_verified = True; st.rerun()
+        else: st.error("Faltan datos.")
 
 # FASE 2: SECTOR
 elif not st.session_state.started:
-    st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+    # CSS específico para botones grandes aquí
+    st.markdown("<style>div[data-testid='column'] button {height: 150px !important; font-size: 1.3rem !important; font-weight: bold !important; background-color: #0F1629; color: white; border: 2px solid #2D3748; border-radius: 15px;}</style>", unsafe_allow_html=True)
     
-    def go_sector(sec):
-        all_q = load_questions()
-        code = SECTOR_MAP[sec]
+    st.markdown("#### 2. Selecciona Sector")
+    def go(sec):
+        all_q = load_questions(); code = SECTOR_MAP[sec]
         qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
-        if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
-        st.session_state.data = qs
-        st.session_state.user_data["sector"] = sec
-        st.session_state.started = True
-        st.rerun()
+        st.session_state.data = qs if qs else [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
+        st.session_state.user_data["sector"] = sec; st.session_state.started = True; st.rerun()
 
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("Startup Tecnológica"): go("Startup Tecnológica (Scalable)")
+    with c2: 
+        if st.button("Consultoría"): go("Consultoría / Servicios Profesionales")
     with c3: 
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("PYME"): go("Pequeña y Mediana Empresa (PYME)")
     with c4: 
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Hostelería"): go("Hostelería y Restauración")
     
     c5, c6, c7, c8 = st.columns(4)
-    with c5:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c6:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c7:
-        st.markdown('<div class="sector-btn">', unsafe_allow_html=True)
-        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-        st.markdown('</div>', unsafe_allow_html=True)
+    with c5: 
+        if st.button("Freelance"): go("Autoempleo / Freelance")
+    with c6: 
+        if st.button("Social"): go("Emprendimiento Social")
+    with c7: 
+        if st.button("Intraemprendimiento"): go("Intraemprendimiento")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
-    
     st.markdown(f"### {row['TITULO']}")
-    
-    c_text, c_opt = st.columns([1.5, 1])
-    with c_text:
-        st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
-    with c_opt:
-        st.markdown("#### Tu decisión:")
+    c1, c2 = st.columns([1.5, 1])
+    with c1: st.markdown(f'<div class="diag-text"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
+    with c2:
         step = st.session_state.current_step
-        
-        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
-            parse_logic(row.get('OPCION_A_LOGIC'))
-            st.session_state.current_step += 1
-            if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
-            st.rerun()
-            
-        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True):
-            parse_logic(row.get('OPCION_B_LOGIC'))
-            st.session_state.current_step += 1
-            if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
-            st.rerun()
-            
-        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
-            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_C_LOGIC'))
-                st.session_state.current_step += 1
-                if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
-                st.rerun()
-        
-        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None" and row.get('OPCION_D_TXT') != "":
-            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_D_LOGIC'))
-                st.session_state.current_step += 1
-                if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True
-                st.rerun()
+        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}"): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}"): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None": 
+            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}"): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None": 
+            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}"): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
 
 # FASE 4: RESULTADOS
 else:
-    ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
-    
+    ire, avg, friction, triggers, friction_reasons, delta = calculate_results()
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
-    
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Índice IRE", f"{ire}/100")
-    k2.metric("Potencial", f"{avg}/100")
-    k3.metric("Fricción", friction, delta_color="inverse")
-    
-    c_chart, c_desc = st.columns([1, 1])
-    with c_chart:
-        st.plotly_chart(radar_chart(), use_container_width=True)
-    with c_desc:
-        st.markdown("### Diagnóstico")
+    k1, k2, k3 = st.columns(3); k1.metric("IRE", f"{ire}/100"); k2.metric("Potencial", f"{avg}/100"); k3.metric("Fricción", friction)
+    c1, c2 = st.columns([1, 1])
+    with c1: st.plotly_chart(radar_chart(), use_container_width=True)
+    with c2: 
         st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if triggers:
-             st.error("Alertas: " + ", ".join(triggers))
-        else:
-             st.success("Perfil sin alertas críticas.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
+        if triggers: st.error("Alertas: " + ", ".join(triggers))
+        else: st.success("Sin alertas.")
     
-    # PDF
-    pdf_bytes = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
-    
-    st.download_button(
-        label="📥 DESCARGAR INFORME COMPLETO (PDF)",
-        data=pdf_bytes,
-        file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
-    
-    if st.button("Reiniciar"):
-        st.session_state.clear()
-        st.rerun()
+    pdf = create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, st.session_state.user_data, st.session_state.octagon)
+    st.download_button("📥 DESCARGAR INFORME (PDF)", pdf, f"Informe_{st.session_state.user_id}.pdf", "application/pdf", use_container_width=True)
+    if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
