@@ -15,39 +15,37 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "CAMUFLAJE" (SOLUCIÓN AL RECUADRO BLANCO) ---
+# --- 2. CSS AJUSTADO (Muestra el Logo, Oculta el Header Nativo) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. CAMUFLAR EL HEADER NATIVO (Hacerlo del color del fondo) */
+        /* 1. Ocultar la barra superior nativa de Streamlit y la línea de colores */
         header, [data-testid="stHeader"], .stAppHeader { 
-            background-color: #050A1F !important; /* Mismo color que el fondo */
-            border-bottom: none !important;
+            display: none !important; 
+            visibility: hidden !important;
+        }
+        div[data-testid="stDecoration"] { 
+            display: none !important; 
         }
         
-        /* Ocultar la barra de decoración de colores */
-        div[data-testid="stDecoration"] { 
-            visibility: hidden !important; 
-            height: 0px !important;
-        }
-
-        /* 2. SUBIR EL CONTENIDO (Pegado arriba) */
+        /* 2. Ajuste del Contenedor Principal */
+        /* Dejamos un padding-top positivo para que el logo NO se salga por arriba */
         .main .block-container { 
-            padding-top: 2rem !important; 
+            padding-top: 3rem !important; 
+            padding-bottom: 1rem !important;
             margin-top: 0 !important;
             max-width: 95% !important;
         }
 
-        /* FONDO GLOBAL */
+        /* FONDO GLOBAL AZUL NAVY */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
-        html, body { background-color: #050A1F !important; }
         
         /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #FFFFFF !important; 
         }
 
-        /* INPUTS */
+        /* INPUTS (Fondo oscuro, borde azul) */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
             background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
         }
@@ -60,32 +58,33 @@ def local_css():
         }
         .stButton > button:hover { background-color: #5D5FEF !important; border-color: #FFFFFF !important; }
         
-        /* LOGIN CARD (Blanca) */
+        /* TARJETA DE LOGIN (Blanca) */
         .login-card { 
             background-color: white; 
             padding: 3rem; 
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            margin-top: 20px;
+            margin-top: 10px;
         }
+        /* Texto negro DENTRO de la tarjeta de login */
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
-        /* HEADER INTERNO (Logo Izq + Texto Der) */
+        /* HEADER INTERNO (Páginas de dentro) */
         .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
         .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
-        /* RESULTADOS */
+        /* RESULTADOS (Cajas con borde azul) */
         .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
         .diag-text p { color: #E2E8F0 !important; margin: 0; }
         
-        /* BOTÓN DESCARGA */
+        /* BOTÓN DE DESCARGA PDF */
         .stDownloadButton > button {
             background-color: #5D5FEF !important; color: white !important; border: 1px solid white !important; font-weight: bold !important;
         }
         
-        /* SECTORES GIGANTES */
+        /* BOTONES DE SECTOR GIGANTES */
         div[data-testid="column"] button {
              width: 100% !important; border: 2px solid #2D3748 !important; background-color: #0F1629 !important; color: white !important; border-radius: 15px !important;
         }
@@ -94,7 +93,7 @@ def local_css():
 
 local_css()
 
-# --- 3. LÓGICA ---
+# --- 3. LÓGICA DE NEGOCIO ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -154,7 +153,7 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF HELPERS ---
+# --- GENERADOR DE PDF ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -225,13 +224,12 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN RENDERIZADO HEADER WEB (Logo + Texto) ---
+# --- FUNCIÓN RENDERIZADO HEADER WEB ---
 def render_header():
     # Logo blanco a la izquierda, Título grande a la derecha
     c1, c2 = st.columns([1, 4])
     with c1:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
+        st.image("logo_blanco.png", use_container_width=True)
     with c2:
         st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
@@ -242,16 +240,17 @@ init_session()
 
 # LOGIN
 if not st.session_state.get("auth", False):
-    # 1. LOGO GRANDE CENTRADO (En la zona superior, sobre el fondo azul)
-    # Usamos logo_blanco.png para que contraste con el fondo azul oscuro que ahora cubre todo
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
-        else:
-            st.header("AUDEO")
+    
+    # 1. LOGO GIGANTE ARRIBA (Tapando hueco)
+    # Importante: Usamos logo_blanco.png porque el fondo ahora es azul completo
+    # Si quieres el logo original, tiene que ser sobre fondo blanco.
+    # Pero si el recuadro blanco sigue saliendo, ponemos el logo_original justo ahí.
+    c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
+    with c_l2:
+        # Aquí fuerzo el logo original para que destaque
+        st.image("logo_original.png", use_container_width=True)
 
-    # 2. TARJETA LOGIN (Debajo del logo)
+    # 2. TARJETA LOGIN
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
