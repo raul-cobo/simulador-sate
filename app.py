@@ -15,24 +15,26 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "FUERZA BRUTA" (TAPAR HUECOS) ---
+# --- 2. CSS "CAMUFLAJE" (TIÑE EL FANTASMA DE AZUL) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. OCULTAR TODOS LOS ELEMENTOS SUPERIORES DE STREAMLIT */
-        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
-        div[data-testid="stDecoration"] { display: none !important; } /* La barrita de colores */
+        /* 1. TEÑIR LA BARRA SUPERIOR DE NAVY (Para que el "fantasma" sea invisible) */
+        header, [data-testid="stHeader"], .stAppHeader { 
+            background-color: #050A1F !important;
+            border-bottom: none !important;
+        }
         
-        /* 2. FORZAR AL CONTENIDO A SUBIR AL TECHO (Margen Negativo) */
+        /* 2. AJUSTAR MÁRGENES PARA SUBIR EL LOGO */
         .main .block-container { 
-            padding-top: 0rem !important; 
-            margin-top: -60px !important; /* SUBIMOS TODO 60px PARA TAPAR EL HUECO */
+            padding-top: 2rem !important; 
+            padding-bottom: 1rem !important;
+            margin-top: 0 !important;
             max-width: 95% !important;
         }
 
         /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
-        html, body { background-color: #050A1F !important; } /* Parche para bordes blancos */
         
         /* TEXTOS BLANCOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -52,19 +54,19 @@ def local_css():
         }
         .stButton > button:hover { background-color: #5D5FEF !important; border-color: #FFFFFF !important; }
         
-        /* LOGIN CARD */
+        /* LOGIN CARD (Ahora debajo del logo) */
         .login-card { 
             background-color: white; 
             padding: 3rem; 
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            margin-top: 10px;
+            margin-top: 20px;
         }
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
-        /* HEADER INTERNO (LOGO IZQ - TEXTO DER) */
+        /* TEXTO HEADER (Páginas internas) */
         .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
         .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
@@ -235,17 +237,17 @@ init_session()
 # LOGIN
 if not st.session_state.get("auth", False):
     
-    # 1. LOGO GIGANTE ARRIBA (TAPANDO HUECOS)
-    # Centrado puro
+    # 1. LOGO GIGANTE ARRIBA (TAPANDO HUECOS - USAMOS EL BLANCO PARA QUE SE VEA EN AZUL)
+    # Si usamos logo_original (color) sobre azul navy se verá mal.
+    # Usaremos logo_blanco sobre el fondo azul para que presida el login.
     c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
     with c_l2:
-        if os.path.exists("logo_original.png"):
-            # Imagen grande
-            st.image("logo_original.png", use_container_width=True)
+        if os.path.exists("logo_blanco.png"):
+            st.image("logo_blanco.png", use_container_width=True)
         else:
             st.header("AUDEO")
 
-    # 2. TARJETA LOGIN (Debajo del logo)
+    # 2. TARJETA LOGIN
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
