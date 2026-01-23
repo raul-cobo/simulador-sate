@@ -15,71 +15,58 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "ANTI-SOMBRA" (MODO BLANCO LIMPIO) ---
+# --- 2. CSS "FLAT DESIGN" (CERO SOMBRAS, TODO BLANCO) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. ELIMINAR SOMBRA Y BORDES DEL HEADER (CRÍTICO) */
+        /* 1. ELIMINACIÓN TOTAL DE LA BARRA NATIVA */
         header, [data-testid="stHeader"], .stAppHeader { 
-            background-color: #FFFFFF !important; 
-            box-shadow: none !important; /* ADIÓS SOMBRA */
+            background-color: #FFFFFF !important;
+            box-shadow: none !important; /* IMPORTANTE: MATA LA SOMBRA SUPERIOR */
             border-bottom: none !important;
-            height: 3rem !important; /* Reducir altura */
+            height: 0px !important;
+            visibility: hidden !important;
         }
-        
-        /* Ocultar decoración de colores */
         div[data-testid="stDecoration"] { display: none !important; }
 
-        /* 2. FONDO BLANCO GLOBAL */
-        .stApp { 
-            background-color: #FFFFFF !important; 
-            color: #0E1117 !important;
-        }
-        
-        /* 3. SUBIR CONTENIDO */
-        .main .block-container { 
-            padding-top: 1rem !important; 
-            max-width: 95% !important;
-        }
-
-        /* TEXTOS */
+        /* 2. FONDO Y TEXTOS */
+        .stApp { background-color: #FFFFFF !important; color: #0E1117 !important; }
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #0E1117 !important; 
         }
 
-        /* INPUTS */
+        /* 3. INPUTS (Diseño plano) */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-            background-color: #F0F2F6 !important; 
+            background-color: #FAFAFA !important; 
             color: #000000 !important; 
-            border: 1px solid #E0E0E0 !important;
+            border: 1px solid #CCCCCC !important;
+            box-shadow: none !important;
         }
-        div[role="listbox"] div { 
-            background-color: #FFFFFF !important; 
-            color: #000000 !important; 
-        }
+        div[role="listbox"] div { background-color: #FFFFFF !important; color: #000000 !important; }
         .stCheckbox label p { color: #000000 !important; }
 
-        /* BOTONES (AZUL NAVY) */
+        /* 4. BOTONES (Azul Audeo Plano) */
         .stButton > button {
             background-color: #050A1F !important; 
             color: #FFFFFF !important; 
             border: none !important;
-            border-radius: 8px !important;
-            font-weight: bold !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            box-shadow: none !important;
         }
         .stButton > button:hover { 
             background-color: #5D5FEF !important; 
             color: #FFFFFF !important;
         }
         
-        /* LOGIN CARD */
+        /* 5. TARJETA DE LOGIN (SOLO BORDE, SIN SOMBRA) */
         .login-card { 
             background-color: #FFFFFF; 
             padding: 3rem; 
-            border-radius: 20px; 
+            border-radius: 12px; 
             text-align: center; 
-            border: 1px solid #F0F2F6; /* Borde sutil en vez de sombra fuerte */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05); /* Sombra muy suave */
+            border: 1px solid #E0E0E0; /* Borde sutil */
+            box-shadow: none !important; /* CERO SOMBRA */
             margin-top: 10px;
         }
         .login-card h3 { color: #050A1F !important; font-weight: bold; }
@@ -87,41 +74,36 @@ def local_css():
 
         /* HEADER INTERNO */
         .header-title-text { 
-            font-size: 2.2rem !important; 
-            font-weight: bold !important; 
-            margin: 0 !important; 
-            line-height: 1.2;
-            color: #050A1F !important; 
+            font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; color: #050A1F !important; 
         }
         .header-sub-text { 
-            font-size: 1.1rem !important; 
-            color: #5D5FEF !important; 
-            margin: 0 !important; 
+            font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; 
         }
 
         /* RESULTADOS */
         .diag-text { 
-            background-color: #F8F9FA; 
+            background-color: #F4F6F8; 
             padding: 15px; 
             border-radius: 8px; 
             border-left: 5px solid #050A1F; 
         }
         .diag-text p { color: #333 !important; margin: 0; }
         
-        /* BOTONES SECTOR */
+        /* BOTÓN DESCARGA */
+        .stDownloadButton > button {
+            background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; box-shadow: none !important;
+        }
+        
+        /* SECTORES */
         div[data-testid="column"] button {
-             width: 100% !important; 
-             border: 1px solid #E0E0E0 !important; 
-             background-color: #FFFFFF !important; 
-             color: #050A1F !important; 
-             border-radius: 15px !important;
-             box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+             width: 100% !important; border: 1px solid #CCCCCC !important; background-color: #FFFFFF !important; color: #050A1F !important; border-radius: 12px !important; box-shadow: none !important;
         }
         div[data-testid="column"] button:hover {
-             border-color: #5D5FEF !important;
-             background-color: #F0F2F6 !important;
-             transform: translateY(-2px);
+             border-color: #5D5FEF !important; background-color: #F0F2F6 !important;
         }
+        
+        /* AJUSTE DE MARGEN SUPERIOR PARA LOGO */
+        .main .block-container { padding-top: 1rem !important; max-width: 95% !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -275,8 +257,7 @@ init_session()
 # LOGIN
 if not st.session_state.get("auth", False):
     
-    # 1. LOGO GIGANTE ARRIBA (Centrado sobre fondo blanco)
-    # Al ser fondo blanco, el logo original queda perfecto.
+    # 1. LOGO GIGANTE ARRIBA (Color sobre fondo blanco)
     c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
     with c_l2:
         if os.path.exists("logo_original.png"):
