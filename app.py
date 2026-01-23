@@ -15,34 +15,39 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "MODO CLARO" (LIMPIO Y SIN ERRORES) ---
+# --- 2. CSS "ANTI-SOMBRA" (MODO BLANCO LIMPIO) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. FONDO BLANCO GLOBAL (El fantasma desaparece aquí) */
+        /* 1. ELIMINAR SOMBRA Y BORDES DEL HEADER (CRÍTICO) */
+        header, [data-testid="stHeader"], .stAppHeader { 
+            background-color: #FFFFFF !important; 
+            box-shadow: none !important; /* ADIÓS SOMBRA */
+            border-bottom: none !important;
+            height: 3rem !important; /* Reducir altura */
+        }
+        
+        /* Ocultar decoración de colores */
+        div[data-testid="stDecoration"] { display: none !important; }
+
+        /* 2. FONDO BLANCO GLOBAL */
         .stApp { 
             background-color: #FFFFFF !important; 
             color: #0E1117 !important;
         }
         
-        /* 2. OCULTAR ELEMENTOS NATIVOS MOLESTOS */
-        header, [data-testid="stHeader"], .stAppHeader { 
-            background-color: #FFFFFF !important; /* Si aparece, que sea blanco */
-        }
-        div[data-testid="stDecoration"] { display: none !important; }
-
-        /* 3. SUBIR CONTENIDO (Sin ser agresivo) */
+        /* 3. SUBIR CONTENIDO */
         .main .block-container { 
             padding-top: 1rem !important; 
             max-width: 95% !important;
         }
 
-        /* TEXTOS (Ahora Negros/Grises oscuros) */
+        /* TEXTOS */
         h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
             color: #0E1117 !important; 
         }
 
-        /* INPUTS (Fondo gris muy claro, texto negro) */
+        /* INPUTS */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
             background-color: #F0F2F6 !important; 
             color: #000000 !important; 
@@ -54,27 +59,27 @@ def local_css():
         }
         .stCheckbox label p { color: #000000 !important; }
 
-        /* BOTONES (Aquí mantenemos tu identidad AZUL NAVY) */
+        /* BOTONES (AZUL NAVY) */
         .stButton > button {
-            background-color: #050A1F !important; /* Navy */
+            background-color: #050A1F !important; 
             color: #FFFFFF !important; 
             border: none !important;
             border-radius: 8px !important;
             font-weight: bold !important;
         }
         .stButton > button:hover { 
-            background-color: #5D5FEF !important; /* Audeo Purple al pasar ratón */
+            background-color: #5D5FEF !important; 
             color: #FFFFFF !important;
         }
         
-        /* TARJETA DE LOGIN (Sombra suave para destacar sobre blanco) */
+        /* LOGIN CARD */
         .login-card { 
             background-color: #FFFFFF; 
             padding: 3rem; 
             border-radius: 20px; 
             text-align: center; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); /* Sombra elegante */
-            border: 1px solid #F0F2F6;
+            border: 1px solid #F0F2F6; /* Borde sutil en vez de sombra fuerte */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); /* Sombra muy suave */
             margin-top: 10px;
         }
         .login-card h3 { color: #050A1F !important; font-weight: bold; }
@@ -86,11 +91,11 @@ def local_css():
             font-weight: bold !important; 
             margin: 0 !important; 
             line-height: 1.2;
-            color: #050A1F !important; /* Título en Azul Navy */
+            color: #050A1F !important; 
         }
         .header-sub-text { 
             font-size: 1.1rem !important; 
-            color: #5D5FEF !important; /* Subtítulo en Púrpura */
+            color: #5D5FEF !important; 
             margin: 0 !important; 
         }
 
@@ -103,12 +108,12 @@ def local_css():
         }
         .diag-text p { color: #333 !important; margin: 0; }
         
-        /* BOTONES DE SECTOR GIGANTES */
+        /* BOTONES SECTOR */
         div[data-testid="column"] button {
              width: 100% !important; 
              border: 1px solid #E0E0E0 !important; 
              background-color: #FFFFFF !important; 
-             color: #050A1F !important; /* Texto Azul */
+             color: #050A1F !important; 
              border-radius: 15px !important;
              box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
         }
@@ -253,9 +258,8 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='black'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER WEB (Para páginas interiores) ---
+# --- FUNCIÓN HEADER WEB ---
 def render_header():
-    # En fondo blanco, usamos el logo original (colores)
     c1, c2 = st.columns([1, 4])
     with c1:
         if os.path.exists("logo_original.png"):
