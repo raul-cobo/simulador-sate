@@ -15,98 +15,105 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DINÁMICA DE ESTILOS (CLAVE DEL ÉXITO) ---
-def inject_style(mode):
-    """
-    Inyecta CSS diferente según el modo: 'light' (Login) o 'dark' (App Interna).
-    """
-    
-    # CSS COMÚN (Ocultar header nativo y footer)
-    common_css = """
-        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+# --- 2. CSS "FRANKENSTEIN PERFECTO" (Estructura TXT + Estética Navy) ---
+def local_css():
+    st.markdown("""
+    <style>
+        /* 1. ELIMINAR ELEMENTOS NATIVOS Y CAMUFLAJE */
+        header, [data-testid="stHeader"], .stAppHeader { 
+            background-color: #050A1F !important; /* CAMUFLAJE: Mismo color que el fondo */
+            border-bottom: none !important;
+        }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        .main .block-container { padding-top: 2rem !important; max-width: 90% !important; }
-    """
-    
-    if mode == "light":
-        # --- ESTILO PANTALLA DE LOGIN (FONDO BLANCO) ---
-        theme_css = """
-        /* Fondo Blanco */
-        .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
-        
-        /* Textos Negros */
-        h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { color: #000000 !important; }
-        
-        /* Inputs para fondo blanco */
-        .stTextInput input {
-            background-color: #F8F9FA !important;
-            color: #000000 !important;
-            border: 1px solid #CCCCCC !important;
-        }
-        
-        /* Botón Login (Azul Navy para contrastar) */
-        .stButton > button {
-            background-color: #050A1F !important;
-            color: white !important;
-            width: 100%;
-            border-radius: 8px;
-        }
-        
-        /* Tarjeta Invisible (Solo para centrar, sin bordes ni sombras) */
-        .login-container {
-            padding: 2rem;
-            margin-top: 50px;
-            text-align: center;
-        }
-        """
-    else:
-        # --- ESTILO APP INTERNA (FONDO AZUL NAVY) ---
-        theme_css = """
-        /* Fondo Azul Navy */
-        .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
-        
-        /* Textos Blancos */
-        h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
-        
-        /* Inputs para fondo oscuro */
-        .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-            background-color: #0F1629 !important;
+
+        /* 2. FONDO GLOBAL AZUL NAVY */
+        .stApp { 
+            background-color: #050A1F !important; 
             color: #FFFFFF !important;
+        }
+        
+        /* 3. MÁRGENES (Igual que el TXT que te gustó) */
+        .main .block-container { 
+            padding-top: 2rem !important; 
+            max-width: 90% !important;
+        }
+
+        /* 4. TIPOGRAFÍA BLANCA */
+        h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
+            color: #FFFFFF !important; 
+        }
+
+        /* 5. INPUTS (Oscuros) */
+        .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
+            background-color: #0F1629 !important; 
+            color: #FFFFFF !important; 
             border: 1px solid #5D5FEF !important;
         }
-        div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
-        
-        /* Botones Generales */
+        div[role="listbox"] div { background-color: #0F1629 !important; color: #FFFFFF !important; }
+        .stCheckbox label p { color: #FFFFFF !important; }
+
+        /* 6. BOTONES (Planos y Limpios) */
         .stButton > button {
-            background-color: #1A202C !important;
-            color: white !important;
+            background-color: #1A202C !important; 
+            color: #FFFFFF !important; 
             border: 1px solid #5D5FEF !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
         }
-        
-        /* Botones de Sector (Gigantes) */
+        .stButton > button:hover { 
+            background-color: #5D5FEF !important; 
+            border-color: #FFFFFF !important;
+        }
+
+        /* 7. ESTILOS ESPECÍFICOS TEXTOS LOGIN */
+        .login-title {
+            font-size: 2.5rem !important;
+            font-weight: 800 !important;
+            color: #FFFFFF !important;
+            text-align: center;
+            margin-bottom: 0 !important;
+            line-height: 1.1 !important;
+        }
+        .login-subtitle {
+            font-size: 1.2rem !important;
+            color: #5D5FEF !important;
+            text-align: center;
+            margin-top: 5px !important;
+            margin-bottom: 30px !important;
+        }
+
+        /* 8. HEADER INTERNO (Páginas de dentro) */
+        .header-title-text { 
+            font-size: 2rem !important; font-weight: bold !important; margin: 0 !important; color: #FFFFFF !important; 
+        }
+        .header-sub-text { 
+            font-size: 1rem !important; color: #5D5FEF !important; margin: 0 !important; 
+        }
+
+        /* 9. BOTONES GIGANTES SECTOR */
         div[data-testid="column"] button {
-             height: 150px !important;
+             height: 150px !important; 
              width: 100% !important;
-             background-color: #0F1629 !important;
-             border: 2px solid #2D3748 !important;
-             color: white !important;
+             background-color: #0F1629 !important; 
+             border: 2px solid #2D3748 !important; 
+             color: white !important; 
+             border-radius: 15px !important;
+             white-space: normal !important;
              font-size: 1.2rem !important;
-             border-radius: 12px !important;
-        }
-        div[data-testid="column"] button:hover {
-             border-color: #5D5FEF !important;
         }
         
-        /* Header Interno Texto */
-        .header-title-text { font-size: 2rem !important; font-weight: bold !important; color: white !important; margin: 0; }
-        .header-sub-text { font-size: 1rem !important; color: #5D5FEF !important; margin: 0; }
-        
-        /* Resultados */
+        /* 10. CAJAS RESULTADOS */
         .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
-        """
-    
-    st.markdown(f"<style>{common_css}{theme_css}</style>", unsafe_allow_html=True)
+        
+        /* 11. BOTÓN DESCARGA */
+        .stDownloadButton > button {
+            background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+local_css()
 
 # --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
@@ -168,7 +175,7 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR ---
+# --- PDF GENERATOR (VERSIÓN 9 - COMPLETA) ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -192,7 +199,7 @@ def draw_pdf_header(p, w, h):
 
 def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
     buffer = io.BytesIO(); p = canvas.Canvas(buffer, pagesize=A4); w, h = A4
-    draw_pdf_header(p, w, h) 
+    draw_pdf_header(p, w, h)
     y_start = h - 160; p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
     p.drawString(40, y_start, f"ID Usuario: {st.session_state.user_id}"); p.drawString(200, y_start, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}"); p.drawString(400, y_start, f"Sector: {user.get('sector', 'N/A')}")
     y = y_start - 40; p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "1. Métricas Principales"); p.line(40, y-5, w-40, y-5); y -= 30
@@ -213,17 +220,17 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     y -= 15; p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Fortalezas"); y -= 15; p.setFont("Helvetica", 9)
     for i, (k, v) in enumerate(sorted_stats[:3]): y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get('high', '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 10
-    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Áreas de Desarrollo"); y -= 15; p.setFont("Helvetica", 9)
     for i, (k, v) in enumerate(sorted_stats[-3:]): mode = "low" if v < 60 else "high"; y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get(mode, '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 30
-    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Fricción"); p.line(40, y-5, w-40, y-5); y -= 30; p.setFont("Helvetica", 9)
     if friction_reasons: 
         for r in friction_reasons: p.drawString(50, y, f"• {r}"); y -= 15
     else: p.drawString(50, y, "• Sin fricción significativa.")
     y -= 20
-    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
+    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión"); p.line(40, y-5, w-40, y-5); y -= 30
     y = draw_wrapped_text(p, f"El perfil es técnicamente viable. Delta de eficiencia: {delta}.", 40, y, 480, "Helvetica", 9); y -= 10
     p.setFont("Helvetica-Bold", 9); p.drawString(40, y, "Recomendación:"); y -= 15
@@ -239,7 +246,7 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN RENDERIZADO HEADER INTERNO (LOGO BLANCO) ---
+# --- FUNCIÓN HEADER INTERNO ---
 def render_header():
     c1, c2 = st.columns([1, 4])
     with c1:
@@ -253,28 +260,27 @@ def render_header():
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# PANTALLA 0: LOGIN (FONDO BLANCO, LOGO COLOR)
+# LOGIN (ESTRUCTURA TXT: COLUMNAS SIMPLES, SIN TARJETA FLOTANTE)
 if not st.session_state.get("auth", False):
-    inject_style("light") # INYECTA CSS BLANCO
     
-    # Espaciado
-    st.write("")
-    st.write("")
+    # Espaciado superior para que no quede pegado al techo
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Contenedor central
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # LOGO COLOR (ORIGINAL)
+        # 1. LOGO ORIGINAL (Centrado)
         if os.path.exists("logo_original.png"):
             st.image("logo_original.png", use_container_width=True)
-        
-        # TÍTULOS
-        st.markdown("<h2 style='text-align: center; color: #050A1F; margin: 0;'>Simulador S.A.P.E.</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #666;'>Sistema de Análisis de la Personalidad Emprendedora</p>", unsafe_allow_html=True)
+        else:
+            st.header("AUDEO")
+            
+        # 2. TÍTULOS
+        st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # INPUTS
+        # 3. INPUTS (Directamente en la columna, sin tarjeta rara)
         pwd = st.text_input("Clave de acceso", type="password")
         if st.button("ENTRAR AL SISTEMA", use_container_width=True):
             if pwd == st.secrets["general"]["password"]: 
@@ -282,11 +288,9 @@ if not st.session_state.get("auth", False):
                 st.rerun()
             else: 
                 st.error("Acceso denegado")
-                
     st.stop()
 
-# --- PANTALLAS INTERNAS (FONDO NAVY, LOGO BLANCO) ---
-inject_style("dark") # INYECTA CSS OSCURO
+# --- APP INTERNA ---
 render_header()
 
 # FASE 1: DATOS
