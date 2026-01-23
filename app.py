@@ -15,28 +15,32 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "NUCLEAR" (ELIMINA MÁRGENES) ---
+# --- 2. CSS "QUIRÚRGICO" (ELIMINA RECUADROS Y AJUSTA LOGOS) ---
 def local_css():
     st.markdown("""
     <style>
-        /* 1. OCULTAR HEADER NATIVO */
+        /* 1. OCULTAR HEADER NATIVO Y FORZAR FONDO OSCURO (Para evitar flash blanco) */
         header, [data-testid="stHeader"], .stAppHeader { 
             display: none !important; 
-            height: 0px !important;
-            visibility: hidden !important;
+            background-color: #050A1F !important;
         }
         
-        /* 2. ELIMINAR PADDING SUPERIOR (MATAR EL RECUADRO FANTASMA) */
+        /* 2. SUBIR CONTENIDO PARA TAPAR HUECOS */
         .main .block-container { 
-            padding-top: 1rem !important; /* Mínimo necesario */
+            padding-top: 1rem !important; 
             padding-bottom: 1rem !important;
-            margin-top: 0 !important;
+            margin-top: -50px !important; /* Truco para subir todo arriba del todo */
             max-width: 95% !important;
         }
 
-        /* ESTILOS GLOBALES */
+        /* FONDO GLOBAL */
         .stApp { background-color: #050A1F; color: #FFFFFF; }
-        h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
+        html, body { background-color: #050A1F !important; } /* Prevenir fondo blanco al cargar */
+        
+        /* TEXTOS BLANCOS */
+        h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
+            color: #FFFFFF !important; 
+        }
 
         /* INPUTS */
         .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
@@ -58,14 +62,14 @@ def local_css():
             border-radius: 20px; 
             text-align: center; 
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            margin-top: 10px;
+            margin-top: 20px;
         }
         .login-card h3, .login-card p, .login-card div, .login-card label { color: #000000 !important; }
         .login-card input { background-color: #f0f2f6 !important; color: #000000 !important; border: 1px solid #ccc !important; }
 
         /* TEXTO HEADER (Páginas internas) */
-        .header-text-title { font-size: 2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
-        .header-text-sub { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
+        .header-title-text { font-size: 2.2rem !important; font-weight: bold !important; margin: 0 !important; line-height: 1.2; }
+        .header-sub-text { font-size: 1.1rem !important; color: #5D5FEF !important; margin: 0 !important; }
 
         /* RESULTADOS */
         .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
@@ -74,6 +78,11 @@ def local_css():
         /* BOTÓN DESCARGA */
         .stDownloadButton > button {
             background-color: #5D5FEF !important; color: white !important; border: 1px solid white !important; font-weight: bold !important;
+        }
+        
+        /* SECTORES GIGANTES */
+        div[data-testid="column"] button {
+             width: 100% !important; border: 2px solid #2D3748 !important; background-color: #0F1629 !important; color: white !important; border-radius: 15px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -128,9 +137,9 @@ def calculate_results():
     friction = sum(f.values()) * 0.5
     triggers = []
     friction_reasons = []
-    if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica.")
-    if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Busca confirmación externa.")
-    if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar.")
+    if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica sobre velocidad.")
+    if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Tendencia a buscar confirmación externa.")
+    if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar ante datos negativos.")
     if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
     if f["arrogant"] > 25: triggers.append("Estilo Dominante")
     if f["passive_aggressive"] > 20: triggers.append("Fricción Relacional")
@@ -173,7 +182,7 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     print_metric("POTENCIAL", avg, get_potential_text(avg))
     print_metric("FRICCIÓN", friction, get_friction_text(friction))
     print_metric("IRE FINAL", ire, get_ire_text(ire))
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"DELTA ({delta}):"); p.setFont("Helvetica", 10); p.drawString(190, y, "Pérdida de eficiencia operativa."); y -= 40
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"DELTA ({delta}):"); p.setFont("Helvetica", 10); p.drawString(190, y, "Pérdida de eficiencia por fricción operativa."); y -= 40
     
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. Análisis Dimensional"); p.line(40, y-5, w-40, y-5); y -= 30
     sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
@@ -211,29 +220,17 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN RENDERIZADO HEADER WEB ---
-def render_header():
-    # Esta función se llama en CADA página para asegurar que el logo aparece
-    c1, c2 = st.columns([1, 4])
-    with c1:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
-    with c2:
-        st.markdown('<p class="header-text-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="header-text-sub">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
-    st.markdown("---")
-
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# LOGIN
+# LOGIN SCREEN
 if not st.session_state.get("auth", False):
-    # SIN FLEXBOX COMPLEJO, SOLO COLUMNAS Y MARGENES CERO
-    st.markdown("<br>", unsafe_allow_html=True) # Pequeño espacio
+    # ESTRUCTURA CLÁSICA DE COLUMNAS (MÁS SIMPLE = MENOS PROBLEMAS)
+    st.write("") # Espaciador mínimo
     
-    # 1. LOGO GRANDE ARRIBA (Tapa hueco)
-    c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
-    with c_l2:
+    # 1. LOGO GRANDE ARRIBA (Centrado)
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
         if os.path.exists("logo_original.png"):
             st.image("logo_original.png", use_container_width=True)
         else:
@@ -247,12 +244,19 @@ if not st.session_state.get("auth", False):
         pwd = st.text_input("Clave de acceso", type="password")
         if st.button("ENTRAR", use_container_width=True):
             if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
-            else: st.error("Error de acceso")
+            else: st.error("Error")
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- SI ESTAMOS LOGUEADOS, RENDERIZAMOS HEADER ---
-render_header()
+# --- HEADER GLOBAL EN CADA PÁGINA (LOGO BLANCO IZQ - TEXTO GRANDE DER) ---
+c1, c2 = st.columns([1, 4])
+with c1:
+    if os.path.exists("logo_blanco.png"):
+        st.image("logo_blanco.png", use_container_width=True)
+with c2:
+    st.markdown('<p class="header-text-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="header-text-sub">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+st.markdown("---")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
@@ -266,7 +270,6 @@ if not st.session_state.data_verified:
 
 # FASE 2: SECTOR
 elif not st.session_state.started:
-    # CSS específico para botones gigantes
     st.markdown("<style>div[data-testid='column'] button {height: 200px !important; font-size: 1.4rem !important; font-weight: bold !important; background-color: #0F1629; color: white; border: 2px solid #2D3748; border-radius: 15px;}</style>", unsafe_allow_html=True)
     st.markdown("#### 2. Selecciona Sector")
     def go(sec):
