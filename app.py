@@ -15,13 +15,14 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V27 - CAJAS IGUALES Y TEXTO GRANDE) ---
+# --- 2. GESTIÓN DE ESTILOS (V28 - RESPONSIVE / FLEXIBLE) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
+        /* Usamos porcentajes para el contenedor principal para que se adapte al ancho */
         .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
     """
     
@@ -68,35 +69,48 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* --- BOTONES SECTOR (FUERZA BRUTA PARA IGUALARLOS) --- */
+            /* --- BOTONES SECTOR RESPONSIVOS --- */
             div[data-testid="column"] button {
-                 height: 160px !important;       /* ALTURA FIJA OBLIGATORIA */
-                 min-height: 160px !important;
-                 max-height: 160px !important;
                  width: 100% !important;
+                 
+                 /* CLAVE PARA QUE NO PAREZCA UNA FOTO: Altura mínima, pero crece si hace falta */
+                 min-height: 150px !important; 
+                 height: auto !important; 
+                 
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  
                  /* TEXTO */
                  color: white !important;
-                 font-size: 24px !important;    /* TAMAÑO GRANDE FIJO */
+                 font-size: 1.5rem !important; /* Usamos REM para que escale con el zoom del navegador */
                  font-weight: 700 !important;
-                 line-height: 1.2 !important;
+                 line-height: 1.3 !important;
                  
-                 border-radius: 12px !important;
-                 white-space: normal !important; /* Permite saltos de linea */
+                 border-radius: 15px !important;
                  
-                 /* CENTRADO FLEX */
-                 display: flex !important;
-                 align-items: center !important;
-                 justify-content: center !important;
+                 /* GESTIÓN DE TEXTO */
+                 white-space: normal !important; /* Permite que el texto baje de línea */
+                 word-wrap: break-word !important;
+                 padding: 15px !important;       /* Relleno interno para que el texto no toque los bordes */
                  
+                 display: flex;
+                 align-items: center;
+                 justify-content: center;
                  margin-bottom: 15px !important;
             }
             div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
             
             /* HEADER */
-            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.0; }
+            .header-title-text { 
+                font-size: 3.5rem !important; 
+                font-weight: 800 !important; 
+                color: white !important; 
+                margin: 0; 
+                line-height: 1.1;
+                /* Hacemos que el título también sea responsive si la pantalla es pequeña */
+                max-width: 100%;
+                word-wrap: break-word;
+            }
             .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
@@ -163,7 +177,6 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -240,15 +253,19 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER GLOBAL (LOGO + TITULO GRANDE) ---
 def render_header():
-    # Logo 1.5 | Texto 6 (Más espacio para el texto grande)
     c1, c2 = st.columns([1.5, 6])
     with c1:
+        # LÓGICA INTELIGENTE PARA EL LOGO
         if os.path.exists("logo_blanco.png"):
             st.image("logo_blanco.png", use_container_width=True)
+        elif os.path.exists("logo_original.png"):
+            st.image("logo_original.png", use_container_width=True)
+        else:
+            # Si no hay logo, mostramos un texto de fallback para que no rompa
+            st.warning("Logo no encontrado")
+            
     with c2:
-        # Texto del título ajustado con margen superior
         st.markdown("""
             <div style="margin-top: 10px;">
                 <p class="header-title-text">Simulador S.A.P.E.</p>
@@ -285,24 +302,20 @@ inject_style("app")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
-    render_header() # <--- ESTA ES LA LÍNEA QUE FALTABA PARA QUE SALGA EL LOGO
-    
+    render_header()
     st.markdown("#### 1. Identificación del/a Candidato/a")
     col1, col2 = st.columns(2)
     name = col1.text_input("Nombre Completo", key="name_input")
     age = col2.number_input("Edad", 18, 99, key="age_input")
-    
     col3, col4 = st.columns(2)
     gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
     country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
-    
     col5, col6 = st.columns(2)
     situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
     experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
     
     st.markdown("<br>", unsafe_allow_html=True)
     consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-    
     if st.button("VALIDAR DATOS Y CONTINUAR"):
         if name and age and consent:
             st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
@@ -311,7 +324,7 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (2 COLUMNAS x 4 CAJAS)
+# FASE 2: SECTOR (2 COLUMNAS x 4 FILAS = 8 CAJAS RESPONSIVAS)
 elif not st.session_state.started:
     render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
@@ -326,21 +339,19 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # ESTRUCTURA 2 COLUMNAS
+    # 2 COLUMNAS
     c1, c2 = st.columns(2)
     
-    # Columna Izquierda (4 botones)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
         if st.button("PYME / Tradicional"): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
         
-    # Columna Derecha (4 botones)
     with c2:
         if st.button("Consultoría /\nServicios"): go_sector("Consultoría / Servicios Profesionales")
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        if st.button("Emprendimiento\nSocial / ONG"): go_sector("Emprendimiento Social")
+        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
         if st.button("Sector Salud /\nHealth"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
