@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V33 - ESTABLE) ---
+# --- 2. GESTIÓN DE ESTILOS (V34) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -72,23 +72,17 @@ def inject_style(mode):
             div[data-testid="column"] button {
                  height: 180px !important;       
                  min-height: 180px !important;
-                 
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
-                 
-                 /* TEXTO */
                  color: white !important;
                  font-size: 26px !important;     
                  font-weight: 700 !important;
                  line-height: 1.3 !important;
-                 
                  border-radius: 16px !important;
                  white-space: pre-wrap !important; 
-                 
                  display: flex !important;
                  align-items: center !important;
                  justify-content: center !important;
-                 
                  margin-bottom: 1rem !important;
                  box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
             }
@@ -114,7 +108,6 @@ def inject_style(mode):
 # --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 
-# Diccionario de Consejos por Sector (Para el PDF)
 SECTOR_ADVICE_DB = {
     "TECH": "En el sector Startup/Tech, la velocidad de iteración es crítica. Tu perfil debe priorizar la 'Innovatividad' y la 'Tolerancia a la Ambigüedad' para pivotar rápido. Vigila no caer en parálisis por análisis.",
     "CONSULTORIA": "En Servicios Profesionales, la 'Estabilidad Emocional' y el 'Logro' son clave para gestionar clientes exigentes. La reputación lo es todo; cuida la fricción relacional.",
@@ -205,7 +198,7 @@ def radar_chart():
     )
     return fig
 
-# --- PDF GENERATOR (MEJORADO V33) ---
+# --- PDF GENERATOR (V34 - LÓGICA DE COLORES CORREGIDA) ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -222,7 +215,6 @@ def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spaci
     return y 
 
 def check_page_break(c, y, h, w):
-    """Verifica si necesitamos nueva página"""
     if y < 80:
         c.showPage()
         draw_pdf_header(c, w, h)
@@ -230,20 +222,15 @@ def check_page_break(c, y, h, w):
     return y
 
 def draw_pdf_header(p, w, h):
-    # Fondo header
     p.setFillColorRGB(0.02, 0.04, 0.12)
     p.rect(0, h-100, w, 100, fill=1, stroke=0)
-    
-    # Caja blanca logo
     p.setFillColorRGB(1, 1, 1)
     p.rect(30, h-85, 140, 70, fill=1, stroke=0)
-    
     if os.path.exists("logo_original.png"):
         try: 
             img = ImageReader("logo_original.png")
             p.drawImage(img, 40, h-80, width=120, height=60, preserveAspectRatio=True, mask='auto')
         except: pass
-        
     p.setFillColorRGB(1, 1, 1)
     p.setFont("Helvetica-Bold", 16)
     p.drawRightString(w-30, h-40, "INFORME TÉCNICO S.A.P.E.")
@@ -275,51 +262,54 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    # Tabla simple de métricas
     p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"POTENCIAL: {avg}/100"); p.setFont("Helvetica", 10); p.drawString(200, y, get_potential_text(avg)); y-=20
     p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"FRICCIÓN: {friction}"); p.setFont("Helvetica", 10); p.drawString(200, y, get_friction_text(friction)); y-=20
     p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL: {ire}/100"); p.setFont("Helvetica", 10); p.drawString(200, y, get_ire_text(ire)); y-=30
     
-    # 2. ANÁLISIS DIMENSIONAL COMPLETO
+    # 2. ANÁLISIS DIMENSIONAL
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12)
     p.drawString(40, y, "2. ANÁLISIS DIMENSIONAL (DETALLE)")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    # Ordenar por puntuación para mostrar de mejor a peor
     sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
     
     for k, v in sorted_stats:
         y = check_page_break(p, y, h, w)
-        
-        # Nombre Dimensión
         p.setFont("Helvetica-Bold", 9)
         p.setFillColorRGB(0,0,0)
         p.drawString(50, y, LABELS_ES.get(k, k))
         
-        # Barra de progreso
+        # --- LÓGICA DE COLORES CORREGIDA ---
+        # > 75: Rojo (Exceso/Riesgo)
+        # 60-75: Verde (Equilibrado/Óptimo)
+        # 25-60: Amarillo (Mejorable)
+        # < 25: Rojo (Defecto)
+        
         p.setFillColorRGB(0.9, 0.9, 0.9)
-        p.rect(200, y, 150, 8, fill=1, stroke=0) # Fondo barra
+        p.rect(200, y, 150, 8, fill=1, stroke=0) # Fondo gris
         
         bar_len = (v/100)*150
-        # Color barra según nota
-        if v >= 75: p.setFillColorRGB(0.2, 0.6, 0.2) # Verde
-        elif v >= 50: p.setFillColorRGB(0.2, 0.4, 0.6) # Azul
-        else: p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo
+        
+        if v > 75:
+            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo (Exceso)
+        elif v >= 60:
+            p.setFillColorRGB(0.2, 0.6, 0.2) # Verde (Óptimo)
+        elif v >= 25:
+            p.setFillColorRGB(0.9, 0.7, 0.0) # Amarillo (Alerta)
+        else:
+            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo (Defecto)
             
         p.rect(200, y, bar_len, 8, fill=1, stroke=0)
         
-        # Puntuación numérica
         p.setFillColorRGB(0,0,0)
         p.drawString(360, y, str(round(v, 1)))
         
-        # Interpretación corta
         narrative = NARRATIVES_DB.get(k, {}).get('high' if v > 50 else 'low', '')
         p.setFont("Helvetica", 8)
         p.setFillColorRGB(0.4, 0.4, 0.4)
-        p.drawString(400, y, narrative[:40] + "...") # Truncar si es muy largo visualmente
-        
+        p.drawString(400, y, narrative[:40] + "...")
         y -= 20
 
     # 3. FRICCIÓN Y ALERTAS
@@ -345,7 +335,7 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         y -= 5
         y = check_page_break(p, y, h, w)
         p.setFont("Helvetica-Bold", 10)
-        p.setFillColorRGB(0.8, 0, 0) # Rojo alerta
+        p.setFillColorRGB(0.8, 0, 0)
         p.drawString(50, y, "ALERTAS CRÍTICAS (TRIGGERS):"); y -= 15
         p.setFillColorRGB(0, 0, 0)
         p.setFont("Helvetica", 10)
@@ -364,7 +354,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     
     sector_code = SECTOR_MAP.get(user.get('sector'), "TECH")
     advice = SECTOR_ADVICE_DB.get(sector_code, "Consejo general no disponible.")
-    
     y = draw_wrapped_text(p, advice, 50, y, 500, "Helvetica-Oblique", 10)
     
     # 5. CONCLUSIÓN
@@ -382,7 +371,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     
     y = draw_wrapped_text(p, conclusion, 50, y, 500, "Helvetica", 10)
 
-    # Footer
     p.setFont("Helvetica", 8)
     p.setFillColorRGB(0.5, 0.5, 0.5)
     p.drawCentredString(w/2, 30, "Documento Confidencial | Generado por Audeo S.A.P.E.")
@@ -476,7 +464,6 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # ESTRUCTURA 2 COLUMNAS (Usamos use_container_width=True)
     c1, c2 = st.columns(2)
     
     with c1: 
