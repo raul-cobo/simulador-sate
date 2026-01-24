@@ -15,20 +15,23 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-    # C# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 20) ---
+# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 21: SIN ERRORES DE SINTAXIS) ---
 def inject_style(mode):
-    # CSS BASE (Común para quitar header y reducir márgenes al mínimo)
-    # Nota: No ponemos etiquetas <style> aquí dentro, se ponen al final una sola vez.
+    """
+    Genera un ÚNICO bloque <style> para evitar errores visuales.
+    """
+    
+    # CSS BASE (Común: Quitar header nativo y reducir márgenes al mínimo)
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        /* PADDING 0 PARA QUE SUBA AL TECHO */
+        /* MARGEN SUPERIOR MÍNIMO */
         .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 90% !important; }
     """
     
     if mode == "login":
-        # --- ESTILO LOGIN ---
+        # --- MODO LOGIN (BLANCO) ---
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
@@ -73,53 +76,7 @@ def inject_style(mode):
             .login-card { padding: 1rem; text-align: center; }
         """
     else:
-        # --- ESTILO APP INTERNA ---
-        theme_css = """
-            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
-                color: #FFFFFF !important; 
-            }
-            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-                background-color: #0F1629 !important;
-                color: #FFFFFF !important;
-                border: 1px solid #5D5FEF !important;
-            }
-            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
-            .stCheckbox label p { color: white !important; }
-            
-            .stButton > button {
-                background-color: #1A202C !important;
-                color: white !important;
-                border: 1px solid #5D5FEF !important;
-                border-radius: 8px;
-            }
-            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
-            
-            div[data-testid="column"] button {
-                 height: 140px !important;
-                 width: 100% !important;
-                 background-color: #0F1629 !important;
-                 border: 2px solid #2D3748 !important;
-                 color: white !important;
-                 font-size: 1.1rem !important;
-                 border-radius: 15px !important;
-                 white-space: normal !important;
-                 display: flex;
-                 align-items: center;
-                 justify-content: center;
-                 margin-bottom: 10px !important;
-            }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
-            
-            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
-            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
-            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
-            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
-        """
-    
-    # UNIFICACIÓN LIMPIA: Solo un bloque style al final
-    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)   else:
-        # --- ESTILO APP INTERNA (NAVY) ---
+        # --- MODO APP INTERNA (NAVY) ---
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -142,10 +99,10 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* BOTONES SECTOR (2 filas x 4 columnas, IGUALES) */
+            /* Botones Sector (Gigantes) */
             div[data-testid="column"] button {
-                 height: 140px !important; /* Altura fija */
-                 width: 100% !important;   /* Ancho total de la columna */
+                 height: 140px !important;
+                 width: 100% !important;
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  color: white !important;
@@ -157,10 +114,7 @@ def inject_style(mode):
                  justify-content: center;
                  margin-bottom: 10px !important;
             }
-            div[data-testid="column"] button:hover { 
-                border-color: #5D5FEF !important; 
-                transform: scale(1.02);
-            }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
             
             /* Header Interno */
             .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
@@ -170,9 +124,10 @@ def inject_style(mode):
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
     
+    # UNIFICACIÓN DE ESTILOS AL FINAL DE LA FUNCIÓN
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES ---
+# --- 3. VARIABLES Y LÓGICA ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -311,7 +266,7 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER GLOBAL (A LA IZQUIERDA Y TEXTO DEBAJO SI NO CABE) ---
+# --- FUNCIÓN HEADER GLOBAL (A LA IZQUIERDA Y TEXTO DEBAJO) ---
 def render_header():
     # Logo Izq (Pequeño) - Texto Derecha
     c1, c2 = st.columns([1, 6])
@@ -329,6 +284,8 @@ init_session()
 # PANTALLA 0: LOGIN
 if not st.session_state.get("auth", False):
     inject_style("login") 
+    
+    # Login centrado y subido
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo_original.png"):
@@ -414,7 +371,7 @@ elif not st.session_state.started:
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
-    # Freno de seguridad anti-error rojo
+    # Freno de seguridad
     if st.session_state.current_step >= len(st.session_state.data):
         st.session_state.finished = True
         st.rerun()
