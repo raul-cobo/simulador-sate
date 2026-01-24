@@ -15,18 +15,18 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V25 - TÍTULOS GIGANTES Y GRID SECTORES) ---
+# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 24: TEXTOS GIGANTES) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
+        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 90% !important; }
     """
     
     if mode == "login":
-        # --- MODO LOGIN (BLANCO) ---
+        # MODO LOGIN (BLANCO)
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
@@ -68,7 +68,7 @@ def inject_style(mode):
             .login-card { padding: 1rem; text-align: center; }
         """
     else:
-        # --- MODO APP (NAVY) ---
+        # MODO APP (NAVY)
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -90,52 +90,49 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* BOTONES SECTOR CUADRADOS Y UNIFORMES */
+            /* BOTONES SECTOR GRANDES */
             div[data-testid="column"] button {
-                 height: 150px !important;      /* Altura fija */
-                 width: 100% !important;        /* Ocupar toda la columna */
+                 min-height: 140px !important;
+                 width: 100% !important;
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  color: white !important;
                  font-size: 1.1rem !important;
-                 border-radius: 12px !important;
+                 border-radius: 15px !important;
                  white-space: normal !important;
                  display: flex;
                  align-items: center;
                  justify-content: center;
+                 margin-bottom: 10px !important;
             }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.03); }
-            
-            /* Botón deshabilitado (Próximamente) */
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
             div[data-testid="column"] button:disabled {
                 border-color: #2D3748 !important;
                 color: #666666 !important;
-                background-color: #0a0e1a !important;
                 cursor: not-allowed;
             }
 
-            /* --- HEADER GIGANTE --- */
+            /* --- HEADER INTERNO (TEXTOS GIGANTES) --- */
             .header-title-text { 
-                font-size: 3.5rem !important; /* TAMAÑO DOBLE */
+                font-size: 3.0rem !important; /* AUMENTADO AL DOBLE (Antes 1.8) */
                 font-weight: 800 !important; 
                 color: white !important; 
                 margin: 0; 
-                line-height: 1.0; 
+                line-height: 1.1; 
             }
             .header-sub-text { 
-                font-size: 1.5rem !important; /* TAMAÑO AUMENTADO */
+                font-size: 1.4rem !important; /* AUMENTADO (Antes 0.9) */
                 color: #5D5FEF !important; 
                 margin: 0; 
-                font-weight: 500;
+                font-weight: 500 !important;
             }
             
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
-    
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES ---
+# --- 3. LÓGICA ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -195,7 +192,6 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -272,21 +268,14 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER GLOBAL (LOGO + TITULO GRANDE) ---
 def render_header():
-    # Logo 1.5 | Texto 6 (Más espacio para el texto grande)
-    c1, c2 = st.columns([1.5, 6])
+    c1, c2 = st.columns([1.5, 4.5]) # Ajustado el ancho para que quepa el texto grande
     with c1:
         if os.path.exists("logo_blanco.png"):
             st.image("logo_blanco.png", use_container_width=True)
     with c2:
-        # Texto del título ajustado con margen superior
-        st.markdown("""
-            <div style="margin-top: 10px;">
-                <p class="header-title-text">Simulador S.A.P.E.</p>
-                <p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
     st.markdown("---")
 
 # --- 5. APP PRINCIPAL ---
@@ -339,7 +328,7 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (2 FILAS x 4 COLUMNAS)
+# FASE 2: SECTOR (2x4)
 elif not st.session_state.started:
     render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
@@ -353,29 +342,18 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # Fila 1
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
     with c2:
         if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
     with c3:
         if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
     with c4:
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        
-    st.markdown("") # Espacio
-    
-    # Fila 2
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
-        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-    with c6:
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-    with c7:
-        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-    with c8:
-        # Nuevo Botón
         if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
