@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V30 - AGRESIVO) ---
+# --- 2. GESTIÓN DE ESTILOS (V30/32 - RESPONSIVE & AGRESIVO) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -69,7 +69,6 @@ def inject_style(mode):
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
             /* --- BOTONES SECTOR (V30) --- */
-            /* Apuntamos directamente a los botones dentro de las columnas */
             div[data-testid="column"] button {
                  height: 180px !important;       /* ALTURA FIJA PARA TODOS IGUAL */
                  min-height: 180px !important;
@@ -79,12 +78,12 @@ def inject_style(mode):
                  
                  /* TEXTO */
                  color: white !important;
-                 font-size: 26px !important;     /* TAMAÑO DE LETRA FORZADO EN PX */
+                 font-size: 26px !important;     /* TAMAÑO DE LETRA FORZADO */
                  font-weight: 700 !important;
                  line-height: 1.3 !important;
                  
                  border-radius: 16px !important;
-                 white-space: pre-wrap !important; /* IMPORTANTE: Respeta los saltos de línea \n */
+                 white-space: pre-wrap !important; /* Respeta saltos de línea */
                  
                  display: flex !important;
                  align-items: center !important;
@@ -172,6 +171,29 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
+# --- FUNCIONES GRÁFICAS Y TEXTOS (AQUÍ ESTÁ LA CORRECCIÓN) ---
+def get_ire_text(s): return "Nivel positivo." if s > 75 else "Nivel medio." if s > 50 else "Nivel comprometido."
+def get_potential_text(s): return "Nivel Notable." if s > 75 else "Nivel Medio." if s > 50 else "Nivel Bajo."
+def get_friction_text(s): return "Nivel bajo." if s < 20 else "Nivel medio." if s < 40 else "Nivel alto."
+
+def radar_chart():
+    data = st.session_state.octagon
+    cat = [LABELS_ES.get(k) for k in data.keys()]
+    val = list(data.values())
+    cat += [cat[0]]; val += [val[0]] # Cerrar el círculo
+    
+    fig = go.Figure(go.Scatterpolar(
+        r=val, theta=cat, fill='toself', 
+        line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'
+    ))
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'),
+        paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'),
+        showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False
+    )
+    return fig
+
+# --- PDF GENERATOR ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -323,7 +345,7 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # ESTRUCTURA 2 COLUMNAS (Usamos use_container_width=True para que rellenen todo)
+    # ESTRUCTURA 2 COLUMNAS (Usamos use_container_width=True)
     c1, c2 = st.columns(2)
     
     with c1: 
