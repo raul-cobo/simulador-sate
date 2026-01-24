@@ -15,14 +15,13 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V28 - RESPONSIVE / FLEXIBLE) ---
+# --- 2. GESTIÓN DE ESTILOS (V29 - RESPONSIVE REAL) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        /* Usamos porcentajes para el contenedor principal para que se adapte al ancho */
         .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
     """
     
@@ -69,48 +68,35 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* --- BOTONES SECTOR RESPONSIVOS --- */
+            /* --- BOTONES SECTOR FLEXIBLES (V29) --- */
             div[data-testid="column"] button {
+                 /* Altura MÍNIMA para que sean grandes, pero crecen si hace falta */
+                 min-height: 9rem !important; 
                  width: 100% !important;
-                 
-                 /* CLAVE PARA QUE NO PAREZCA UNA FOTO: Altura mínima, pero crece si hace falta */
-                 min-height: 150px !important; 
-                 height: auto !important; 
                  
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  
-                 /* TEXTO */
+                 /* TEXTO GRANDE Y FLUIDO */
                  color: white !important;
-                 font-size: 1.5rem !important; /* Usamos REM para que escale con el zoom del navegador */
+                 font-size: 1.8rem !important; 
                  font-weight: 700 !important;
-                 line-height: 1.3 !important;
+                 line-height: 1.2 !important;
                  
-                 border-radius: 15px !important;
+                 border-radius: 12px !important;
+                 white-space: normal !important; /* Texto envuelve */
                  
-                 /* GESTIÓN DE TEXTO */
-                 white-space: normal !important; /* Permite que el texto baje de línea */
-                 word-wrap: break-word !important;
-                 padding: 15px !important;       /* Relleno interno para que el texto no toque los bordes */
-                 
+                 /* ALINEACIÓN */
                  display: flex;
                  align-items: center;
                  justify-content: center;
-                 margin-bottom: 15px !important;
+                 margin-bottom: 1rem !important;
+                 padding: 1rem !important;
             }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); transition: transform 0.2s; }
             
             /* HEADER */
-            .header-title-text { 
-                font-size: 3.5rem !important; 
-                font-weight: 800 !important; 
-                color: white !important; 
-                margin: 0; 
-                line-height: 1.1;
-                /* Hacemos que el título también sea responsive si la pantalla es pequeña */
-                max-width: 100%;
-                word-wrap: break-word;
-            }
+            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
             .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
