@@ -15,107 +15,117 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. CSS "FRANKENSTEIN PERFECTO" (Estructura TXT + Estética Navy) ---
-def local_css():
-    st.markdown("""
+# --- 2. GESTIÓN DE ESTILOS (DUAL MODE) ---
+def inject_style(mode):
+    """
+    mode='login' -> Fondo Blanco, Logo Color.
+    mode='app'   -> Fondo Navy, Logo Blanco.
+    """
+    
+    # CSS BASE (Común)
+    base_css = """
     <style>
-        /* 1. ELIMINAR ELEMENTOS NATIVOS Y CAMUFLAJE */
-        header, [data-testid="stHeader"], .stAppHeader { 
-            background-color: #050A1F !important; /* CAMUFLAJE: Mismo color que el fondo */
-            border-bottom: none !important;
-        }
+        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-
-        /* 2. FONDO GLOBAL AZUL NAVY */
-        .stApp { 
-            background-color: #050A1F !important; 
-            color: #FFFFFF !important;
-        }
-        
-        /* 3. MÁRGENES (Igual que el TXT que te gustó) */
-        .main .block-container { 
-            padding-top: 2rem !important; 
-            max-width: 90% !important;
-        }
-
-        /* 4. TIPOGRAFÍA BLANCA */
-        h1, h2, h3, h4, h5, h6, p, label, span, div[data-testid="stMarkdownContainer"] p { 
-            color: #FFFFFF !important; 
-        }
-
-        /* 5. INPUTS (Oscuros) */
-        .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-            background-color: #0F1629 !important; 
-            color: #FFFFFF !important; 
-            border: 1px solid #5D5FEF !important;
-        }
-        div[role="listbox"] div { background-color: #0F1629 !important; color: #FFFFFF !important; }
-        .stCheckbox label p { color: #FFFFFF !important; }
-
-        /* 6. BOTONES (Planos y Limpios) */
-        .stButton > button {
-            background-color: #1A202C !important; 
-            color: #FFFFFF !important; 
-            border: 1px solid #5D5FEF !important;
-            border-radius: 8px !important;
-            font-weight: bold !important;
-        }
-        .stButton > button:hover { 
-            background-color: #5D5FEF !important; 
-            border-color: #FFFFFF !important;
-        }
-
-        /* 7. ESTILOS ESPECÍFICOS TEXTOS LOGIN */
-        .login-title {
-            font-size: 2.5rem !important;
-            font-weight: 800 !important;
-            color: #FFFFFF !important;
-            text-align: center;
-            margin-bottom: 0 !important;
-            line-height: 1.1 !important;
-        }
-        .login-subtitle {
-            font-size: 1.2rem !important;
-            color: #5D5FEF !important;
-            text-align: center;
-            margin-top: 5px !important;
-            margin-bottom: 30px !important;
-        }
-
-        /* 8. HEADER INTERNO (Páginas de dentro) */
-        .header-title-text { 
-            font-size: 2rem !important; font-weight: bold !important; margin: 0 !important; color: #FFFFFF !important; 
-        }
-        .header-sub-text { 
-            font-size: 1rem !important; color: #5D5FEF !important; margin: 0 !important; 
-        }
-
-        /* 9. BOTONES GIGANTES SECTOR */
-        div[data-testid="column"] button {
-             height: 150px !important; 
-             width: 100% !important;
-             background-color: #0F1629 !important; 
-             border: 2px solid #2D3748 !important; 
-             color: white !important; 
-             border-radius: 15px !important;
-             white-space: normal !important;
-             font-size: 1.2rem !important;
-        }
-        
-        /* 10. CAJAS RESULTADOS */
-        .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
-        
-        /* 11. BOTÓN DESCARGA */
-        .stDownloadButton > button {
-            background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important;
-        }
+        .main .block-container { padding-top: 1rem !important; max-width: 90% !important; }
     </style>
-    """, unsafe_allow_html=True)
+    """
+    
+    if mode == "login":
+        # --- ESTILO LOGIN (BLANCO) ---
+        custom_css = """
+        <style>
+            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
+                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
+            }
+            .stTextInput input {
+                background-color: #F8F9FA !important;
+                color: #000000 !important;
+                border: 1px solid #E0E0E0 !important;
+            }
+            .stButton > button {
+                background-color: #050A1F !important;
+                color: white !important;
+                width: 100%;
+                border-radius: 8px;
+                font-weight: bold;
+                border: none !important;
+            }
+            .stButton > button:hover { background-color: #5D5FEF !important; }
+            .login-title {
+                color: #050A1F !important;
+                font-size: 2rem !important;
+                font-weight: 800 !important;
+                text-align: center;
+                margin: 0 !important;
+            }
+            .login-subtitle {
+                color: #666666 !important;
+                font-size: 1rem !important;
+                text-align: center;
+                margin-bottom: 2rem !important;
+            }
+            .login-card { padding: 2rem; text-align: center; }
+        </style>
+        """
+    else:
+        # --- ESTILO APP INTERNA (NAVY) ---
+        custom_css = """
+        <style>
+            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
+            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
+                color: #FFFFFF !important; 
+            }
+            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
+                background-color: #0F1629 !important;
+                color: #FFFFFF !important;
+                border: 1px solid #5D5FEF !important;
+            }
+            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
+            .stCheckbox label p { color: white !important; }
+            
+            /* Botones Generales */
+            .stButton > button {
+                background-color: #1A202C !important;
+                color: white !important;
+                border: 1px solid #5D5FEF !important;
+                border-radius: 8px;
+            }
+            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
+            
+            /* Botones Sector (NUEVO ESTILO GRANDE Y ANCHO) */
+            div[data-testid="column"] button {
+                 min-height: 120px !important;
+                 width: 100% !important;
+                 background-color: #0F1629 !important;
+                 border: 2px solid #2D3748 !important;
+                 color: white !important;
+                 font-size: 1.3rem !important;
+                 border-radius: 15px !important;
+                 white-space: normal !important; /* Permite saltos de línea */
+                 display: flex;
+                 align-items: center;
+                 justify-content: center;
+            }
+            div[data-testid="column"] button:hover { 
+                border-color: #5D5FEF !important; 
+                transform: scale(1.02);
+            }
+            
+            /* Header Interno */
+            .header-title-text { font-size: 2rem !important; font-weight: bold !important; color: white !important; margin: 0; }
+            .header-sub-text { font-size: 1rem !important; color: #5D5FEF !important; margin: 0; }
+            
+            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
+            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
+        </style>
+        """
+    
+    st.markdown(base_css + custom_css, unsafe_allow_html=True)
 
-local_css()
-
-# --- 3. LÓGICA Y VARIABLES ---
+# --- 3. VARIABLES Y LÓGICA ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -175,7 +185,7 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR (VERSIÓN 9 - COMPLETA) ---
+# --- PDF GENERATOR ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -220,17 +230,17 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     y -= 15; p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Fortalezas"); y -= 15; p.setFont("Helvetica", 9)
     for i, (k, v) in enumerate(sorted_stats[:3]): y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get('high', '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 10
-    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Áreas de Desarrollo"); y -= 15; p.setFont("Helvetica", 9)
     for i, (k, v) in enumerate(sorted_stats[-3:]): mode = "low" if v < 60 else "high"; y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get(mode, '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 30
-    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Fricción"); p.line(40, y-5, w-40, y-5); y -= 30; p.setFont("Helvetica", 9)
     if friction_reasons: 
         for r in friction_reasons: p.drawString(50, y, f"• {r}"); y -= 15
     else: p.drawString(50, y, "• Sin fricción significativa.")
     y -= 20
-    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
+    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión"); p.line(40, y-5, w-40, y-5); y -= 30
     y = draw_wrapped_text(p, f"El perfil es técnicamente viable. Delta de eficiencia: {delta}.", 40, y, 480, "Helvetica", 9); y -= 10
     p.setFont("Helvetica-Bold", 9); p.drawString(40, y, "Recomendación:"); y -= 15
@@ -246,8 +256,9 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER INTERNO ---
+# --- FUNCIÓN RENDERIZADO HEADER INTERNO (LOGO BLANCO) ---
 def render_header():
+    # Esta función pinta el logo y títulos en cada página interna
     c1, c2 = st.columns([1, 4])
     with c1:
         if os.path.exists("logo_blanco.png"):
@@ -260,27 +271,18 @@ def render_header():
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# LOGIN (ESTRUCTURA TXT: COLUMNAS SIMPLES, SIN TARJETA FLOTANTE)
+# PANTALLA 0: LOGIN
 if not st.session_state.get("auth", False):
-    
-    # Espaciado superior para que no quede pegado al techo
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    
+    inject_style("login") 
+    st.write("")
+    st.write("")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        # 1. LOGO ORIGINAL (Centrado)
         if os.path.exists("logo_original.png"):
             st.image("logo_original.png", use_container_width=True)
-        else:
-            st.header("AUDEO")
-            
-        # 2. TÍTULOS
         st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # 3. INPUTS (Directamente en la columna, sin tarjeta rara)
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         pwd = st.text_input("Clave de acceso", type="password")
         if st.button("ENTRAR AL SISTEMA", use_container_width=True):
             if pwd == st.secrets["general"]["password"]: 
@@ -288,78 +290,142 @@ if not st.session_state.get("auth", False):
                 st.rerun()
             else: 
                 st.error("Acceso denegado")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- APP INTERNA ---
-render_header()
+# --- APP INTERNA (NAVY) ---
+inject_style("app") 
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
-    st.markdown("#### 1. Identificación")
-    col1, col2 = st.columns(2); name = col1.text_input("Nombre"); age = col2.number_input("Edad", 18, 99)
-    col3, col4 = st.columns(2); gender = col3.selectbox("Género", ["Masculino", "Femenino"]); country = col4.selectbox("País", ["España", "LATAM", "Otros"])
-    col5, col6 = st.columns(2); situation = col5.selectbox("Situación", ["Solo", "Socios"]); experience = col6.selectbox("Experiencia", ["Primera", "Con éxito", "Sin éxito"])
-    consent = st.checkbox("Acepto Política de Privacidad.")
-    if st.button("VALIDAR"):
-        if name and age and consent: st.session_state.user_data = {"name": name, "sector": ""}; st.session_state.data_verified = True; st.rerun()
+    render_header() # <--- LOGO FORZADO
+    st.markdown("#### 1. Identificación del/a Candidato/a")
+    col1, col2 = st.columns(2)
+    name = col1.text_input("Nombre Completo")
+    age = col2.number_input("Edad", 18, 99)
+    col3, col4 = st.columns(2)
+    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
+    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"])
+    col5, col6 = st.columns(2)
+    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
+    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"])
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+    if st.button("VALIDAR DATOS Y CONTINUAR"):
+        if name and age and consent:
+            st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
+            st.session_state.data_verified = True
+            st.rerun()
+        else:
+            st.error("Por favor, completa los campos obligatorios.")
 
 # FASE 2: SECTOR
 elif not st.session_state.started:
-    st.markdown("#### 2. Selecciona Sector")
-    def go(sec):
-        all_q = load_questions(); code = SECTOR_MAP[sec]
-        qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
-        st.session_state.data = qs if qs else [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
-        st.session_state.user_data["sector"] = sec; st.session_state.started = True; st.rerun()
-
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: 
-        if st.button("Startup Tecnológica"): go("Startup Tecnológica (Scalable)")
-    with c2: 
-        if st.button("Consultoría"): go("Consultoría / Servicios Profesionales")
-    with c3: 
-        if st.button("PYME"): go("Pequeña y Mediana Empresa (PYME)")
-    with c4: 
-        if st.button("Hostelería"): go("Hostelería y Restauración")
+    render_header() # <--- LOGO FORZADO
+    st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    c5, c6, c7, c8 = st.columns(4)
-    with c5: 
-        if st.button("Freelance"): go("Autoempleo / Freelance")
-    with c6: 
-        if st.button("Social"): go("Emprendimiento Social")
-    with c7: 
-        if st.button("Intraemprendimiento"): go("Intraemprendimiento")
+    def go_sector(sec):
+        all_q = load_questions()
+        code = SECTOR_MAP.get(sec, "TECH") # Fallback seguro
+        qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
+        if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
+        st.session_state.data = qs
+        st.session_state.user_data["sector"] = sec
+        st.session_state.started = True
+        st.rerun()
+
+    # LAYOUT 2 COLUMNAS (8 huecos total)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Startup Tecnológica (Scalable)"): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Pequeña y Mediana Empresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Autoempleo / Freelance"): go_sector("Autoempleo / Freelance")
+        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
+        
+    with c2:
+        if st.button("Consultoría / Servicios Prof."): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería y Restauración"): go_sector("Hostelería y Restauración")
+        if st.button("Emprendimiento Social"): go_sector("Emprendimiento Social")
+        st.button("Próximamente...", disabled=True) # Hueco 8
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
+    # --- SAFETY CHECK (CORRECCIÓN ERROR INDEXERROR) ---
+    if st.session_state.current_step >= len(st.session_state.data):
+        st.session_state.finished = True
+        st.rerun()
+    
+    render_header() # <--- LOGO FORZADO
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
+    
     st.markdown(f"### {row['TITULO']}")
-    c1, c2 = st.columns([1.5, 1])
-    with c1: st.markdown(f'<div class="diag-text"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
-    with c2:
+    
+    c_text, c_opt = st.columns([1.5, 1])
+    with c_text:
+        st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
+    with c_opt:
+        st.markdown("#### Tu decisión:")
         step = st.session_state.current_step
-        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}"): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}"): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None": 
-            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}"): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None": 
-            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}"): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
+        
+        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
+            parse_logic(row.get('OPCION_A_LOGIC'))
+            st.session_state.current_step += 1
+            st.rerun()
+            
+        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True):
+            parse_logic(row.get('OPCION_B_LOGIC'))
+            st.session_state.current_step += 1
+            st.rerun()
+            
+        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
+            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True):
+                parse_logic(row.get('OPCION_C_LOGIC'))
+                st.session_state.current_step += 1
+                st.rerun()
+        
+        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
+            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True):
+                parse_logic(row.get('OPCION_D_LOGIC'))
+                st.session_state.current_step += 1
+                st.rerun()
 
 # FASE 4: RESULTADOS
 else:
-    ire, avg, friction, triggers, friction_reasons, delta = calculate_results()
-    st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
-    k1, k2, k3 = st.columns(3); k1.metric("IRE", f"{ire}/100"); k2.metric("Potencial", f"{avg}/100"); k3.metric("Fricción", friction)
-    c1, c2 = st.columns([1, 1])
-    with c1: st.plotly_chart(radar_chart(), use_container_width=True)
-    with c2: 
-        st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
-        if triggers: st.error("Alertas: " + ", ".join(triggers))
-        else: st.success("Sin alertas.")
+    render_header() # <--- LOGO FORZADO TAMBIÉN AQUÍ
+    ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
     
-    pdf = create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, st.session_state.user_data, st.session_state.octagon)
-    st.download_button("📥 DESCARGAR INFORME (PDF)", pdf, f"Informe_{st.session_state.user_id}.pdf", "application/pdf", use_container_width=True)
-    if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
+    st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
+    
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Índice IRE", f"{ire}/100")
+    k2.metric("Potencial", f"{avg}/100")
+    k3.metric("Fricción", friction, delta_color="inverse")
+    
+    c_chart, c_desc = st.columns([1, 1])
+    with c_chart:
+        st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_desc:
+        st.markdown("### Diagnóstico")
+        st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if triggers:
+             st.error("Alertas: " + ", ".join(triggers))
+        else:
+             st.success("Perfil sin alertas críticas.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
+    st.download_button(
+        "📥 DESCARGAR INFORME COMPLETO (PDF)",
+        pdf,
+        file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
+    
+    if st.button("Reiniciar"):
+        st.session_state.clear()
+        st.rerun()
