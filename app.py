@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V34) ---
+# --- 2. GESTIÓN DE ESTILOS (V35) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -26,25 +26,15 @@ def inject_style(mode):
     """
     
     if mode == "login":
-        # MODO LOGIN
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
                 color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
             }
-            .stTextInput input {
-                background-color: #F8F9FA !important;
-                color: #000000 !important;
-                border: 1px solid #E0E0E0 !important;
-            }
+            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
             .stButton > button {
-                background-color: #050A1F !important;
-                color: #FFFFFF !important;
-                border: 1px solid #050A1F !important;
-                border-radius: 8px !important;
-                font-weight: bold !important;
-                width: 100%;
-                padding: 0.5rem 1rem;
+                background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F !important;
+                border-radius: 8px !important; font-weight: bold !important; width: 100%; padding: 0.5rem 1rem;
             }
             .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
             .stButton > button p { color: #FFFFFF !important; }
@@ -53,7 +43,6 @@ def inject_style(mode):
             .login-card { padding: 1rem; text-align: center; }
         """
     else:
-        # MODO APP (NAVY)
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
@@ -62,42 +51,20 @@ def inject_style(mode):
             }
             div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
             .stCheckbox label p { color: white !important; }
-            
-            .stButton > button {
-                background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px;
-            }
+            .stButton > button { background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px; }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* --- BOTONES SECTOR (GIGANTES Y RESPONSIVOS) --- */
             div[data-testid="column"] button {
-                 height: 180px !important;       
-                 min-height: 180px !important;
-                 background-color: #0F1629 !important;
-                 border: 2px solid #2D3748 !important;
-                 color: white !important;
-                 font-size: 26px !important;     
-                 font-weight: 700 !important;
-                 line-height: 1.3 !important;
-                 border-radius: 16px !important;
-                 white-space: pre-wrap !important; 
-                 display: flex !important;
-                 align-items: center !important;
-                 justify-content: center !important;
-                 margin-bottom: 1rem !important;
-                 box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+                 height: 180px !important; min-height: 180px !important;
+                 background-color: #0F1629 !important; border: 2px solid #2D3748 !important;
+                 color: white !important; font-size: 26px !important; font-weight: 700 !important; line-height: 1.3 !important;
+                 border-radius: 16px !important; white-space: pre-wrap !important; 
+                 display: flex !important; align-items: center !important; justify-content: center !important;
+                 margin-bottom: 1rem !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
             }
-            div[data-testid="column"] button:hover { 
-                border-color: #5D5FEF !important; 
-                background-color: #1a2236 !important;
-                transform: translateY(-2px);
-            }
-            div[data-testid="column"] button:disabled {
-                border-color: #2D3748 !important;
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; background-color: #1a2236 !important; transform: translateY(-2px); }
+            div[data-testid="column"] button:disabled { border-color: #2D3748 !important; opacity: 0.6; cursor: not-allowed; }
 
-            /* HEADER */
             .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
             .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
@@ -105,29 +72,54 @@ def inject_style(mode):
         """
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES ---
+# --- 3. LÓGICA Y VARIABLES (BASE DE DATOS ENRIQUECIDA) ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 
 SECTOR_ADVICE_DB = {
-    "TECH": "En el sector Startup/Tech, la velocidad de iteración es crítica. Tu perfil debe priorizar la 'Innovatividad' y la 'Tolerancia a la Ambigüedad' para pivotar rápido. Vigila no caer en parálisis por análisis.",
-    "CONSULTORIA": "En Servicios Profesionales, la 'Estabilidad Emocional' y el 'Logro' son clave para gestionar clientes exigentes. La reputación lo es todo; cuida la fricción relacional.",
-    "PYME": "La gestión de una PYME requiere un equilibrio fuerte entre 'Autonomía' y prudencia financiera. La consistencia operativa supera a la disrupción constante.",
-    "HOSTELERIA": "Sector de alta presión inmediata. Requiere máxima 'Estabilidad Emocional' y capacidad de resolución de conflictos en tiempo real. El equipo es tu mayor activo.",
-    "AUTOEMPLEO": "Como freelance, tu 'Autoeficacia' y 'Locus de Control' son el motor. Nadie te empujará si no lo haces tú. Cuidado con el aislamiento.",
-    "SOCIAL": "El impacto social requiere paciencia y resiliencia. Tu 'Necesidad de Logro' debe medirse en impacto, no solo en rentabilidad, pero sin descuidar la sostenibilidad.",
-    "INTRA": "Moverse dentro de una corporación requiere diplomacia. La 'Innovatividad' debe ir de la mano de la capacidad de negociación política.",
-    "SALUD": "El sector Salud no perdona errores. La 'Propensión al Riesgo' debe ser moderada y la 'Diligencia' (meticulosidad) máxima. La confianza del paciente es sagrada."
+    "TECH": "En el ecosistema Startup/Scalable, la velocidad de iteración es el activo crítico. Tu perfil debe priorizar la 'Innovatividad' y la 'Tolerancia a la Ambigüedad' para pivotar ágilmente. Vigila no caer en 'parálisis por análisis' técnico.",
+    "CONSULTORIA": "En Servicios Profesionales, la 'Estabilidad Emocional' y el 'Logro' son fundamentales para gestionar la presión del cliente y los plazos. La reputación personal es el activo; cuida la fricción relacional.",
+    "PYME": "La gestión PYME requiere un equilibrio pragmático entre 'Autonomía' y control financiero. La consistencia operativa diaria supera a la disrupción constante. Se recomienda foco en la sostenibilidad.",
+    "HOSTELERIA": "Sector de alta reactividad inmediata. Requiere máxima 'Estabilidad Emocional' y capacidad de resolución de conflictos en tiempo real. El equipo es el pilar; el liderazgo debe ser cercano pero firme.",
+    "AUTOEMPLEO": "Como profesional independiente, tu 'Autoeficacia' y 'Locus de Control' son el motor único. No hay estructura externa que empuje. Cuidado con el aislamiento y la dilución de objetivos.",
+    "SOCIAL": "El impacto social requiere resiliencia a largo plazo. Tu 'Necesidad de Logro' debe medirse en impacto tangible, no solo financiero, manteniendo la viabilidad económica del proyecto.",
+    "INTRA": "El intraemprendimiento exige diplomacia corporativa. La 'Innovatividad' debe ir acompañada de inteligencia política para navegar la burocracia interna sin perder tracción.",
+    "SALUD": "Sector de tolerancia cero al error. La 'Propensión al Riesgo' debe ser moderada y controlada. La 'Diligencia' y la ética profesional son innegociables para generar confianza en el paciente."
 }
 
+# NARRATIVAS TÉCNICAS/CLÍNICAS (MEJORADAS V35)
 NARRATIVES_DB = {
-    "emotional_stability": { "high": "Alta capacidad de regulación emocional bajo presión.", "low": "Vulnerabilidad ante la presión sostenida." },
-    "autonomy": { "high": "Fuerte independencia operativa.", "low": "Requiere validación constante." },
-    "achievement": { "high": "Clara orientación a resultados.", "low": "Baja orientación a resultados." },
-    "risk_propensity": { "high": "Alta tolerancia al riesgo.", "low": "Perfil conservador." },
-    "ambiguity_tolerance": { "high": "Gestión eficaz del caos.", "low": "Necesidad de estructura clara." },
-    "innovativeness": { "high": "Perfil disruptivo y creativo.", "low": "Orientación a procesos establecidos." },
-    "locus_control": { "high": "Asume responsabilidad total.", "low": "Atribuye resultados a lo externo." },
-    "self_efficacy": { "high": "Confianza sólida en capacidades.", "low": "Dudas sobre la propia capacidad." }
+    "emotional_stability": { 
+        "high": "El sujeto demuestra una capacidad absoluta para mantener la regulación emocional bajo presión. Indica una gestión óptima del estrés alostático y una nula reactividad impulsiva ante crisis.", 
+        "low": "Se detecta vulnerabilidad ante la presión sostenida. Existe riesgo de desbordamiento cognitivo en situaciones de crisis, lo que podría afectar a la toma de decisiones críticas en caliente." 
+    },
+    "autonomy": { 
+        "high": "El sujeto muestra una fuerte independencia operativa y de criterio. No requiere supervisión externa y posee la iniciativa necesaria para liderar sin directrices previas.", 
+        "low": "Dependencia operativa significativa. El perfil tiende a buscar validación externa o consenso antes de actuar, lo que puede ralentizar la velocidad de ejecución." 
+    },
+    "achievement": { 
+        "high": "Existe una clara orientación a resultados y estándares de excelencia. El sujeto prioriza la finalización de tareas y la consecución de objetivos sobre la mera actividad.", 
+        "low": "Baja orientación a resultados finales. Puede haber tendencia a la dispersión o a la satisfacción con estándares medios, comprometiendo la competitividad del proyecto." 
+    },
+    "risk_propensity": { 
+        "high": "Alta tolerancia a la incertidumbre financiera y operativa. El sujeto está dispuesto a comprometer recursos actuales por expectativas futuras, asumiendo la posibilidad de pérdida.", 
+        "low": "Perfil conservador. El sujeto prioriza la seguridad y la preservación de recursos. Puede mostrar aversión a decisiones que impliquen volatilidad no controlada." 
+    },
+    "ambiguity_tolerance": { 
+        "high": "Alta capacidad de gestión del caos y la falta de información. El sujeto opera con eficacia en entornos donde las reglas no están definidas o cambian constantemente.", 
+        "low": "Necesidad de estructura clara. En fases iniciales de alta volatilidad, esta necesidad de certeza puede derivar en bloqueos operativos o ansiedad por falta de datos." 
+    },
+    "innovativeness": { 
+        "high": "Perfil disruptivo y creativo. Tendencia natural a cuestionar el status quo y buscar soluciones no convencionales. Motor de diferenciación en el mercado.", 
+        "low": "Orientación a procesos establecidos. El perfil tiende a la optimización de lo existente más que a la creación de nuevos paradigmas. Eficaz en gestión, cauto en disrupción." 
+    },
+    "locus_control": { 
+        "high": "Locus Interno fuerte. El sujeto asume la responsabilidad total de los resultados, atribuyendo el éxito o fracaso a su propia gestión y no a factores externos.", 
+        "low": "Tendencia a atribuir resultados a factores externos (suerte, mercado, terceros). Esto puede limitar la capacidad de aprendizaje y corrección de errores." 
+    },
+    "self_efficacy": { 
+        "high": "Confianza sólida en las propias capacidades técnicas y de gestión. El sujeto se percibe capaz de afrontar los desafíos del sector, lo que favorece la persistencia.", 
+        "low": "Dudas sobre la propia capacidad. Puede manifestarse como síndrome del impostor o vacilación ante retos de gran envergadura." 
+    }
 }
 VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
 SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA", "Salud": "SALUD" }
@@ -177,28 +169,21 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-def get_ire_text(s): return "Nivel positivo." if s > 75 else "Nivel medio." if s > 50 else "Nivel comprometido."
-def get_potential_text(s): return "Nivel Notable." if s > 75 else "Nivel Medio." if s > 50 else "Nivel Bajo."
-def get_friction_text(s): return "Nivel bajo." if s < 20 else "Nivel medio." if s < 40 else "Nivel alto."
+# --- FUNCIONES GRÁFICAS Y TEXTOS ---
+def get_ire_text(s): return "Nivel de Viabilidad Positivo" if s > 75 else "Nivel de Viabilidad Medio" if s > 50 else "Nivel Comprometido"
+def get_potential_text(s): return "Nivel Notable" if s > 75 else "Nivel Medio" if s > 50 else "Nivel Bajo"
+def get_friction_text(s): return "Bajo" if s < 20 else "Medio" if s < 40 else "Alto"
 
-# --- GRÁFICO (RADAR CHART) ---
 def radar_chart():
     data = st.session_state.octagon
     cat = [LABELS_ES.get(k) for k in data.keys()]
     val = list(data.values())
     cat += [cat[0]]; val += [val[0]]
-    fig = go.Figure(go.Scatterpolar(
-        r=val, theta=cat, fill='toself', 
-        line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'
-    ))
-    fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'),
-        paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'),
-        showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False
-    )
+    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- PDF GENERATOR (V34 - LÓGICA DE COLORES CORREGIDA) ---
+# --- PDF GENERATOR (V35 - PROFESIONAL) ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -244,7 +229,7 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     
     draw_pdf_header(p, w, h)
     
-    # INFO USUARIO
+    # INFO CABECERA
     y = h - 130
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10)
@@ -262,14 +247,23 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"POTENCIAL: {avg}/100"); p.setFont("Helvetica", 10); p.drawString(200, y, get_potential_text(avg)); y-=20
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"FRICCIÓN: {friction}"); p.setFont("Helvetica", 10); p.drawString(200, y, get_friction_text(friction)); y-=20
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL: {ire}/100"); p.setFont("Helvetica", 10); p.drawString(200, y, get_ire_text(ire)); y-=30
+    # Textos ricos para métricas
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"POTENCIAL ({avg}/100):"); p.setFont("Helvetica", 10); 
+    desc_pot = "Capacidad basal superior a la media." if avg > 75 else "Recursos cognitivos y actitudinales adecuados." if avg > 50 else "Se sugiere refuerzo en competencias clave."
+    p.drawString(200, y, desc_pot); y-=20
     
-    # 2. ANÁLISIS DIMENSIONAL
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"FRICCIÓN ({friction}):"); p.setFont("Helvetica", 10); 
+    desc_fric = "Resistencia operativa moderada/baja." if friction < 30 else "Resistencia operativa significativa que puede lastrar la ejecución."
+    p.drawString(200, y, desc_fric); y-=20
+    
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL ({ire}/100):"); p.setFont("Helvetica", 10); 
+    desc_ire = "El índice confirma viabilidad y sostenibilidad." if ire > 60 else "El índice sugiere precaución en la viabilidad a largo plazo."
+    p.drawString(200, y, desc_ire); y-=30
+    
+    # 2. ANÁLISIS VISUAL
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y, "2. ANÁLISIS DIMENSIONAL (DETALLE)")
+    p.drawString(40, y, "2. PERFIL COMPETENCIAL (VISUAL)")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
@@ -281,54 +275,81 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.setFillColorRGB(0,0,0)
         p.drawString(50, y, LABELS_ES.get(k, k))
         
-        # --- LÓGICA DE COLORES CORREGIDA ---
-        # > 75: Rojo (Exceso/Riesgo)
-        # 60-75: Verde (Equilibrado/Óptimo)
-        # 25-60: Amarillo (Mejorable)
-        # < 25: Rojo (Defecto)
-        
+        # Barra de progreso
         p.setFillColorRGB(0.9, 0.9, 0.9)
-        p.rect(200, y, 150, 8, fill=1, stroke=0) # Fondo gris
-        
+        p.rect(200, y, 150, 8, fill=1, stroke=0)
         bar_len = (v/100)*150
         
-        if v > 75:
-            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo (Exceso)
-        elif v >= 60:
-            p.setFillColorRGB(0.2, 0.6, 0.2) # Verde (Óptimo)
-        elif v >= 25:
-            p.setFillColorRGB(0.9, 0.7, 0.0) # Amarillo (Alerta)
-        else:
-            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo (Defecto)
+        # Color Semáforo (Rango Óptimo: 60-75)
+        if v > 75: p.setFillColorRGB(0.8, 0.2, 0.2) # Exceso
+        elif v >= 60: p.setFillColorRGB(0.2, 0.6, 0.2) # Óptimo
+        elif v >= 25: p.setFillColorRGB(0.9, 0.7, 0.0) # Alerta
+        else: p.setFillColorRGB(0.8, 0.2, 0.2) # Defecto
             
         p.rect(200, y, bar_len, 8, fill=1, stroke=0)
-        
         p.setFillColorRGB(0,0,0)
         p.drawString(360, y, str(round(v, 1)))
+        y -= 15
         
-        narrative = NARRATIVES_DB.get(k, {}).get('high' if v > 50 else 'low', '')
-        p.setFont("Helvetica", 8)
-        p.setFillColorRGB(0.4, 0.4, 0.4)
-        p.drawString(400, y, narrative[:40] + "...")
-        y -= 20
+    y -= 20
+    
+    # 2.1 ANÁLISIS CUALITATIVO (TEXTO DETALLADO)
+    y = check_page_break(p, y, h, w)
+    p.setFont("Helvetica-Bold", 12)
+    p.setFillColorRGB(0.02, 0.04, 0.12)
+    p.drawString(40, y, "3. INTERPRETACIÓN CUALITATIVA")
+    p.line(40, y-5, w-40, y-5)
+    y -= 30
+    
+    # Fortalezas (Top 3)
+    p.setFont("Helvetica-Bold", 11); p.setFillColorRGB(0,0,0); p.drawString(40, y, "Fortalezas Consolidadas"); y -= 20
+    p.setFont("Helvetica", 10)
+    for k, v in sorted_stats[:3]:
+        y = check_page_break(p, y, h, w)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(50, y, f"{LABELS_ES.get(k)} ({round(v)}):")
+        y -= 12
+        narrative = NARRATIVES_DB.get(k, {}).get('high', '')
+        y = draw_wrapped_text(p, narrative, 50, y, 480, "Helvetica", 9)
+        y -= 10
+        
+    y -= 10
+    # Áreas de Desarrollo (Bottom 3)
+    y = check_page_break(p, y, h, w)
+    p.setFont("Helvetica-Bold", 11); p.drawString(40, y, "Áreas Críticas de Desarrollo"); y -= 20
+    for k, v in sorted_stats[-3:]:
+        y = check_page_break(p, y, h, w)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(50, y, f"{LABELS_ES.get(k)} ({round(v)}):")
+        y -= 12
+        narrative = NARRATIVES_DB.get(k, {}).get('low' if v < 60 else 'high', '') # Si es alto pero está al final, muestra high
+        y = draw_wrapped_text(p, narrative, 50, y, 480, "Helvetica", 9)
+        y -= 10
 
-    # 3. FRICCIÓN Y ALERTAS
+    # 4. DIAGNÓSTICO DE FRICCIÓN (NUEVO BLOQUE INTELIGENTE)
     y -= 10
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12)
     p.setFillColorRGB(0.02, 0.04, 0.12)
-    p.drawString(40, y, "3. DETECCIÓN DE FRICCIONES Y RIESGOS")
+    p.drawString(40, y, "4. DIAGNÓSTICO DE FRICCIÓN OPERATIVA")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
     p.setFont("Helvetica", 10)
-    if friction_reasons:
-        p.drawString(50, y, "Factores de Fricción Operativa:"); y -= 15
+    if friction > 0:
+        if stats['emotional_stability'] > 70 and friction > 10:
+             diag = "La penalización en Fricción, combinada con una alta Estabilidad Emocional, permite descartar el miedo paralizante. El origen es operativo: exceso de validación o prudencia administrativa."
+        else:
+             diag = "La fricción detectada podría estar vinculada a inseguridad operativa o falta de certeza en la toma de decisiones."
+             
+        y = draw_wrapped_text(p, diag, 50, y, 480, "Helvetica", 10)
+        y -= 15
+        p.drawString(50, y, "Factores detectados:"); y -= 15
         for r in friction_reasons: 
             y = check_page_break(p, y, h, w)
             p.drawString(60, y, f"- {r}"); y -= 15
     else:
-        p.drawString(50, y, "No se han detectado fricciones operativas significativas.")
+        p.drawString(50, y, "No se han detectado fricciones operativas significativas. El flujo de decisión es ágil.")
         y -= 15
         
     if triggers:
@@ -343,33 +364,27 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
             y = check_page_break(p, y, h, w)
             p.drawString(60, y, f"• {t}"); y -= 15
     
-    # 4. RECOMENDACIÓN SECTORIAL
+    # 5. RECOMENDACIÓN Y CONCLUSIÓN
     y -= 20
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12)
     p.setFillColorRGB(0.02, 0.04, 0.12)
-    p.drawString(40, y, "4. ANÁLISIS SECTORIAL")
+    p.drawString(40, y, "5. CONCLUSIÓN Y RECOMENDACIÓN")
     p.line(40, y-5, w-40, y-5)
     y -= 30
     
+    # Sectorial
     sector_code = SECTOR_MAP.get(user.get('sector'), "TECH")
-    advice = SECTOR_ADVICE_DB.get(sector_code, "Consejo general no disponible.")
-    y = draw_wrapped_text(p, advice, 50, y, 500, "Helvetica-Oblique", 10)
+    advice = SECTOR_ADVICE_DB.get(sector_code, "")
+    y = draw_wrapped_text(p, f"Contexto Sectorial: {advice}", 50, y, 480, "Helvetica-Oblique", 10)
+    y -= 15
     
-    # 5. CONCLUSIÓN
-    y -= 30
-    y = check_page_break(p, y, h, w)
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y, "5. CONCLUSIÓN FINAL")
-    p.line(40, y-5, w-40, y-5)
-    y -= 30
+    # Final
+    conclusion = f"El perfil WJ-PJ (ID: {st.session_state.user_id}) es técnicamente viable. La discrepancia entre Potencial ({avg}) e IRE ({ire}) refleja el coste operativo de las fricciones detectadas. "
+    if ire > 75: conclusion += "Se recomienda proceder con el itinerario de aceleración estándar."
+    else: conclusion += "Se recomienda intervención específica para reducir tiempos de validación y aumentar la eficiencia ejecutiva."
     
-    conclusion = f"El perfil presenta un IRE de {ire}/100. Delta de eficiencia operativa: {delta}. "
-    if ire > 75: conclusion += "Perfil altamente recomendado para liderar iniciativas en este sector."
-    elif ire > 50: conclusion += "Perfil viable con acompañamiento en las áreas de fricción detectadas."
-    else: conclusion += "Se recomienda reevaluar el encaje del perfil con los requerimientos del proyecto."
-    
-    y = draw_wrapped_text(p, conclusion, 50, y, 500, "Helvetica", 10)
+    y = draw_wrapped_text(p, conclusion, 50, y, 480, "Helvetica", 10)
 
     p.setFont("Helvetica", 8)
     p.setFillColorRGB(0.5, 0.5, 0.5)
@@ -389,7 +404,6 @@ def render_header():
             st.image("logo_original.png", use_container_width=True)
         else:
             st.warning("Logo no encontrado")
-            
     with c2:
         st.markdown("""
             <div style="margin-top: 10px;">
@@ -438,7 +452,6 @@ if not st.session_state.data_verified:
     col5, col6 = st.columns(2)
     situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
     experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
-    
     st.markdown("<br>", unsafe_allow_html=True)
     consent = st.checkbox("He leído y acepto la Política de Privacidad.")
     if st.button("VALIDAR DATOS Y CONTINUAR"):
@@ -449,11 +462,10 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (V30 - BOTONES ANCHOS Y ALTOS)
+# FASE 2: SECTOR
 elif not st.session_state.started:
     render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-    
     def go_sector(sec):
         all_q = load_questions()
         code = SECTOR_MAP.get(sec, "TECH")
@@ -465,13 +477,11 @@ elif not st.session_state.started:
         st.rerun()
 
     c1, c2 = st.columns(2)
-    
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
         if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
-        
     with c2:
         if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
         if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
@@ -483,11 +493,9 @@ elif not st.session_state.finished:
     if st.session_state.current_step >= len(st.session_state.data):
         st.session_state.finished = True
         st.rerun()
-        
     render_header()
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
-    
     st.markdown(f"### {row['TITULO']}")
     c_text, c_opt = st.columns([1.5, 1])
     with c_text:
