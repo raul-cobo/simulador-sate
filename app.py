@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V25 - TÍTULOS GIGANTES Y GRID SECTORES) ---
+# --- 2. GESTIÓN DE ESTILOS (V26 - TEXTO GIGANTE EN BOTONES) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -26,7 +26,7 @@ def inject_style(mode):
     """
     
     if mode == "login":
-        # --- MODO LOGIN (BLANCO) ---
+        # MODO LOGIN
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
@@ -46,93 +46,52 @@ def inject_style(mode):
                 width: 100%;
                 padding: 0.5rem 1rem;
             }
-            .stButton > button:hover { 
-                background-color: #5D5FEF !important; 
-                border-color: #5D5FEF !important;
-            }
+            .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
             .stButton > button p { color: #FFFFFF !important; }
-            
-            .login-title {
-                color: #050A1F !important;
-                font-size: 2rem !important;
-                font-weight: 800 !important;
-                text-align: center;
-                margin: 0 !important;
-            }
-            .login-subtitle {
-                color: #666666 !important;
-                font-size: 1rem !important;
-                text-align: center;
-                margin-bottom: 2rem !important;
-            }
+            .login-title { color: #050A1F !important; font-size: 2rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
+            .login-subtitle { color: #666666 !important; font-size: 1rem !important; text-align: center; margin-bottom: 2rem !important; }
             .login-card { padding: 1rem; text-align: center; }
         """
     else:
-        # --- MODO APP (NAVY) ---
+        # MODO APP (NAVY)
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
-                color: #FFFFFF !important; 
-            }
+            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
             .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-                background-color: #0F1629 !important;
-                color: #FFFFFF !important;
-                border: 1px solid #5D5FEF !important;
+                background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
             }
             div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
             .stCheckbox label p { color: white !important; }
             
             .stButton > button {
-                background-color: #1A202C !important;
-                color: white !important;
-                border: 1px solid #5D5FEF !important;
-                border-radius: 8px;
+                background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px;
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* BOTONES SECTOR CUADRADOS Y UNIFORMES */
+            /* --- BOTONES SECTOR (GIGANTES E IGUALES) --- */
             div[data-testid="column"] button {
-                 height: 150px !important;      /* Altura fija */
-                 width: 100% !important;        /* Ocupar toda la columna */
+                 height: 200px !important;       /* ALTURA FIJA PARA TODOS */
+                 width: 100% !important;         /* ANCHO TOTAL */
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  color: white !important;
-                 font-size: 1.1rem !important;
-                 border-radius: 12px !important;
+                 font-size: 2.2rem !important;   /* TEXTO DOBLE DE GRANDE */
+                 line-height: 1.2 !important;
+                 font-weight: 700 !important;
+                 border-radius: 15px !important;
                  white-space: normal !important;
                  display: flex;
                  align-items: center;
                  justify-content: center;
+                 margin-bottom: 15px !important;
             }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.03); }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
             
-            /* Botón deshabilitado (Próximamente) */
-            div[data-testid="column"] button:disabled {
-                border-color: #2D3748 !important;
-                color: #666666 !important;
-                background-color: #0a0e1a !important;
-                cursor: not-allowed;
-            }
-
-            /* --- HEADER GIGANTE --- */
-            .header-title-text { 
-                font-size: 3.5rem !important; /* TAMAÑO DOBLE */
-                font-weight: 800 !important; 
-                color: white !important; 
-                margin: 0; 
-                line-height: 1.0; 
-            }
-            .header-sub-text { 
-                font-size: 1.5rem !important; /* TAMAÑO AUMENTADO */
-                color: #5D5FEF !important; 
-                margin: 0; 
-                font-weight: 500;
-            }
-            
+            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
+            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
-    
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
 # --- 3. LÓGICA Y VARIABLES ---
@@ -343,9 +302,9 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR
+# FASE 2: SECTOR (2 COLUMNAS x 4 CAJAS)
 elif not st.session_state.started:
-    render_header() # Mantenemos el logo que ya funciona
+    render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
     
     def go_sector(sec):
@@ -358,30 +317,22 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # FILA 1 (4 Columnas)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: 
-        if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
-    with c2:
-        if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
-    with c3:
-        if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
-    with c4:
-        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        
-    st.markdown("") # Pequeño separador vertical
+    # CREAMOS 2 COLUMNAS IGUALES
+    c1, c2 = st.columns(2)
     
-    # FILA 2 (4 Columnas)
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
-        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-    with c6:
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-    with c7:
+    # COLUMNA IZQUIERDA (4 CAJAS)
+    with c1: 
+        if st.button("Startup Tecnológica"): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("PYME / Tradicional"): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Autoempleo / Freelance"): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-    with c8:
-        # Nuevo botón de Salud
-        if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
+        
+    # COLUMNA DERECHA (4 CAJAS)
+    with c2:
+        if st.button("Consultoría"): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería"): go_sector("Hostelería y Restauración")
+        if st.button("Social / ONG"): go_sector("Emprendimiento Social")
+        if st.button("Salud / Health"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
