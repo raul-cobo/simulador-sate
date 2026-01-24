@@ -343,10 +343,11 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (2 FILAS x 4 COLUMNAS)
+# FASE 2: SECTOR
 elif not st.session_state.started:
-    render_header()
+    render_header() # Mantenemos el logo que ya funciona
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+    
     def go_sector(sec):
         all_q = load_questions()
         code = SECTOR_MAP.get(sec, "TECH")
@@ -357,7 +358,7 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # Fila 1
+    # FILA 1 (4 Columnas)
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
@@ -368,9 +369,9 @@ elif not st.session_state.started:
     with c4:
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
         
-    st.markdown("") # Espacio
+    st.markdown("") # Pequeño separador vertical
     
-    # Fila 2
+    # FILA 2 (4 Columnas)
     c5, c6, c7, c8 = st.columns(4)
     with c5:
         if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
@@ -379,7 +380,7 @@ elif not st.session_state.started:
     with c7:
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
     with c8:
-        # Nuevo Botón
+        # Nuevo botón de Salud
         if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
