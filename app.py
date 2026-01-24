@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V26 - TEXTO GIGANTE EN BOTONES) ---
+# --- 2. GESTIÓN DE ESTILOS (V27 - CAJAS IGUALES Y TEXTO GRANDE) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -68,27 +68,36 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* --- BOTONES SECTOR (GIGANTES E IGUALES) --- */
+            /* --- BOTONES SECTOR (FUERZA BRUTA PARA IGUALARLOS) --- */
             div[data-testid="column"] button {
-                 height: 200px !important;       /* ALTURA FIJA PARA TODOS */
-                 width: 100% !important;         /* ANCHO TOTAL */
+                 height: 160px !important;       /* ALTURA FIJA OBLIGATORIA */
+                 min-height: 160px !important;
+                 max-height: 160px !important;
+                 width: 100% !important;
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
+                 
+                 /* TEXTO */
                  color: white !important;
-                 font-size: 2.2rem !important;   /* TEXTO DOBLE DE GRANDE */
-                 line-height: 1.2 !important;
+                 font-size: 24px !important;    /* TAMAÑO GRANDE FIJO */
                  font-weight: 700 !important;
-                 border-radius: 15px !important;
-                 white-space: normal !important;
-                 display: flex;
-                 align-items: center;
-                 justify-content: center;
+                 line-height: 1.2 !important;
+                 
+                 border-radius: 12px !important;
+                 white-space: normal !important; /* Permite saltos de linea */
+                 
+                 /* CENTRADO FLEX */
+                 display: flex !important;
+                 align-items: center !important;
+                 justify-content: center !important;
+                 
                  margin-bottom: 15px !important;
             }
             div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
             
-            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
-            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
+            /* HEADER */
+            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.0; }
+            .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
@@ -317,22 +326,22 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # CREAMOS 2 COLUMNAS IGUALES
+    # ESTRUCTURA 2 COLUMNAS
     c1, c2 = st.columns(2)
     
-    # COLUMNA IZQUIERDA (4 CAJAS)
+    # Columna Izquierda (4 botones)
     with c1: 
-        if st.button("Startup Tecnológica"): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
         if st.button("PYME / Tradicional"): go_sector("Pequeña y Mediana Empresa (PYME)")
-        if st.button("Autoempleo / Freelance"): go_sector("Autoempleo / Freelance")
+        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
         
-    # COLUMNA DERECHA (4 CAJAS)
+    # Columna Derecha (4 botones)
     with c2:
-        if st.button("Consultoría"): go_sector("Consultoría / Servicios Profesionales")
-        if st.button("Hostelería"): go_sector("Hostelería y Restauración")
-        if st.button("Social / ONG"): go_sector("Emprendimiento Social")
-        if st.button("Salud / Health"): go_sector("Salud")
+        if st.button("Consultoría /\nServicios"): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
+        if st.button("Emprendimiento\nSocial / ONG"): go_sector("Emprendimiento Social")
+        if st.button("Sector Salud /\nHealth"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
