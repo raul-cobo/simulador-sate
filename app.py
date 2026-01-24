@@ -26,48 +26,67 @@ def inject_style(mode):
     """
     
     if mode == "login":
-        # --- ESTILO LOGIN (BLANCO) ---
+   # --- ESTILO LOGIN (BLANCO) ---
         theme_css = """
+        <style>
+            /* FONDO Y TEXTOS BASICOS */
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
-                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
+                color: #0E1117 !important; font-family: 'Helvetica', sans-serif; 
             }
+            
+            /* INPUTS (Claros) */
             .stTextInput input {
                 background-color: #F8F9FA !important;
                 color: #000000 !important;
                 border: 1px solid #E0E0E0 !important;
             }
             
-            /* CORRECCIÓN BOTÓN LOGIN (Igual que el de validar) */
+            /* BOTÓN (CORRECCIÓN TOTAL DE COLOR) */
             .stButton > button {
-                background-color: #050A1F !important; /* Navy */
-                color: #FFFFFF !important; /* Texto Blanco */
-                border: 1px solid #050A1F !important;
+                background-color: #050A1F !important; /* Fondo Navy */
+                border: none !important;
                 border-radius: 8px !important;
-                font-weight: bold !important;
                 width: 100%;
-                padding: 0.5rem 1rem;
+                padding: 0.6rem !important;
             }
+            /* Forzamos el texto del botón a blanco específicamente */
+            .stButton > button p { 
+                color: #FFFFFF !important; 
+                font-weight: bold !important;
+            }
+            /* Efecto Hover */
             .stButton > button:hover { 
-                background-color: #5D5FEF !important; 
-                border-color: #5D5FEF !important;
-                color: #FFFFFF !important;
+                background-color: #5D5FEF !important;
             }
             
+            /* TITULOS Y MAQUETACIÓN (SIN SCROLL) */
             .login-title {
                 color: #050A1F !important;
                 font-size: 2rem !important;
                 font-weight: 800 !important;
                 text-align: center;
                 margin: 0 !important;
+                line-height: 1.2 !important;
             }
             .login-subtitle {
                 color: #666666 !important;
                 font-size: 1rem !important;
                 text-align: center;
-                margin-bottom: 2rem !important;
+                margin-top: 0 !important;
+                margin-bottom: 1rem !important;
             }
-            .login-card { padding: 2rem; text-align: center; }
+            .login-card { 
+                padding: 1rem 2rem; /* Menos padding vertical */
+                text-align: center; 
+            }
+            
+            /* FORZAR SUBIDA DE CONTENIDO PARA QUITAR SCROLL */
+            .main .block-container { 
+                padding-top: 1rem !important; 
+                padding-bottom: 0 !important;
+            }
+        </style>
         """
     else:
         # --- ESTILO APP INTERNA (NAVY) ---
