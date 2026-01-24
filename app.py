@@ -317,20 +317,24 @@ inject_style("app")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
-    render_header()
+    render_header() # <--- ESTA ES LA LÍNEA QUE FALTABA PARA QUE SALGA EL LOGO
+    
     st.markdown("#### 1. Identificación del/a Candidato/a")
     col1, col2 = st.columns(2)
     name = col1.text_input("Nombre Completo", key="name_input")
     age = col2.number_input("Edad", 18, 99, key="age_input")
+    
     col3, col4 = st.columns(2)
     gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
     country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
+    
     col5, col6 = st.columns(2)
     situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
     experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
     
     st.markdown("<br>", unsafe_allow_html=True)
     consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+    
     if st.button("VALIDAR DATOS Y CONTINUAR"):
         if name and age and consent:
             st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
