@@ -15,14 +15,10 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 19: BLOQUE ÚNICO) ---
+# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 20) ---
 def inject_style(mode):
-    """
-    Genera un ÚNICO bloque <style> para evitar que el código se imprima en pantalla.
-    """
-    
-    # CSS COMÚN (Sin etiquetas style aún)
-    base_css_content = """
+    # CSS BASE (Común)
+    base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
@@ -30,8 +26,8 @@ def inject_style(mode):
     """
     
     if mode == "login":
-        # CSS MODO BLANCO (LOGIN)
-        theme_css_content = """
+        # --- ESTILO LOGIN (BLANCO) ---
+        theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
                 color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
@@ -41,15 +37,22 @@ def inject_style(mode):
                 color: #000000 !important;
                 border: 1px solid #E0E0E0 !important;
             }
+            
+            /* CORRECCIÓN BOTÓN LOGIN (Igual que el de validar) */
             .stButton > button {
-                background-color: #050A1F !important;
-                color: white !important;
+                background-color: #050A1F !important; /* Navy */
+                color: #FFFFFF !important; /* Texto Blanco */
+                border: 1px solid #050A1F !important;
+                border-radius: 8px !important;
+                font-weight: bold !important;
                 width: 100%;
-                border-radius: 8px;
-                font-weight: bold;
-                border: none !important;
+                padding: 0.5rem 1rem;
             }
-            .stButton > button:hover { background-color: #5D5FEF !important; }
+            .stButton > button:hover { 
+                background-color: #5D5FEF !important; 
+                border-color: #5D5FEF !important;
+                color: #FFFFFF !important;
+            }
             
             .login-title {
                 color: #050A1F !important;
@@ -67,8 +70,8 @@ def inject_style(mode):
             .login-card { padding: 2rem; text-align: center; }
         """
     else:
-        # CSS MODO NAVY (APP INTERNA)
-        theme_css_content = """
+        # --- ESTILO APP INTERNA (NAVY) ---
+        theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
                 color: #FFFFFF !important; 
@@ -90,43 +93,37 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* Botones Sector (Gigantes) */
+            /* BOTONES SECTOR (2 filas x 4 columnas, IGUALES) */
             div[data-testid="column"] button {
-                 min-height: 120px !important;
-                 width: 100% !important;
+                 height: 140px !important; /* Altura fija */
+                 width: 100% !important;   /* Ancho total de la columna */
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  color: white !important;
-                 font-size: 1.3rem !important;
+                 font-size: 1.1rem !important;
                  border-radius: 15px !important;
                  white-space: normal !important;
                  display: flex;
                  align-items: center;
                  justify-content: center;
+                 margin-bottom: 10px !important;
             }
             div[data-testid="column"] button:hover { 
                 border-color: #5D5FEF !important; 
                 transform: scale(1.02);
             }
-            /* Desactivar efecto hover en el boton proximamente para que no parezca clicable */
-            div[data-testid="column"] button:disabled {
-                border-color: #2D3748 !important;
-                opacity: 0.5;
-            }
             
             /* Header Interno */
-            .header-title-text { font-size: 2rem !important; font-weight: bold !important; color: white !important; margin: 0; }
-            .header-sub-text { font-size: 1rem !important; color: #5D5FEF !important; margin: 0; }
+            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
+            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
             
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
     
-    # UNIFICACIÓN: AQUÍ ESTÁ LA CLAVE. Solo una etiqueta <style>
-    final_css = f"<style>{base_css_content}\n{theme_css_content}</style>"
-    st.markdown(final_css, unsafe_allow_html=True)
+    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. VARIABLES Y LÓGICA ---
+# --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -139,7 +136,7 @@ NARRATIVES_DB = {
     "self_efficacy": { "high": "Confianza sólida en las propias capacidades.", "low": "Dudas sobre la propia capacidad." }
 }
 VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
-SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA" }
+SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA", "Salud": "SALUD" }
 
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 def init_session():
@@ -186,7 +183,7 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR ---
+# --- PDF GENERATOR (COMPLETO) ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -236,16 +233,24 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     for i, (k, v) in enumerate(sorted_stats[-3:]): mode = "low" if v < 60 else "high"; y = draw_wrapped_text(p, f"{i+1}. {LABELS_ES.get(k)} ({round(v)}): {NARRATIVES_DB.get(k, {}).get(mode, '')}", 50, y, 480, "Helvetica", 9); y -= 5
     y -= 30
     if y < 150: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
-    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Fricción"); p.line(40, y-5, w-40, y-5); y -= 30; p.setFont("Helvetica", 9)
+    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Fricción y Alertas"); p.line(40, y-5, w-40, y-5); y -= 30
+    p.setFont("Helvetica", 9)
     if friction_reasons: 
-        for r in friction_reasons: p.drawString(50, y, f"• {r}"); y -= 15
-    else: p.drawString(50, y, "• Sin fricción significativa.")
+        p.drawString(50, y, "Factores de Fricción detectados:"); y -= 15
+        for r in friction_reasons: p.drawString(60, y, f"- {r}"); y -= 15
+    else: p.drawString(50, y, "• Sin fricción significativa."); y -= 15
+    
+    if triggers:
+        y -= 10; p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0.8, 0, 0)
+        p.drawString(50, y, "ALERTAS (TRIGGERS):"); y -= 15; p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 9)
+        for t in triggers: p.drawString(60, y, f"• {t}"); y -= 15
+        
     y -= 20
-    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160 
+    if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión"); p.line(40, y-5, w-40, y-5); y -= 30
     y = draw_wrapped_text(p, f"El perfil es técnicamente viable. Delta de eficiencia: {delta}.", 40, y, 480, "Helvetica", 9); y -= 10
     p.setFont("Helvetica-Bold", 9); p.drawString(40, y, "Recomendación:"); y -= 15
-    y = draw_wrapped_text(p, "Reducir tiempos de deliberación y comprobaciones redundantes.", 40, y, 480, "Helvetica", 9)
+    y = draw_wrapped_text(p, "Se recomienda reducir los tiempos de validación externa y agilizar la toma de decisiones críticas.", 40, y, 480, "Helvetica", 9)
     p.showPage(); p.save(); buffer.seek(0); return buffer
 
 def get_ire_text(s): return "Nivel positivo." if s > 75 else "Nivel medio." if s > 50 else "Nivel comprometido."
@@ -257,10 +262,10 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN RENDERIZADO HEADER INTERNO (LOGO BLANCO) ---
+# --- FUNCIÓN HEADER GLOBAL (A LA IZQUIERDA Y TEXTO DEBAJO SI NO CABE) ---
 def render_header():
-    # Esta función pinta el logo y títulos en cada página interna
-    c1, c2 = st.columns([1, 4])
+    # Logo Izq (Pequeño) - Texto Derecha
+    c1, c2 = st.columns([1, 6])
     with c1:
         if os.path.exists("logo_blanco.png"):
             st.image("logo_blanco.png", use_container_width=True)
@@ -299,7 +304,7 @@ inject_style("app")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
-    render_header() # <--- LOGO FORZADO
+    render_header() # <--- LOGO
     st.markdown("#### 1. Identificación del/a Candidato/a")
     col1, col2 = st.columns(2)
     name = col1.text_input("Nombre Completo")
@@ -321,14 +326,14 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR
+# FASE 2: SECTOR (REDRISEÑADO: 2 FILAS x 4 COLUMNAS)
 elif not st.session_state.started:
-    render_header() # <--- LOGO FORZADO
+    render_header() # <--- LOGO
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
     
     def go_sector(sec):
         all_q = load_questions()
-        code = SECTOR_MAP.get(sec, "TECH") # Fallback seguro
+        code = SECTOR_MAP.get(sec, "TECH")
         qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
         if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
         st.session_state.data = qs
@@ -336,28 +341,38 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # LAYOUT 2 COLUMNAS (8 huecos total)
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("Startup Tecnológica (Scalable)"): go_sector("Startup Tecnológica (Scalable)")
-        if st.button("Pequeña y Mediana Empresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
-        if st.button("Autoempleo / Freelance"): go_sector("Autoempleo / Freelance")
-        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-        
+    # FILA 1
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: 
+        if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
     with c2:
-        if st.button("Consultoría / Servicios Prof."): go_sector("Consultoría / Servicios Profesionales")
-        if st.button("Hostelería y Restauración"): go_sector("Hostelería y Restauración")
-        if st.button("Emprendimiento Social"): go_sector("Emprendimiento Social")
-        st.button("Próximamente...", disabled=True) # Hueco 8
+        if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
+    with c3:
+        if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
+    with c4:
+        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
+        
+    st.markdown("") # Pequeño espacio
+    
+    # FILA 2
+    c5, c6, c7, c8 = st.columns(4)
+    with c5:
+        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
+    with c6:
+        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
+    with c7:
+        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
+    with c8:
+        if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
-    # --- SAFETY CHECK (CORRECCIÓN ERROR INDEXERROR) ---
+    # Freno de seguridad anti-error rojo
     if st.session_state.current_step >= len(st.session_state.data):
         st.session_state.finished = True
         st.rerun()
-    
-    render_header() # <--- LOGO FORZADO
+        
+    render_header() # <--- LOGO
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
     
@@ -394,7 +409,7 @@ elif not st.session_state.finished:
 
 # FASE 4: RESULTADOS
 else:
-    render_header() # <--- LOGO FORZADO TAMBIÉN AQUÍ
+    render_header() # <--- LOGO
     ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
     
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
