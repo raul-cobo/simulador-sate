@@ -266,26 +266,44 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER GLOBAL (A LA IZQUIERDA Y TEXTO DEBAJO) ---
+# -# --- FUNCIÓN HEADER MEJORADA (Logo Izquierda + Título Derecha) ---
 def render_header():
-    # Logo Izq (Pequeño) - Texto Derecha
-    c1, c2 = st.columns([1, 6])
+    # 1. Lógica inteligente para el logo: Intenta el blanco, si no, usa el original
+    if os.path.exists("logo_blanco.png"):
+        logo_path = "logo_blanco.png"
+    elif os.path.exists("logo_original.png"):
+        logo_path = "logo_original.png"
+    else:
+        logo_path = None
+
+    # 2. Columnas ajustadas: [1.5] para logo (más espacio) | [4.5] para texto
+    c1, c2 = st.columns([1.5, 4.5])
+    
     with c1:
-        if os.path.exists("logo_blanco.png"):
-            st.image("logo_blanco.png", use_container_width=True)
+        if logo_path:
+            st.image(logo_path, use_container_width=True)
+        else:
+            # Si no hay ninguna imagen, pone texto para que no quede vacío
+            st.markdown("### AUDEO", unsafe_allow_html=True)
+            
     with c2:
-        st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+        # Usamos HTML directo con un poco de margen superior para alinear verticalmente con el logo
+        st.markdown("""
+            <div style="margin-top: 15px;">
+                <p class="header-title-text">Simulador S.A.P.E.</p>
+                <p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>
+            </div>
+        """, unsafe_allow_html=True)
     st.markdown("---")
 
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# PANTALLA 0: LOGIN
+# PANTALLA 0: LOGIN (Mantenemos la que ya funciona, no la toques en tu código si está bien)
 if not st.session_state.get("auth", False):
     inject_style("login") 
-    
-    # Login centrado y subido
+    st.write("")
+    st.write("")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo_original.png"):
@@ -305,6 +323,36 @@ if not st.session_state.get("auth", False):
 
 # --- APP INTERNA (NAVY) ---
 inject_style("app") 
+
+# FASE 1: DATOS (REEMPLAZAR ESTE BLOQUE ENTERO)
+if not st.session_state.data_verified:
+    # FORZAMOS EL HEADER AQUÍ
+    render_header()
+    
+    st.markdown("#### 1. Identificación del/a Candidato/a")
+    
+    col1, col2 = st.columns(2)
+    name = col1.text_input("Nombre Completo")
+    age = col2.number_input("Edad", 18, 99)
+    
+    col3, col4 = st.columns(2)
+    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
+    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"])
+    
+    col5, col6 = st.columns(2)
+    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
+    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"])
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+    
+    if st.button("VALIDAR DATOS Y CONTINUAR"):
+        if name and age and consent:
+            st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
+            st.session_state.data_verified = True
+            st.rerun()
+        else:
+            st.error("Por favor, completa los campos obligatorios.")
 
 # FASE 1: DATOS
 if not st.session_state.data_verified:
