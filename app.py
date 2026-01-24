@@ -15,80 +15,110 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 20) ---
+    # C# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 20) ---
 def inject_style(mode):
-    # CSS BASE (Común)
+    # CSS BASE (Común para quitar header y reducir márgenes al mínimo)
+    # Nota: No ponemos etiquetas <style> aquí dentro, se ponen al final una sola vez.
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; max-width: 90% !important; }
+        /* PADDING 0 PARA QUE SUBA AL TECHO */
+        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 90% !important; }
     """
     
     if mode == "login":
-   # --- ESTILO LOGIN (BLANCO) ---
+        # --- ESTILO LOGIN ---
         theme_css = """
-        <style>
-            /* FONDO Y TEXTOS BASICOS */
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
-                color: #0E1117 !important; font-family: 'Helvetica', sans-serif; 
+                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
             }
-            
-            /* INPUTS (Claros) */
             .stTextInput input {
                 background-color: #F8F9FA !important;
                 color: #000000 !important;
                 border: 1px solid #E0E0E0 !important;
             }
             
-            /* BOTÓN (CORRECCIÓN TOTAL DE COLOR) */
+            /* BOTÓN LOGIN CORREGIDO (Visible) */
             .stButton > button {
-                background-color: #050A1F !important; /* Fondo Navy */
-                border: none !important;
+                background-color: #050A1F !important;
+                color: #FFFFFF !important;
+                border: 1px solid #050A1F !important;
                 border-radius: 8px !important;
-                width: 100%;
-                padding: 0.6rem !important;
-            }
-            /* Forzamos el texto del botón a blanco específicamente */
-            .stButton > button p { 
-                color: #FFFFFF !important; 
                 font-weight: bold !important;
+                width: 100%;
+                padding: 0.5rem 1rem;
             }
-            /* Efecto Hover */
             .stButton > button:hover { 
-                background-color: #5D5FEF !important;
+                background-color: #5D5FEF !important; 
+                border-color: #5D5FEF !important;
             }
+            /* Forzar color blanco en texto del botón */
+            .stButton > button p { color: #FFFFFF !important; }
             
-            /* TITULOS Y MAQUETACIÓN (SIN SCROLL) */
             .login-title {
                 color: #050A1F !important;
                 font-size: 2rem !important;
                 font-weight: 800 !important;
                 text-align: center;
                 margin: 0 !important;
-                line-height: 1.2 !important;
             }
             .login-subtitle {
                 color: #666666 !important;
                 font-size: 1rem !important;
                 text-align: center;
-                margin-top: 0 !important;
-                margin-bottom: 1rem !important;
+                margin-bottom: 2rem !important;
             }
-            .login-card { 
-                padding: 1rem 2rem; /* Menos padding vertical */
-                text-align: center; 
-            }
-            
-            /* FORZAR SUBIDA DE CONTENIDO PARA QUITAR SCROLL */
-            .main .block-container { 
-                padding-top: 1rem !important; 
-                padding-bottom: 0 !important;
-            }
-        </style>
+            .login-card { padding: 1rem; text-align: center; }
         """
     else:
+        # --- ESTILO APP INTERNA ---
+        theme_css = """
+            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
+            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
+                color: #FFFFFF !important; 
+            }
+            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
+                background-color: #0F1629 !important;
+                color: #FFFFFF !important;
+                border: 1px solid #5D5FEF !important;
+            }
+            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
+            .stCheckbox label p { color: white !important; }
+            
+            .stButton > button {
+                background-color: #1A202C !important;
+                color: white !important;
+                border: 1px solid #5D5FEF !important;
+                border-radius: 8px;
+            }
+            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
+            
+            div[data-testid="column"] button {
+                 height: 140px !important;
+                 width: 100% !important;
+                 background-color: #0F1629 !important;
+                 border: 2px solid #2D3748 !important;
+                 color: white !important;
+                 font-size: 1.1rem !important;
+                 border-radius: 15px !important;
+                 white-space: normal !important;
+                 display: flex;
+                 align-items: center;
+                 justify-content: center;
+                 margin-bottom: 10px !important;
+            }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
+            
+            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
+            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
+            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
+            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
+        """
+    
+    # UNIFICACIÓN LIMPIA: Solo un bloque style al final
+    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)   else:
         # --- ESTILO APP INTERNA (NAVY) ---
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
@@ -299,8 +329,6 @@ init_session()
 # PANTALLA 0: LOGIN
 if not st.session_state.get("auth", False):
     inject_style("login") 
-    st.write("")
-    st.write("")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo_original.png"):
