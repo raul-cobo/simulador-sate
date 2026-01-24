@@ -310,7 +310,7 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (2 COLUMNAS x 4 FILAS = 8 CAJAS RESPONSIVAS)
+# FASE 2: SECTOR (2 COLUMNAS)
 elif not st.session_state.started:
     render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
@@ -325,20 +325,21 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # 2 COLUMNAS
     c1, c2 = st.columns(2)
     
+    # COLUMNA 1 (IZQUIERDA)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
         if st.button("PYME / Tradicional"): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
         
+    # COLUMNA 2 (DERECHA)
     with c2:
         if st.button("Consultoría /\nServicios"): go_sector("Consultoría / Servicios Profesionales")
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
         if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-        if st.button("Sector Salud /\nHealth"): go_sector("Salud")
+        if st.button("Salud / Health"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
