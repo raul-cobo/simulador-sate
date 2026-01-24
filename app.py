@@ -354,14 +354,16 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (REDRISEÑADO: 2 FILAS x 4 COLUMNAS)
+# FASE 2: SECTOR
 elif not st.session_state.started:
-    render_header() # <--- LOGO
-    st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+    # Si el logo ya te sale, no hace falta añadir render_header() aquí.
+    
+    st.markdown("#### 2. Selecciona el Sector del Proyecto:")
     
     def go_sector(sec):
         all_q = load_questions()
-        code = SECTOR_MAP.get(sec, "TECH")
+        # Mapeo seguro: si no encuentra el sector, usa TECH por defecto
+        code = SECTOR_MAP.get(sec, "TECH") 
         qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
         if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
         st.session_state.data = qs
@@ -369,30 +371,22 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # FILA 1
-    c1, c2, c3, c4 = st.columns(4)
+    # ESTRUCTURA: 2 Columnas (Así las cajas ocupan el 50% y se ven GRANDES)
+    c1, c2 = st.columns(2)
+    
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
-    with c2:
-        if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
-    with c3:
         if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
-    with c4:
-        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        
-    st.markdown("") # Pequeño espacio
-    
-    # FILA 2
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
         if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-    with c6:
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-    with c7:
         if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-    with c8:
+        
+    with c2: 
+        if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
+        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
+        # [cite_start]Caja 8: Emprendimiento en Salud [cite: 108]
         if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
-
+        
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
     # Freno de seguridad
