@@ -15,27 +15,23 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (DUAL MODE) ---
+# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 19: BLOQUE ÚNICO) ---
 def inject_style(mode):
     """
-    mode='login' -> Fondo Blanco, Logo Color.
-    mode='app'   -> Fondo Navy, Logo Blanco.
+    Genera un ÚNICO bloque <style> para evitar que el código se imprima en pantalla.
     """
     
-    # CSS BASE (Común)
-    base_css = """
-    <style>
+    # CSS COMÚN (Sin etiquetas style aún)
+    base_css_content = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
         .main .block-container { padding-top: 1rem !important; max-width: 90% !important; }
-    </style>
     """
     
     if mode == "login":
-        # --- ESTILO LOGIN (BLANCO) ---
-        custom_css = """
-        <style>
+        # CSS MODO BLANCO (LOGIN)
+        theme_css_content = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
                 color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
@@ -54,6 +50,7 @@ def inject_style(mode):
                 border: none !important;
             }
             .stButton > button:hover { background-color: #5D5FEF !important; }
+            
             .login-title {
                 color: #050A1F !important;
                 font-size: 2rem !important;
@@ -68,12 +65,10 @@ def inject_style(mode):
                 margin-bottom: 2rem !important;
             }
             .login-card { padding: 2rem; text-align: center; }
-        </style>
         """
     else:
-        # --- ESTILO APP INTERNA (NAVY) ---
-        custom_css = """
-        <style>
+        # CSS MODO NAVY (APP INTERNA)
+        theme_css_content = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
                 color: #FFFFFF !important; 
@@ -95,7 +90,7 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* Botones Sector (NUEVO ESTILO GRANDE Y ANCHO) */
+            /* Botones Sector (Gigantes) */
             div[data-testid="column"] button {
                  min-height: 120px !important;
                  width: 100% !important;
@@ -104,7 +99,7 @@ def inject_style(mode):
                  color: white !important;
                  font-size: 1.3rem !important;
                  border-radius: 15px !important;
-                 white-space: normal !important; /* Permite saltos de línea */
+                 white-space: normal !important;
                  display: flex;
                  align-items: center;
                  justify-content: center;
@@ -113,6 +108,11 @@ def inject_style(mode):
                 border-color: #5D5FEF !important; 
                 transform: scale(1.02);
             }
+            /* Desactivar efecto hover en el boton proximamente para que no parezca clicable */
+            div[data-testid="column"] button:disabled {
+                border-color: #2D3748 !important;
+                opacity: 0.5;
+            }
             
             /* Header Interno */
             .header-title-text { font-size: 2rem !important; font-weight: bold !important; color: white !important; margin: 0; }
@@ -120,10 +120,11 @@ def inject_style(mode):
             
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
-        </style>
         """
     
-    st.markdown(base_css + custom_css, unsafe_allow_html=True)
+    # UNIFICACIÓN: AQUÍ ESTÁ LA CLAVE. Solo una etiqueta <style>
+    final_css = f"<style>{base_css_content}\n{theme_css_content}</style>"
+    st.markdown(final_css, unsafe_allow_html=True)
 
 # --- 3. VARIABLES Y LÓGICA ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
