@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V29 - RESPONSIVE REAL) ---
+# --- 2. GESTIÓN DE ESTILOS (V30 - AGRESIVO) ---
 def inject_style(mode):
     # CSS BASE
     base_css = """
@@ -68,33 +68,42 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* --- BOTONES SECTOR FLEXIBLES (V29) --- */
+            /* --- BOTONES SECTOR (V30) --- */
+            /* Apuntamos directamente a los botones dentro de las columnas */
             div[data-testid="column"] button {
-                 /* Altura MÍNIMA para que sean grandes, pero crecen si hace falta */
-                 min-height: 9rem !important; 
-                 width: 100% !important;
+                 height: 180px !important;       /* ALTURA FIJA PARA TODOS IGUAL */
+                 min-height: 180px !important;
                  
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
                  
-                 /* TEXTO GRANDE Y FLUIDO */
+                 /* TEXTO */
                  color: white !important;
-                 font-size: 1.8rem !important; 
+                 font-size: 26px !important;     /* TAMAÑO DE LETRA FORZADO EN PX */
                  font-weight: 700 !important;
-                 line-height: 1.2 !important;
+                 line-height: 1.3 !important;
                  
-                 border-radius: 12px !important;
-                 white-space: normal !important; /* Texto envuelve */
+                 border-radius: 16px !important;
+                 white-space: pre-wrap !important; /* IMPORTANTE: Respeta los saltos de línea \n */
                  
-                 /* ALINEACIÓN */
-                 display: flex;
-                 align-items: center;
-                 justify-content: center;
+                 display: flex !important;
+                 align-items: center !important;
+                 justify-content: center !important;
+                 
                  margin-bottom: 1rem !important;
-                 padding: 1rem !important;
+                 box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
             }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); transition: transform 0.2s; }
-            
+            div[data-testid="column"] button:hover { 
+                border-color: #5D5FEF !important; 
+                background-color: #1a2236 !important;
+                transform: translateY(-2px);
+            }
+            div[data-testid="column"] button:disabled {
+                border-color: #2D3748 !important;
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
             /* HEADER */
             .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
             .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
@@ -230,25 +239,14 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     y = draw_wrapped_text(p, "Se recomienda reducir los tiempos de validación externa y agilizar la toma de decisiones críticas.", 40, y, 480, "Helvetica", 9)
     p.showPage(); p.save(); buffer.seek(0); return buffer
 
-def get_ire_text(s): return "Nivel positivo." if s > 75 else "Nivel medio." if s > 50 else "Nivel comprometido."
-def get_potential_text(s): return "Nivel Notable." if s > 75 else "Nivel Medio." if s > 50 else "Nivel Bajo."
-def get_friction_text(s): return "Nivel bajo." if s < 20 else "Nivel medio." if s < 40 else "Nivel alto."
-def radar_chart():
-    data = st.session_state.octagon; cat = [LABELS_ES.get(k) for k in data.keys()]; val = list(data.values()); cat += [cat[0]]; val += [val[0]]
-    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
-    return fig
-
 def render_header():
     c1, c2 = st.columns([1.5, 6])
     with c1:
-        # LÓGICA INTELIGENTE PARA EL LOGO
         if os.path.exists("logo_blanco.png"):
             st.image("logo_blanco.png", use_container_width=True)
         elif os.path.exists("logo_original.png"):
             st.image("logo_original.png", use_container_width=True)
         else:
-            # Si no hay logo, mostramos un texto de fallback para que no rompa
             st.warning("Logo no encontrado")
             
     with c2:
@@ -310,7 +308,7 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (2 COLUMNAS)
+# FASE 2: SECTOR (V30 - BOTONES ANCHOS Y ALTOS)
 elif not st.session_state.started:
     render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
@@ -325,21 +323,20 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
+    # ESTRUCTURA 2 COLUMNAS (Usamos use_container_width=True para que rellenen todo)
     c1, c2 = st.columns(2)
     
-    # COLUMNA 1 (IZQUIERDA)
     with c1: 
-        if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
-        if st.button("PYME / Tradicional"): go_sector("Pequeña y Mediana Empresa (PYME)")
-        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
+        if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+        if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
         
-    # COLUMNA 2 (DERECHA)
     with c2:
-        if st.button("Consultoría /\nServicios"): go_sector("Consultoría / Servicios Profesionales")
-        if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-        if st.button("Salud / Health"): go_sector("Salud")
+        if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
+        if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
+        if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
