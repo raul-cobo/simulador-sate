@@ -15,23 +15,18 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 21: SIN ERRORES DE SINTAXIS) ---
+# --- 2. GESTIÓN DE ESTILOS (VERSIÓN 24: TEXTOS GIGANTES) ---
 def inject_style(mode):
-    """
-    Genera un ÚNICO bloque <style> para evitar errores visuales.
-    """
-    
-    # CSS BASE (Común: Quitar header nativo y reducir márgenes al mínimo)
+    # CSS BASE
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        /* MARGEN SUPERIOR MÍNIMO */
         .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 90% !important; }
     """
     
     if mode == "login":
-        # --- MODO LOGIN (BLANCO) ---
+        # MODO LOGIN (BLANCO)
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
@@ -42,8 +37,6 @@ def inject_style(mode):
                 color: #000000 !important;
                 border: 1px solid #E0E0E0 !important;
             }
-            
-            /* BOTÓN LOGIN CORREGIDO (Visible) */
             .stButton > button {
                 background-color: #050A1F !important;
                 color: #FFFFFF !important;
@@ -57,7 +50,6 @@ def inject_style(mode):
                 background-color: #5D5FEF !important; 
                 border-color: #5D5FEF !important;
             }
-            /* Forzar color blanco en texto del botón */
             .stButton > button p { color: #FFFFFF !important; }
             
             .login-title {
@@ -76,7 +68,7 @@ def inject_style(mode):
             .login-card { padding: 1rem; text-align: center; }
         """
     else:
-        # --- MODO APP INTERNA (NAVY) ---
+        # MODO APP (NAVY)
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { 
@@ -90,7 +82,6 @@ def inject_style(mode):
             div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
             .stCheckbox label p { color: white !important; }
             
-            /* Botones Generales */
             .stButton > button {
                 background-color: #1A202C !important;
                 color: white !important;
@@ -99,9 +90,9 @@ def inject_style(mode):
             }
             .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
             
-            /* Botones Sector (Gigantes) */
+            /* BOTONES SECTOR GRANDES */
             div[data-testid="column"] button {
-                 height: 140px !important;
+                 min-height: 140px !important;
                  width: 100% !important;
                  background-color: #0F1629 !important;
                  border: 2px solid #2D3748 !important;
@@ -115,19 +106,33 @@ def inject_style(mode):
                  margin-bottom: 10px !important;
             }
             div[data-testid="column"] button:hover { border-color: #5D5FEF !important; transform: scale(1.02); }
-            
-            /* Header Interno */
-            .header-title-text { font-size: 1.8rem !important; font-weight: bold !important; color: white !important; margin: 0; line-height: 1.1; }
-            .header-sub-text { font-size: 0.9rem !important; color: #5D5FEF !important; margin: 0; }
+            div[data-testid="column"] button:disabled {
+                border-color: #2D3748 !important;
+                color: #666666 !important;
+                cursor: not-allowed;
+            }
+
+            /* --- HEADER INTERNO (TEXTOS GIGANTES) --- */
+            .header-title-text { 
+                font-size: 3.0rem !important; /* AUMENTADO AL DOBLE (Antes 1.8) */
+                font-weight: 800 !important; 
+                color: white !important; 
+                margin: 0; 
+                line-height: 1.1; 
+            }
+            .header-sub-text { 
+                font-size: 1.4rem !important; /* AUMENTADO (Antes 0.9) */
+                color: #5D5FEF !important; 
+                margin: 0; 
+                font-weight: 500 !important;
+            }
             
             .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
             .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
         """
-    
-    # UNIFICACIÓN DE ESTILOS AL FINAL DE LA FUNCIÓN
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. VARIABLES Y LÓGICA ---
+# --- 3. LÓGICA ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 NARRATIVES_DB = {
     "emotional_stability": { "high": "Puntuación muy alta. Capacidad absoluta para mantener la regulación emocional bajo presión.", "low": "Nivel bajo. Vulnerabilidad ante la presión sostenida." },
@@ -187,7 +192,6 @@ def calculate_results():
     delta = round(avg - ire, 2)
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
 
-# --- PDF GENERATOR (COMPLETO) ---
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -243,12 +247,10 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.drawString(50, y, "Factores de Fricción detectados:"); y -= 15
         for r in friction_reasons: p.drawString(60, y, f"- {r}"); y -= 15
     else: p.drawString(50, y, "• Sin fricción significativa."); y -= 15
-    
     if triggers:
         y -= 10; p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0.8, 0, 0)
         p.drawString(50, y, "ALERTAS (TRIGGERS):"); y -= 15; p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 9)
         for t in triggers: p.drawString(60, y, f"• {t}"); y -= 15
-        
     y -= 20
     if y < 100: p.showPage(); draw_pdf_header(p, w, h); y = h - 160
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión"); p.line(40, y-5, w-40, y-5); y -= 30
@@ -266,44 +268,22 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- FUNCIÓN HEADER MEJORADA (Logo Izquierda + Título Derecha) ---
 def render_header():
-    # 1. Lógica inteligente para el logo: Intenta el blanco, si no, usa el original
-    if os.path.exists("logo_blanco.png"):
-        logo_path = "logo_blanco.png"
-    elif os.path.exists("logo_original.png"):
-        logo_path = "logo_original.png"
-    else:
-        logo_path = None
-
-    # 2. Columnas ajustadas: [1.5] para logo (más espacio) | [4.5] para texto
-    c1, c2 = st.columns([1.5, 4.5])
-    
+    c1, c2 = st.columns([1.5, 4.5]) # Ajustado el ancho para que quepa el texto grande
     with c1:
-        if logo_path:
-            st.image(logo_path, use_container_width=True)
-        else:
-            # Si no hay ninguna imagen, pone texto para que no quede vacío
-            st.markdown("### AUDEO", unsafe_allow_html=True)
-            
+        if os.path.exists("logo_blanco.png"):
+            st.image("logo_blanco.png", use_container_width=True)
     with c2:
-        # Usamos HTML directo con un poco de margen superior para alinear verticalmente con el logo
-        st.markdown("""
-            <div style="margin-top: 15px;">
-                <p class="header-title-text">Simulador S.A.P.E.</p>
-                <p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<p class="header-title-text">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
     st.markdown("---")
 
 # --- 5. APP PRINCIPAL ---
 init_session()
 
-# PANTALLA 0: LOGIN (Mantenemos la que ya funciona, no la toques en tu código si está bien)
+# PANTALLA 0: LOGIN
 if not st.session_state.get("auth", False):
     inject_style("login") 
-    st.write("")
-    st.write("")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo_original.png"):
@@ -324,28 +304,22 @@ if not st.session_state.get("auth", False):
 # --- APP INTERNA (NAVY) ---
 inject_style("app") 
 
-# FASE 1: DATOS (REEMPLAZAR ESTE BLOQUE ENTERO)
+# FASE 1: DATOS
 if not st.session_state.data_verified:
-    # FORZAMOS EL HEADER AQUÍ
     render_header()
-    
     st.markdown("#### 1. Identificación del/a Candidato/a")
-    
     col1, col2 = st.columns(2)
-    name = col1.text_input("Nombre Completo")
-    age = col2.number_input("Edad", 18, 99)
-    
+    name = col1.text_input("Nombre Completo", key="name_input")
+    age = col2.number_input("Edad", 18, 99, key="age_input")
     col3, col4 = st.columns(2)
-    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"])
-    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"])
-    
+    gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
+    country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
     col5, col6 = st.columns(2)
-    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"])
-    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"])
+    situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
+    experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
     
     st.markdown("<br>", unsafe_allow_html=True)
     consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-    
     if st.button("VALIDAR DATOS Y CONTINUAR"):
         if name and age and consent:
             st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
@@ -354,11 +328,10 @@ if not st.session_state.data_verified:
         else:
             st.error("Por favor, completa los campos obligatorios.")
 
-# FASE 2: SECTOR (REDRISEÑADO: 2 FILAS x 4 COLUMNAS)
+# FASE 2: SECTOR (2x4)
 elif not st.session_state.started:
-    render_header() # <--- LOGO
+    render_header()
     st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-    
     def go_sector(sec):
         all_q = load_questions()
         code = SECTOR_MAP.get(sec, "TECH")
@@ -369,107 +342,66 @@ elif not st.session_state.started:
         st.session_state.started = True
         st.rerun()
 
-    # FILA 1
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)"): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
     with c2:
         if st.button("Consultoría /\nServicios Prof."): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
     with c3:
         if st.button("Pequeña y Mediana\nEmpresa (PYME)"): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
     with c4:
         if st.button("Hostelería y\nRestauración"): go_sector("Hostelería y Restauración")
-        
-    st.markdown("") # Pequeño espacio
-    
-    # FILA 2
-    c5, c6, c7, c8 = st.columns(4)
-    with c5:
-        if st.button("Autoempleo /\nFreelance"): go_sector("Autoempleo / Freelance")
-    with c6:
-        if st.button("Emprendimiento\nSocial"): go_sector("Emprendimiento Social")
-    with c7:
-        if st.button("Intraemprendimiento"): go_sector("Intraemprendimiento")
-    with c8:
         if st.button("Emprendimiento en\nServicios de Salud"): go_sector("Salud")
 
 # FASE 3: PREGUNTAS
 elif not st.session_state.finished:
-    # Freno de seguridad
     if st.session_state.current_step >= len(st.session_state.data):
         st.session_state.finished = True
         st.rerun()
         
-    render_header() # <--- LOGO
+    render_header()
     row = st.session_state.data[st.session_state.current_step]
     st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
     
     st.markdown(f"### {row['TITULO']}")
-    
     c_text, c_opt = st.columns([1.5, 1])
     with c_text:
         st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
     with c_opt:
         st.markdown("#### Tu decisión:")
         step = st.session_state.current_step
-        
         if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
-            parse_logic(row.get('OPCION_A_LOGIC'))
-            st.session_state.current_step += 1
-            st.rerun()
-            
+            parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step += 1; st.rerun()
         if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True):
-            parse_logic(row.get('OPCION_B_LOGIC'))
-            st.session_state.current_step += 1
-            st.rerun()
-            
+            parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step += 1; st.rerun()
         if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
             if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_C_LOGIC'))
-                st.session_state.current_step += 1
-                st.rerun()
-        
+                parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step += 1; st.rerun()
         if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
             if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_D_LOGIC'))
-                st.session_state.current_step += 1
-                st.rerun()
+                parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step += 1; st.rerun()
 
 # FASE 4: RESULTADOS
 else:
-    render_header() # <--- LOGO
+    render_header()
     ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
-    
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
-    
     k1, k2, k3 = st.columns(3)
     k1.metric("Índice IRE", f"{ire}/100")
     k2.metric("Potencial", f"{avg}/100")
     k3.metric("Fricción", friction, delta_color="inverse")
-    
     c_chart, c_desc = st.columns([1, 1])
-    with c_chart:
-        st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_chart: st.plotly_chart(radar_chart(), use_container_width=True)
     with c_desc:
         st.markdown("### Diagnóstico")
         st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        if triggers:
-             st.error("Alertas: " + ", ".join(triggers))
-        else:
-             st.success("Perfil sin alertas críticas.")
-
+        if triggers: st.error("Alertas: " + ", ".join(triggers))
+        else: st.success("Perfil sin alertas críticas.")
     st.markdown("<br>", unsafe_allow_html=True)
-    
     pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
-    st.download_button(
-        "📥 DESCARGAR INFORME COMPLETO (PDF)",
-        pdf,
-        file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
-    
-    if st.button("Reiniciar"):
-        st.session_state.clear()
-        st.rerun()
+    st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
+    if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
