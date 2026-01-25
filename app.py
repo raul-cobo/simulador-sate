@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V36) ---
+# --- 2. GESTIÓN DE ESTILOS (V37) ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
@@ -71,8 +71,32 @@ def inject_style(mode):
         """
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES CALIBRADAS (V36) ---
+# --- 3. LÓGICA Y VARIABLES CALIBRADAS ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
+
+# TRADUCCIÓN PROFESIONAL DE ARQUETIPOS ("CÓCTELES")
+ARCHETYPES_DB = {
+    "tyrant": {
+        "title": "Patrón de Liderazgo Coercitivo Reactivo",
+        "desc": "La combinación de alta exigencia (Logro) con baja regulación emocional (Estabilidad) y bajo locus de control genera un estilo de gestión propenso a la frustración proyectada hacia el equipo. Riesgo de alta rotación de personal y clima laboral tóxico."
+    },
+    "false_prophet": {
+        "title": "Patrón Visionario con Déficit de Ejecución",
+        "desc": "La alta capacidad creativa (Innovatividad) y confianza (Autoeficacia) sin el respaldo de una orientación a resultados (Logro) puede derivar en la generación constante de ideas sin cierre. Riesgo de pérdida de credibilidad ante inversores."
+    },
+    "micromanager": {
+        "title": "Patrón Perfeccionista con Bloqueo de Delegación",
+        "desc": "El alto deseo de excelencia (Logro) sumado a la aversión al riesgo y baja autonomía del equipo genera cuellos de botella operativos. El líder se convierte en el límite del crecimiento de la organización."
+    },
+    "gambler": {
+        "title": "Patrón de Riesgo Desmedido y Exceso de Confianza",
+        "desc": "La disposición al riesgo combinada con una autoeficacia desbordada y la atribución externa de fallos (Bajo Locus) puede precipitar decisiones legales o financieras imprudentes. Riesgo de inviabilidad súbita."
+    },
+    "soldier": {
+        "title": "Patrón Ejecutor Dependiente",
+        "desc": "La estabilidad emocional alta, sin autonomía ni innovatividad, configura un perfil excelente para la gestión de procesos estables, pero insuficiente para liderar fases de incertidumbre o crecimiento disruptivo."
+    }
+}
 
 SECTOR_ADVICE_DB = {
     "TECH": "En Startup/Tech, la velocidad es vida. Tu perfil debe pivotar rápido. Vigila no caer en 'parálisis por análisis' o en el perfeccionismo técnico.",
@@ -85,11 +109,6 @@ SECTOR_ADVICE_DB = {
     "SALUD": "Tolerancia cero al error. La ética y la meticulosidad generan la confianza del paciente. El riesgo debe ser mínimo y controlado."
 }
 
-# NARRATIVAS CALIBRADAS (4 NIVELES)
-# excess (>75): Riesgo por exceso
-# optimal (60-75): Zona ideal
-# moderate (25-60): Zona de desarrollo
-# low (<25): Defecto crítico
 NARRATIVES_DB = {
     "emotional_stability": { 
         "excess": "ALERTA DE RIGIDEZ: El control emocional excesivo puede derivar en frialdad o falta de empatía, dificultando la conexión con el equipo en momentos de crisis.",
@@ -173,20 +192,50 @@ def parse_logic(logic_str):
 def calculate_results():
     o, f = st.session_state.octagon, st.session_state.flags
     avg = sum(o.values()) / 8
-    friction = sum(f.values()) * 0.5
+    
+    # 1. CÁLCULO DE FRICCIÓN NORMALIZADO
+    # Dividimos entre 10 para que sea un índice 0-100 realista
+    # Ejemplo: 250 puntos de flags -> 25 de fricción (Moderada)
+    raw_friction = sum(f.values())
+    friction = min(100, raw_friction / 10) 
+    
     triggers = []
-    friction_reasons = []
-    if f["cautious"] > 10 or f["diligent"] > 10: friction_reasons.append("Prudencia Administrativa: Prioriza seguridad jurídica.")
-    if f["dependent"] > 10 or f["skeptical"] > 10: friction_reasons.append("Exceso de Validación: Busca confirmación externa.")
-    if f["arrogant"] > 20: friction_reasons.append("Rigidez Cognitiva: Dificultad para pivotar.")
-    if f["mischievous"] > 25: triggers.append("Riesgo de Desalineamiento Normativo")
-    if f["arrogant"] > 25: triggers.append("Estilo Dominante")
-    if f["passive_aggressive"] > 20: triggers.append("Fricción Relacional")
-    if o["achievement"] > 85 and o["emotional_stability"] < 40: triggers.append("Riesgo de Burnout")
-    if o["risk_propensity"] > 85 and f["cautious"] < 10: triggers.append("Perfil de Riesgo Desmedido")
-    ire = max(0, min(100, avg - (friction * 0.8) - (len(triggers) * 3)))
+    
+    # Detección de Arquetipos / Cócteles (Professional Translation)
+    # Tyrant: High Achievement + Low Stability + Low Locus
+    if o['achievement'] > 75 and o['emotional_stability'] < 40 and o['locus_control'] < 40:
+        triggers.append(ARCHETYPES_DB['tyrant']['title'])
+    
+    # False Prophet: High Innov + High Self-Eff + Low Achievement
+    if o['innovativeness'] > 75 and o['self_efficacy'] > 75 and o['achievement'] < 40:
+        triggers.append(ARCHETYPES_DB['false_prophet']['title'])
+        
+    # Micromanager: High Achievement + Low Risk + Low Autonomy
+    if o['achievement'] > 75 and o['risk_propensity'] < 40 and o['autonomy'] < 40:
+        triggers.append(ARCHETYPES_DB['micromanager']['title'])
+
+    # Gambler: High Risk + High Self-Eff + Low Locus
+    if o['risk_propensity'] > 75 and o['self_efficacy'] > 75 and o['locus_control'] < 40:
+        triggers.append(ARCHETYPES_DB['gambler']['title'])
+
+    # Soldier: Low Innov + Low Autonomy + High Stability
+    if o['innovativeness'] < 40 and o['autonomy'] < 40 and o['emotional_stability'] > 75:
+        triggers.append(ARCHETYPES_DB['soldier']['title'])
+
+    # Triggers individuales clásicos (mantener como soporte)
+    if f["arrogant"] > 30: triggers.append("Riesgo de Rigidez Cognitiva (Dificultad de escucha)")
+    if f["mischievous"] > 30: triggers.append("Riesgo de Desalineamiento Normativo (Compliance)")
+    
+    # 2. CÁLCULO DE IRE SUAVIZADO
+    # IRE = Potencial - (Fricción / 2). Penalización suave.
+    ire = max(0, min(100, avg - (friction * 0.5)))
+    
+    # Si hay un patrón de descarrilador fuerte, penalización extra
+    if len(triggers) > 0:
+        ire -= 5 # Pequeño ajuste adicional si hay cócteles tóxicos
+
     delta = round(avg - ire, 2)
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, friction_reasons, delta
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, [], delta
 
 def get_ire_text(s): 
     if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
@@ -202,7 +251,57 @@ def radar_chart():
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
     return fig
 
-# --- PDF GENERATOR ---
+# --- PDF GENERATOR (V37 - SEGMENTED BARS) ---
+def draw_segmented_bar(c, x, y, width, height, value):
+    """
+    Dibuja una barra segmentada tricolor acumulativa:
+    0-25: Rojo (Defecto)
+    25-60: Amarillo (Desarrollo)
+    60-75: Verde (Óptimo)
+    75-100: Rojo (Exceso)
+    """
+    # Definir anchos de segmentos
+    w_red1 = width * 0.25
+    w_yel = width * 0.35  # 60-25 = 35
+    w_grn = width * 0.15  # 75-60 = 15
+    w_red2 = width * 0.25 # 100-75 = 25
+    
+    # Dibujar Background (Marcos vacíos)
+    c.setStrokeColorRGB(0.8, 0.8, 0.8)
+    c.setLineWidth(0.5)
+    c.setFillColorRGB(0.95, 0.95, 0.95)
+    
+    c.rect(x, y, w_red1, height, fill=1, stroke=1)
+    c.rect(x + w_red1, y, w_yel, height, fill=1, stroke=1)
+    c.rect(x + w_red1 + w_yel, y, w_grn, height, fill=1, stroke=1)
+    c.rect(x + w_red1 + w_yel + w_grn, y, w_red2, height, fill=1, stroke=1)
+    
+    # Lógica de Llenado Acumulativo
+    
+    # 1. Segmento Rojo 1 (0-25)
+    if value > 0:
+        fill_w = min(value, 25) / 25 * w_red1
+        c.setFillColorRGB(0.8, 0.2, 0.2) # Rojo
+        c.rect(x, y, fill_w, height, fill=1, stroke=0)
+        
+    # 2. Segmento Amarillo (25-60)
+    if value > 25:
+        fill_w = min(value - 25, 35) / 35 * w_yel
+        c.setFillColorRGB(0.9, 0.7, 0.0) # Amarillo
+        c.rect(x + w_red1, y, fill_w, height, fill=1, stroke=0)
+        
+    # 3. Segmento Verde (60-75)
+    if value > 60:
+        fill_w = min(value - 60, 15) / 15 * w_grn
+        c.setFillColorRGB(0.2, 0.6, 0.2) # Verde
+        c.rect(x + w_red1 + w_yel, y, fill_w, height, fill=1, stroke=0)
+        
+    # 4. Segmento Rojo 2 (75-100)
+    if value > 75:
+        fill_w = min(value - 75, 25) / 25 * w_red2
+        c.setFillColorRGB(0.8, 0.2, 0.2) # Rojo Exceso
+        c.rect(x + w_red1 + w_yel + w_grn, y, fill_w, height, fill=1, stroke=0)
+
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size)
     words = text.split()
@@ -268,7 +367,7 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL ({ire}/100):")
     p.setFont("Helvetica", 10); p.drawString(200, y, get_ire_text(ire)); y-=30
     
-    # 2. ANÁLISIS DETALLADO CON SEMÁFORO CALIBRADO
+    # 2. ANÁLISIS DETALLADO
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. PERFIL COMPETENCIAL (DETALLE)")
     p.line(40, y-5, w-40, y-5); y -= 30
@@ -280,62 +379,52 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0,0,0)
         p.drawString(50, y, LABELS_ES.get(k, k))
         
-        # LÓGICA DE TEXTO Y COLOR
-        # >75: Exceso (Rojo)
-        # 60-75: Óptimo (Verde)
-        # 25-60: Alerta (Amarillo)
-        # <25: Defecto (Rojo)
+        # --- NUEVA BARRA SEGMENTADA ---
+        draw_segmented_bar(p, 200, y, 150, 8, v)
         
-        narrative_key = ""
-        if v > 75:
-            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo
-            narrative_key = "excess"
-        elif v >= 60:
-            p.setFillColorRGB(0.2, 0.6, 0.2) # Verde
-            narrative_key = "optimal"
-        elif v >= 25:
-            p.setFillColorRGB(0.9, 0.7, 0.0) # Amarillo
-            narrative_key = "moderate"
-        else:
-            p.setFillColorRGB(0.8, 0.2, 0.2) # Rojo
-            narrative_key = "low"
-            
-        # Barra
-        p.rect(200, y, (v/100)*150, 8, fill=1, stroke=0)
         p.setFillColorRGB(0,0,0)
         p.drawString(360, y, str(round(v, 1)))
         
-        # Narrativa Específica Calibrada
+        narrative_key = "low"
+        if v > 75: narrative_key = "excess"
+        elif v >= 60: narrative_key = "optimal"
+        elif v >= 25: narrative_key = "moderate"
+        
         y -= 12
         narrative = NARRATIVES_DB.get(k, {}).get(narrative_key, "Sin datos.")
         y = draw_wrapped_text(p, narrative, 50, y, 480, "Helvetica", 8)
         y -= 15
 
-    # 3. FRICCIÓN
+    # 3. FRICCIÓN Y PATRONES
     y -= 10
     y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12)
-    p.drawString(40, y, "3. DIAGNÓSTICO DE FRICCIONES")
+    p.drawString(40, y, "3. DIAGNÓSTICO DE PATRONES Y RIESGOS")
     p.line(40, y-5, w-40, y-5); y -= 30
-    p.setFont("Helvetica", 10)
     
-    if friction > 0:
-        p.drawString(50, y, "Factores de Fricción detectados:"); y -= 15
-        for r in friction_reasons: 
-            y = check_page_break(p, y, h, w)
-            p.drawString(60, y, f"- {r}"); y -= 15
-    else:
-        p.drawString(50, y, "Sin fricciones operativas significativas."); y -= 15
-        
+    # ALERTAS COMBINATORIAS (Arquetipos)
     if triggers:
-        y -= 5; y = check_page_break(p, y, h, w)
         p.setFont("Helvetica-Bold", 10); p.setFillColorRGB(0.8, 0, 0)
-        p.drawString(50, y, "ALERTAS CRÍTICAS:"); y -= 15
-        p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 10)
-        for t in triggers: 
-            y = check_page_break(p, y, h, w)
-            p.drawString(60, y, f"• {t}"); y -= 15
+        p.drawString(50, y, "ALERTA DE PATRONES COMBINATORIOS:"); y -= 20
+        p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 9)
+        for t in triggers:
+            # Buscar descripción del arquetipo
+            desc = ""
+            for arch_key, arch_val in ARCHETYPES_DB.items():
+                if arch_val['title'] == t:
+                    desc = arch_val['desc']
+                    break
             
+            p.setFont("Helvetica-Bold", 9)
+            p.drawString(60, y, f"• {t}"); y -= 12
+            if desc:
+                y = draw_wrapped_text(p, desc, 70, y, 460, "Helvetica-Oblique", 9)
+            y -= 10
+            y = check_page_break(p, y, h, w)
+    else:
+        p.setFont("Helvetica", 10)
+        p.drawString(50, y, "No se han detectado patrones de riesgo combinatorio críticos."); y -= 20
+    
     # 4. CONCLUSIÓN
     y -= 20; y = check_page_break(p, y, h, w)
     p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12)
@@ -467,8 +556,8 @@ else:
     with c_desc:
         st.markdown("### Diagnóstico")
         st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
-        if triggers: st.error("Alertas: " + ", ".join(triggers))
-        else: st.success("Perfil sin alertas críticas.")
+        if triggers: st.error("Alertas: Se han detectado patrones de riesgo combinatorio.")
+        else: st.success("Perfil sin patrones de riesgo combinatorio críticos.")
     pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
     st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
     if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
