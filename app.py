@@ -12,193 +12,359 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. ESTILOS ---
+# --- 2. GESTIÓN DE ESTILOS (V39) ---
 def inject_style(mode):
     base_css = """
-        header, [data-testid="stHeader"] {display:none!important}
-        footer {display:none!important}
-        .main .block-container {padding-top:1rem!important; max-width:95%!important}
+        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+        div[data-testid="stDecoration"] { display: none !important; }
+        footer { display: none !important; }
+        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
     """
+    
     if mode == "login":
-        theme = ".stApp{background-color:white;color:black} input{background:#F8F9FA;color:black;border:1px solid #E0E0E0} button{background:#050A1F;color:white;width:100%}"
+        theme_css = """
+            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
+                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
+            }
+            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
+            .stButton > button {
+                background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F !important;
+                border-radius: 8px !important; font-weight: bold !important; width: 100%; padding: 0.5rem 1rem;
+            }
+            .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
+            .stButton > button p { color: #FFFFFF !important; }
+            .login-title { color: #050A1F !important; font-size: 2rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
+            .login-subtitle { color: #666666 !important; font-size: 1rem !important; text-align: center; margin-bottom: 2rem !important; }
+            .login-card { padding: 1rem; text-align: center; }
+        """
     else:
-        theme = ".stApp{background-color:#050A1F;color:white} input{background:#0F1629;color:white;border:1px solid #5D5FEF} button{background:#1A202C;color:white;border:1px solid #5D5FEF;border-radius:8px} div[data-testid='column'] button{height:180px;font-size:26px;font-weight:bold;background:#0F1629;border:2px solid #2D3748;margin-bottom:1rem}"
-    st.markdown(f"<style>{base_css}\n{theme}</style>", unsafe_allow_html=True)
+        theme_css = """
+            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
+            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
+            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
+                background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
+            }
+            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
+            .stCheckbox label p { color: white !important; }
+            .stButton > button { background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px; }
+            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
+            
+            div[data-testid="column"] button {
+                 height: 180px !important; min-height: 180px !important;
+                 background-color: #0F1629 !important; border: 2px solid #2D3748 !important;
+                 color: white !important; font-size: 26px !important; font-weight: 700 !important; line-height: 1.3 !important;
+                 border-radius: 16px !important; white-space: pre-wrap !important; 
+                 display: flex !important; align-items: center !important; justify-content: center !important;
+                 margin-bottom: 1rem !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
+            }
+            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; background-color: #1a2236 !important; transform: translateY(-2px); }
+            div[data-testid="column"] button:disabled { border-color: #2D3748 !important; opacity: 0.6; cursor: not-allowed; }
 
-# --- 3. LÓGICA ---
-LABELS = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
-FLAGS = ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]
-ARCHETYPES = {
-    "tyrant": {"t":"Patrón de Liderazgo Coercitivo", "d":"Alta exigencia + Baja estabilidad + Bajo locus."},
-    "false_prophet": {"t":"Patrón Visionario sin Ejecución", "d":"Alta creatividad + Baja orientación a resultados."},
-    "micromanager": {"t":"Patrón de Bloqueo por Perfeccionismo", "d":"Alto logro + Aversión al riesgo + Baja autonomía."},
-    "gambler": {"t":"Patrón de Riesgo Desmedido", "d":"Riesgo alto + Autoeficacia desbordada + Bajo locus."},
-    "soldier": {"t":"Patrón Ejecutor Dependiente", "d":"Alta estabilidad + Baja autonomía e innovatividad."}
+            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
+            .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
+            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
+            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
+        """
+    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
+
+# --- 3. LÓGICA Y VARIABLES CALIBRADAS (V39 - AMPLIFICADOR) ---
+LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
+
+ARCHETYPES_DB = {
+    "tyrant": { "title": "Patrón de Liderazgo Coercitivo Reactivo", "desc": "Combinación de alta exigencia (Logro) con baja regulación emocional y bajo locus de control. Riesgo de gestión tóxica." },
+    "false_prophet": { "title": "Patrón Visionario con Déficit de Ejecución", "desc": "Alta creatividad y confianza sin orientación a resultados. Generación de ideas sin cierre." },
+    "micromanager": { "title": "Patrón Perfeccionista con Bloqueo de Delegación", "desc": "Alto Logro con aversión al riesgo y baja autonomía. Cuello de botella operativo." },
+    "gambler": { "title": "Patrón de Riesgo Desmedido", "desc": "Riesgo alto con autoeficacia desbordada y bajo locus. Peligro de imprudencia legal/financiera." },
+    "soldier": { "title": "Patrón Ejecutor Dependiente", "desc": "Alta estabilidad pero baja autonomía e innovatividad. Bueno para mantener, malo para crear." }
 }
-VAR_MAP = {"logro":"achievement", "riesgo":"risk_propensity", "innovacion":"innovativeness", "locus":"locus_control", "autoeficacia":"self_efficacy", "autonomia":"autonomy", "tolerancia":"ambiguity_tolerance", "estabilidad":"emotional_stability"}
 
+SECTOR_ADVICE_DB = {
+    "TECH": "En Startup/Tech, la velocidad es vida. Evita la 'parálisis por análisis'.",
+    "CONSULTORIA": "La reputación es el activo. Gestiona la presión sin sacrificar estabilidad.",
+    "PYME": "Pragmatismo. La consistencia operativa supera a la disrupción constante.",
+    "HOSTELERIA": "Reacción inmediata. Resolución de conflictos en tiempo real.",
+    "AUTOEMPLEO": "Eres tu propio motor. Disciplina y autoeficacia son claves.",
+    "SOCIAL": "Impacto tangible. No descuides la viabilidad económica.",
+    "INTRA": "Diplomacia corporativa. Mano izquierda política y capacidad técnica.",
+    "SALUD": "Tolerancia cero al error. Ética y meticulosidad."
+}
+
+NARRATIVES_DB = {
+    "emotional_stability": { "excess": "ALERTA: Frialdad emocional excesiva.", "optimal": "FORTALEZA: Regulación emocional óptima.", "moderate": "MEJORA: Vulnerabilidad ante presión.", "low": "RIESGO: Reactividad impulsiva." },
+    "autonomy": { "excess": "ALERTA: Aislamiento y falta de delegación.", "optimal": "FORTALEZA: Independencia operativa sana.", "moderate": "MEJORA: Búsqueda de validación externa.", "low": "RIESGO: Dependencia operativa severa." },
+    "achievement": { "excess": "ALERTA: Obsesión y riesgo de burnout.", "optimal": "FORTALEZA: Foco en objetivos y excelencia.", "moderate": "MEJORA: Inconstancia en resultados.", "low": "RIESGO: Falta de ambición crítica." },
+    "risk_propensity": { "excess": "ALERTA: Imprudencia temeraria.", "optimal": "FORTALEZA: Asunción de riesgos calculados.", "moderate": "MEJORA: Perfil conservador.", "low": "RIESGO: Parálisis por miedo." },
+    "ambiguity_tolerance": { "excess": "ALERTA: Desorden operativo.", "optimal": "FORTALEZA: Gestión eficaz de incertidumbre.", "moderate": "MEJORA: Necesidad de estructura.", "low": "RIESGO: Rigidez y bloqueo ante cambios." },
+    "innovativeness": { "excess": "ALERTA: Dispersión ('Shiny Object').", "optimal": "FORTALEZA: Creatividad aplicada.", "moderate": "MEJORA: Enfoque tradicional.", "low": "RIESGO: Resistencia al cambio." },
+    "locus_control": { "excess": "ALERTA: Asunción excesiva de culpa.", "optimal": "FORTALEZA: Responsabilidad proactiva.", "moderate": "MEJORA: Atribución externa ocasional.", "low": "RIESGO: Victimismo sistemático." },
+    "self_efficacy": { "excess": "ALERTA: Arrogancia y subestimación de retos.", "optimal": "FORTALEZA: Confianza sólida.", "moderate": "MEJORA: Dudas sobre capacidad.", "low": "RIESGO: Inseguridad paralizante." }
+}
+VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
+SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA", "Salud": "SALUD" }
+
+def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+# --- INICIALIZACIÓN (BASE 25) ---
 def init_session():
     if 'octagon' not in st.session_state:
-        st.session_state.octagon = {k: 0 for k in LABELS.keys()}
-        st.session_state.flags = {k: 0 for k in FLAGS}
-        st.session_state.current_step = 0
-        st.session_state.data = []
-        st.session_state.user_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        # CAMBIO 1: Base subida a 25 para dar un poco más de margen
+        st.session_state.octagon = {k: 25 for k in LABELS_ES.keys()}
+        st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
+        st.session_state.current_step = 0; st.session_state.finished = False; st.session_state.started = False; st.session_state.data_verified = False; st.session_state.data = []; st.session_state.user_id = generate_id(); st.session_state.user_data = {}
 
+def load_questions():
+    try:
+        filename = 'SATE_v1.csv'
+        if not os.path.exists(filename): return []
+        with open(filename, encoding='utf-8-sig') as f: return list(csv.DictReader(f, delimiter=';'))
+    except: return []
+
+# --- AMPLIFICADOR DE SEÑAL ---
 def parse_logic(logic_str):
-    if not isinstance(logic_str, str): return
-    for part in logic_str.split('|'):
-        try:
-            p = part.strip().split()
-            if len(p)<2: continue
-            k = p[0].lower(); val = int(p[1])
-            k = VAR_MAP.get(k, k) 
-            if k in st.session_state.octagon:
-                st.session_state.octagon[k] = max(0, min(100, st.session_state.octagon[k] + val))
-            elif k in st.session_state.flags:
-                st.session_state.flags[k] += val
-        except: pass
+    if not logic_str: return
+    for action in logic_str.split('|'):
+        parts = action.strip().split()
+        if len(parts) < 2: continue
+        var_code = parts[0].lower().strip()
+        try: 
+            # CAMBIO 2: MULTIPLICADOR DE IMPACTO
+            # Multiplicamos el valor del Excel por 2.5 para que los puntos sumen de verdad.
+            # Ejemplo: Si el excel dice +5, aquí sumamos +12.5.
+            val = int(parts[1]) * 2.5
+        except: continue
+        
+        target = VARIABLE_MAP.get(var_code)
+        if target:
+            if target in st.session_state.octagon: 
+                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
+            elif target in st.session_state.flags: 
+                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
 def calculate_results():
-    o = st.session_state.octagon
-    f = st.session_state.flags
+    o, f = st.session_state.octagon, st.session_state.flags
     avg = sum(o.values()) / 8
-    friction = min(100, sum(f.values()) / 3)
+    
+    # Fricción Ajustada
+    raw_friction = sum(f.values())
+    # Como hemos multiplicado por 2.5, la fricción también sube, así que dividimos por 15 para normalizar
+    friction = min(100, raw_friction / 15) 
     
     triggers = []
-    if o['achievement']>75 and o['emotional_stability']<40 and o['locus_control']<40: triggers.append(ARCHETYPES['tyrant']['t'])
-    if o['innovativeness']>75 and o['self_efficacy']>75 and o['achievement']<40: triggers.append(ARCHETYPES['false_prophet']['t'])
-    if o['achievement']>75 and o['risk_propensity']<40 and o['autonomy']<40: triggers.append(ARCHETYPES['micromanager']['t'])
-    if o['risk_propensity']>75 and o['self_efficacy']>75 and o['locus_control']<40: triggers.append(ARCHETYPES['gambler']['t'])
-    if o['innovativeness']<40 and o['autonomy']<40 and o['emotional_stability']>75: triggers.append(ARCHETYPES['soldier']['t'])
+    
+    # Arquetipos
+    if o['achievement'] > 75 and o['emotional_stability'] < 40 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['tyrant']['title'])
+    if o['innovativeness'] > 75 and o['self_efficacy'] > 75 and o['achievement'] < 40: triggers.append(ARCHETYPES_DB['false_prophet']['title'])
+    if o['achievement'] > 75 and o['risk_propensity'] < 40 and o['autonomy'] < 40: triggers.append(ARCHETYPES_DB['micromanager']['title'])
+    if o['risk_propensity'] > 75 and o['self_efficacy'] > 75 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['gambler']['title'])
+    if o['innovativeness'] < 40 and o['autonomy'] < 40 and o['emotional_stability'] > 75: triggers.append(ARCHETYPES_DB['soldier']['title'])
+
+    if f["arrogant"] > 40: triggers.append("Riesgo de Rigidez Cognitiva")
+    if f["mischievous"] > 40: triggers.append("Riesgo de Desalineamiento Normativo")
     
     # Incoherencia
-    coherence_pen = 0
-    if o['risk_propensity']>70 and f['cautious']>20: coherence_pen += 10
-    if o['innovativeness']>70 and f['diligent']>20: coherence_pen += 10
+    coherence_penalty = 0
+    incoherence_msgs = []
+    
+    if o['risk_propensity'] > 65 and f['cautious'] > 30:
+        coherence_penalty += 10; incoherence_msgs.append("Incoherencia: Alta auto-percepción de riesgo vs. Prudencia real.")
+        
+    if o['innovativeness'] > 65 and f['diligent'] > 30:
+        coherence_penalty += 10; incoherence_msgs.append("Incoherencia: Alta creatividad vs. Apego a procesos.")
 
-    ire = avg - (friction * 0.5) - coherence_pen
-    if avg < 40: ire -= 15
-    if triggers: ire -= 5
-    
-    return max(0, min(100, ire)), round(avg,2), round(friction,2), triggers
+    # IRE Final
+    ire = avg - (friction * 0.5) - coherence_penalty
+    if avg < 40: ire -= 15 
+    if len(triggers) > 0: ire -= 5
 
-def draw_pdf(ire, avg, fric, triggers, user, stats):
-    b = io.BytesIO(); c = canvas.Canvas(b, pagesize=A4); w,h = A4
-    c.setFillColorRGB(0.02,0.04,0.12); c.rect(0,h-100,w,100,fill=1)
-    c.setFillColorRGB(1,1,1); c.setFont("Helvetica-Bold",16); c.drawRightString(w-30,h-50,"INFORME TÉCNICO S.A.P.E.")
+    ire = max(0, min(100, ire))
+    delta = round(avg - ire, 2)
     
-    y = h-130; c.setFillColorRGB(0,0,0); c.setFont("Helvetica",10)
-    c.drawString(40,y,f"Candidato: {user.get('name')}"); c.drawString(300,y,f"ID: {st.session_state.user_id}"); y-=40
-    
-    c.setFont("Helvetica-Bold",12); c.drawString(40,y,"1. MÉTRICAS"); y-=25
-    c.setFont("Helvetica",10)
-    c.drawString(50,y,f"IRE: {ire}/100"); c.drawString(200,y,f"POTENCIAL: {avg}/100"); c.drawString(350,y,f"FRICCIÓN: {fric}"); y-=40
-    
-    c.setFont("Helvetica-Bold",12); c.drawString(40,y,"2. PERFIL COMPETENCIAL"); y-=25
-    for k,v in stats.items():
-        c.setFont("Helvetica",9); c.drawString(50,y,LABELS.get(k,k))
-        c.setFillColorRGB(0.9,0.9,0.9); c.rect(200,y,150,8,fill=1,stroke=0)
-        col = (0.8,0.2,0.2) 
-        if v >= 25 and v < 60: col = (0.9,0.7,0)
-        if v >= 60 and v <= 75: col = (0.2,0.6,0.2)
-        if v > 75: col = (0.8,0.2,0.2)
-        c.setFillColorRGB(*col); c.rect(200,y,v*1.5,8,fill=1,stroke=0)
-        c.setFillColorRGB(0,0,0); c.drawString(360,y,str(round(v,1))); y-=15
-    
-    c.showPage(); c.save(); b.seek(0); return b
+    if incoherence_msgs: triggers.extend(incoherence_msgs)
 
-# --- 4. INTERFAZ ---
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, [], delta
+
+def get_ire_text(s): 
+    if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
+    if s > 50: return "Nivel de Viabilidad: MEDIO (Requiere Ajustes)"
+    return "Nivel de Viabilidad: BAJO (Riesgo Operativo)"
+
+def radar_chart():
+    data = st.session_state.octagon
+    cat = [LABELS_ES.get(k) for k in data.keys()]
+    val = list(data.values())
+    cat += [cat[0]]; val += [val[0]]
+    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
+    return fig
+
+# --- PDF GENERATOR ---
+def draw_segmented_bar(c, x, y, width, height, value):
+    w_red1 = width * 0.25; w_yel = width * 0.35; w_grn = width * 0.15; w_red2 = width * 0.25
+    c.setStrokeColorRGB(0.8, 0.8, 0.8); c.setLineWidth(0.5); c.setFillColorRGB(0.95, 0.95, 0.95)
+    c.rect(x, y, w_red1, height, fill=1, stroke=1); c.rect(x + w_red1, y, w_yel, height, fill=1, stroke=1)
+    c.rect(x + w_red1 + w_yel, y, w_grn, height, fill=1, stroke=1); c.rect(x + w_red1 + w_yel + w_grn, y, w_red2, height, fill=1, stroke=1)
+    if value > 0: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x, y, min(value, 25)/25*w_red1, height, fill=1, stroke=0)
+    if value > 25: c.setFillColorRGB(0.9, 0.7, 0.0); c.rect(x + w_red1, y, min(value-25, 35)/35*w_yel, height, fill=1, stroke=0)
+    if value > 60: c.setFillColorRGB(0.2, 0.6, 0.2); c.rect(x + w_red1 + w_yel, y, min(value-60, 15)/15*w_grn, height, fill=1, stroke=0)
+    if value > 75: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x + w_red1 + w_yel + w_grn, y, min(value-75, 25)/25*w_red2, height, fill=1, stroke=0)
+
+def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
+    c.setFont(font_name, font_size); words = text.split(); lines = []; current_line = []
+    for word in words:
+        current_line.append(word); width = c.stringWidth(" ".join(current_line), font_name, font_size)
+        if width > max_width: current_line.pop(); lines.append(" ".join(current_line)); current_line = [word]
+    lines.append(" ".join(current_line))
+    for line in lines: c.drawString(x, y, line); y -= line_spacing
+    return y 
+
+def check_page_break(c, y, h, w):
+    if y < 80: c.showPage(); draw_pdf_header(c, w, h); return h - 140
+    return y
+
+def draw_pdf_header(p, w, h):
+    p.setFillColorRGB(0.02, 0.04, 0.12); p.rect(0, h-100, w, 100, fill=1, stroke=0)
+    p.setFillColorRGB(1, 1, 1); p.rect(30, h-85, 140, 70, fill=1, stroke=0)
+    if os.path.exists("logo_original.png"):
+        try: img = ImageReader("logo_original.png"); p.drawImage(img, 40, h-80, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        except: pass
+    p.setFillColorRGB(1, 1, 1); p.setFont("Helvetica-Bold", 16); p.drawRightString(w-30, h-40, "INFORME TÉCNICO S.A.P.E.")
+    p.setFont("Helvetica", 10); p.drawRightString(w-30, h-55, "Sistema de Análisis de la Personalidad Emprendedora")
+
+def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
+    buffer = io.BytesIO(); p = canvas.Canvas(buffer, pagesize=A4); w, h = A4; draw_pdf_header(p, w, h)
+    y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, f"Candidato: {user.get('name', 'N/A')}"); p.drawString(300, y, f"ID: {st.session_state.user_id}"); y -= 15
+    p.drawString(40, y, f"Sector: {user.get('sector', 'N/A')}"); p.drawString(300, y, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}"); y -= 40
+    
+    p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "1. MÉTRICAS PRINCIPALES"); p.line(40, y-5, w-40, y-5); y -= 30
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"POTENCIAL ({avg}/100):"); p.setFont("Helvetica", 10); p.drawString(200, y, "Capacidad basal (Recursos cognitivos y actitudinales)."); y-=20
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"FRICCIÓN ({friction}):"); p.setFont("Helvetica", 10); p.drawString(200, y, "Resistencia operativa (Miedos, dudas y bloqueos)."); y-=20
+    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL ({ire}/100):"); p.setFont("Helvetica", 10); p.drawString(200, y, get_ire_text(ire)); y-=30
+    
+    y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. PERFIL COMPETENCIAL (DETALLE)"); p.line(40, y-5, w-40, y-5); y -= 30
+    sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
+    for k, v in sorted_stats:
+        y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0,0,0); p.drawString(50, y, LABELS_ES.get(k, k))
+        draw_segmented_bar(p, 200, y, 150, 8, v); p.setFillColorRGB(0,0,0); p.drawString(360, y, str(round(v, 1)))
+        narrative_key = "low"
+        if v > 75: narrative_key = "excess"
+        elif v >= 60: narrative_key = "optimal"
+        elif v >= 25: narrative_key = "moderate"
+        y -= 12; narrative = NARRATIVES_DB.get(k, {}).get(narrative_key, "Sin datos."); y = draw_wrapped_text(p, narrative, 50, y, 480, "Helvetica", 8); y -= 15
+
+    y -= 10; y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "3. DIAGNÓSTICO DE PATRONES Y RIESGOS"); p.line(40, y-5, w-40, y-5); y -= 30
+    if triggers:
+        p.setFont("Helvetica-Bold", 10); p.setFillColorRGB(0.8, 0, 0); p.drawString(50, y, "ALERTA DE PATRONES COMBINATORIOS:"); y -= 20
+        p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 9)
+        for t in triggers:
+            desc = ""
+            for arch_key, arch_val in ARCHETYPES_DB.items():
+                if arch_val['title'] == t: desc = arch_val['desc']; break
+            p.setFont("Helvetica-Bold", 9); p.drawString(60, y, f"• {t}"); y -= 12
+            if desc: y = draw_wrapped_text(p, desc, 70, y, 460, "Helvetica-Oblique", 9)
+            y -= 10; y = check_page_break(p, y, h, w)
+    else: p.setFont("Helvetica", 10); p.drawString(50, y, "No se han detectado patrones de riesgo combinatorio críticos."); y -= 20
+    
+    y -= 20; y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "4. CONCLUSIÓN Y CONTEXTO SECTORIAL"); p.line(40, y-5, w-40, y-5); y -= 30
+    sector_code = SECTOR_MAP.get(user.get('sector'), "TECH"); advice = SECTOR_ADVICE_DB.get(sector_code, "")
+    y = draw_wrapped_text(p, f"Contexto Sectorial: {advice}", 50, y, 480, "Helvetica-Oblique", 10); y -= 15
+    conclusion = f"El perfil presenta un IRE de {ire}/100. "; conclusion += "Perfil altamente viable." if ire > 75 else "Perfil viable con acompañamiento." if ire > 50 else "Se recomienda reevaluar el encaje del perfil."
+    y = draw_wrapped_text(p, conclusion, 50, y, 480, "Helvetica", 10)
+    p.showPage(); p.save(); buffer.seek(0); return buffer
+
+def render_header():
+    c1, c2 = st.columns([1.5, 6])
+    with c1:
+        if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
+        elif os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+        else: st.warning("Logo no encontrado")
+    with c2: st.markdown("""<div style="margin-top: 10px;"><p class="header-title-text">Simulador S.A.P.E.</p><p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p></div>""", unsafe_allow_html=True)
+    st.markdown("---")
+
+# --- 5. APP PRINCIPAL ---
 init_session()
 
-if not st.session_state.get("auth"):
-    inject_style("login"); c1,c2,c3 = st.columns([1,2,1])
+# LOGIN
+if not st.session_state.get("auth", False):
+    inject_style("login"); c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        st.markdown("### Simulador S.A.P.E.")
-        pwd = st.text_input("Clave", type="password")
-        if st.button("Entrar"):
-            if pwd == st.secrets["general"]["password"]: st.session_state.auth=True; st.rerun()
-            else: st.error("Error")
+        if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+        st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        pwd = st.text_input("Clave de acceso", type="password")
+        if st.button("ENTRAR AL SISTEMA", use_container_width=True):
+            if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
+            else: st.error("Acceso denegado")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-inject_style("app")
+inject_style("app") 
 
+# FASE 1
 if not st.session_state.data_verified:
-    st.markdown("#### Datos del Candidato")
-    name = st.text_input("Nombre"); age = st.number_input("Edad",18,99)
-    if st.button("Continuar") and name:
-        st.session_state.user_data={"name":name}; st.session_state.data_verified=True; st.rerun()
+    render_header(); st.markdown("#### 1. Identificación del/a Candidato/a")
+    col1, col2 = st.columns(2); name = col1.text_input("Nombre Completo", key="name_input"); age = col2.number_input("Edad", 18, 99, key="age_input")
+    col3, col4 = st.columns(2); gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input"); country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
+    col5, col6 = st.columns(2); situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input"); experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
+    st.markdown("<br>", unsafe_allow_html=True); consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+    if st.button("VALIDAR DATOS Y CONTINUAR"):
+        if name and age and consent: st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}; st.session_state.data_verified = True; st.rerun()
+        else: st.error("Por favor, completa los campos obligatorios.")
 
+# FASE 2
 elif not st.session_state.started:
-    st.markdown("#### Selecciona Sector")
-    
-    def go(s):
-        try:
-            # --- LECTURA SEGURA DEL CSV ---
-            # Intenta leer con codificación Excel (utf-8-sig) o estandar (latin-1)
-            try:
-                with open("SATE_v1.csv", encoding='utf-8-sig') as f:
-                    rows = list(csv.DictReader(f, delimiter=";"))
-            except UnicodeDecodeError:
-                with open("SATE_v1.csv", encoding='latin-1') as f:
-                    rows = list(csv.DictReader(f, delimiter=";"))
-            
-            # FILTRADO ROBUSTO: Ignora mayúsculas/minúsculas y espacios
-            st.session_state.data = [r for r in rows if r['SECTOR'].strip().upper() == s.upper()]
-            
-            if not st.session_state.data:
-                st.error(f"⚠️ ERROR: No se han encontrado preguntas para el sector '{s}'. Revisa que el archivo CSV tenga datos y use punto y coma (;).")
-                return
-
-            st.session_state.user_data['sector']=s
-            st.session_state.started=True
-            st.rerun()
-        except FileNotFoundError:
-            st.error("❌ ERROR: No se encuentra el archivo 'SATE_v1.csv' en el servidor.")
-        except Exception as e:
-            st.error(f"❌ Error desconocido leyendo el archivo: {e}")
-    
-    c1,c2 = st.columns(2)
-    with c1:
-        if st.button("Startup Tech"): go("TECH")
-        if st.button("PYME"): go("PYME")
-        if st.button("Autoempleo"): go("AUTOEMPLEO")
-        if st.button("Intraemprendimiento"): go("INTRA")
+    render_header(); st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+    def go_sector(sec):
+        all_q = load_questions(); code = SECTOR_MAP.get(sec, "TECH")
+        qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
+        if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
+        st.session_state.data = qs; st.session_state.user_data["sector"] = sec; st.session_state.started = True; st.rerun()
+    c1, c2 = st.columns(2)
+    with c1: 
+        if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+        if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
     with c2:
-        if st.button("Consultoría"): go("CONSULTORIA")
-        if st.button("Hostelería"): go("HOSTELERIA")
-        if st.button("Emprendimiento Social"): go("SOCIAL")
-        if st.button("Salud"): go("SALUD")
+        if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+        if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
+        if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
+        if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
 
+# FASE 3
 elif not st.session_state.finished:
-    if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished=True; st.rerun()
-    row = st.session_state.data[st.session_state.current_step]
-    
-    # Progress Bar segura
-    prog = (st.session_state.current_step+1) / max(1, len(st.session_state.data))
-    st.progress(prog)
-    
-    st.markdown(f"### {row['TITULO']}")
-    c1,c2 = st.columns([2,1])
-    with c1: st.info(row['NARRATIVA'])
-    with c2:
-        if st.button("A: "+row.get('OPCION_A_TXT','')): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step+=1; st.rerun()
-        if st.button("B: "+row.get('OPCION_B_TXT','')): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step+=1; st.rerun()
-        # Solo mostrar botón C y D si tienen texto (evita botones vacíos)
-        if row.get('OPCION_C_TXT') and len(str(row.get('OPCION_C_TXT'))) > 1: 
-            if st.button("C: "+row.get('OPCION_C_TXT','')): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step+=1; st.rerun()
-        if row.get('OPCION_D_TXT') and len(str(row.get('OPCION_D_TXT'))) > 1: 
-            if st.button("D: "+row.get('OPCION_D_TXT','')): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step+=1; st.rerun()
+    if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
+    render_header(); row = st.session_state.data[st.session_state.current_step]
+    st.progress((st.session_state.current_step + 1) / len(st.session_state.data)); st.markdown(f"### {row['TITULO']}")
+    c_text, c_opt = st.columns([1.5, 1])
+    with c_text: st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
+    with c_opt:
+        st.markdown("#### Tu decisión:")
+        step = st.session_state.current_step
+        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
+            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step += 1; st.rerun()
+        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
+            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step += 1; st.rerun()
 
+# FASE 4
 else:
-    ire, avg, fric, triggers = calculate_results()
-    st.title(f"Informe {st.session_state.user_data['name']}")
-    c1,c2,c3 = st.columns(3)
-    c1.metric("IRE", f"{ire}/100"); c2.metric("Potencial", f"{avg}/100"); c3.metric("Fricción", fric)
-    
-    pdf = draw_pdf(ire, avg, fric, triggers, st.session_state.user_data, st.session_state.octagon)
-    st.download_button("Descargar PDF", pdf, "informe.pdf", "application/pdf")
+    render_header(); ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
+    st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
+    k1, k2, k3 = st.columns(3); k1.metric("Índice IRE", f"{ire}/100"); k2.metric("Potencial", f"{avg}/100"); k3.metric("Fricción", friction, delta_color="inverse")
+    c_chart, c_desc = st.columns([1, 1])
+    with c_chart: st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_desc:
+        st.markdown("### Diagnóstico"); st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
+        if triggers: st.error("Alertas: Se han detectado patrones de riesgo.")
+        else: st.success("Perfil sin patrones de riesgo críticos.")
+    pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
+    st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
     if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
