@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V38) ---
+# --- 2. GESTIÓN DE ESTILOS (V39) ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
@@ -71,7 +71,7 @@ def inject_style(mode):
         """
     st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES CALIBRADAS (V38) ---
+# --- 3. LÓGICA Y VARIABLES CALIBRADAS (V39 - AMPLIFICADOR) ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
 
 ARCHETYPES_DB = {
@@ -108,13 +108,11 @@ SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servic
 
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-# --- INICIALIZACIÓN CORREGIDA (BASE BAJA) ---
+# --- INICIALIZACIÓN (BASE 25) ---
 def init_session():
     if 'octagon' not in st.session_state:
-        # CAMBIO CLAVE V38: Empezamos en 15, no en 50.
-        # Si respondes al azar, acabarás en 30-40 (Bajo).
-        # Para llegar a 80, tienes que GANARTELO.
-        st.session_state.octagon = {k: 15 for k in LABELS_ES.keys()}
+        # CAMBIO 1: Base subida a 25 para dar un poco más de margen
+        st.session_state.octagon = {k: 25 for k in LABELS_ES.keys()}
         st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
         st.session_state.current_step = 0; st.session_state.finished = False; st.session_state.started = False; st.session_state.data_verified = False; st.session_state.data = []; st.session_state.user_id = generate_id(); st.session_state.user_data = {}
 
@@ -125,75 +123,67 @@ def load_questions():
         with open(filename, encoding='utf-8-sig') as f: return list(csv.DictReader(f, delimiter=';'))
     except: return []
 
+# --- AMPLIFICADOR DE SEÑAL ---
 def parse_logic(logic_str):
     if not logic_str: return
     for action in logic_str.split('|'):
         parts = action.strip().split()
         if len(parts) < 2: continue
         var_code = parts[0].lower().strip()
-        try: val = int(parts[1])
+        try: 
+            # CAMBIO 2: MULTIPLICADOR DE IMPACTO
+            # Multiplicamos el valor del Excel por 2.5 para que los puntos sumen de verdad.
+            # Ejemplo: Si el excel dice +5, aquí sumamos +12.5.
+            val = int(parts[1]) * 2.5
         except: continue
+        
         target = VARIABLE_MAP.get(var_code)
         if target:
-            if target in st.session_state.octagon: st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
-            elif target in st.session_state.flags: st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
+            if target in st.session_state.octagon: 
+                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
+            elif target in st.session_state.flags: 
+                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
 def calculate_results():
     o, f = st.session_state.octagon, st.session_state.flags
     avg = sum(o.values()) / 8
     
-    # Fricción
+    # Fricción Ajustada
     raw_friction = sum(f.values())
-    friction = min(100, raw_friction / 10) 
+    # Como hemos multiplicado por 2.5, la fricción también sube, así que dividimos por 15 para normalizar
+    friction = min(100, raw_friction / 15) 
     
     triggers = []
     
-    # Detección de Arquetipos
+    # Arquetipos
     if o['achievement'] > 75 and o['emotional_stability'] < 40 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['tyrant']['title'])
     if o['innovativeness'] > 75 and o['self_efficacy'] > 75 and o['achievement'] < 40: triggers.append(ARCHETYPES_DB['false_prophet']['title'])
     if o['achievement'] > 75 and o['risk_propensity'] < 40 and o['autonomy'] < 40: triggers.append(ARCHETYPES_DB['micromanager']['title'])
     if o['risk_propensity'] > 75 and o['self_efficacy'] > 75 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['gambler']['title'])
     if o['innovativeness'] < 40 and o['autonomy'] < 40 and o['emotional_stability'] > 75: triggers.append(ARCHETYPES_DB['soldier']['title'])
 
-    # Triggers individuales
-    if f["arrogant"] > 30: triggers.append("Riesgo de Rigidez Cognitiva")
-    if f["mischievous"] > 30: triggers.append("Riesgo de Desalineamiento Normativo")
+    if f["arrogant"] > 40: triggers.append("Riesgo de Rigidez Cognitiva")
+    if f["mischievous"] > 40: triggers.append("Riesgo de Desalineamiento Normativo")
     
-    # 3. DETECCIÓN DE INCOHERENCIA (Anti-Random)
-    # Si dices que eres arriesgado (Octagon) pero tus actos dicen que eres cauto (Flags), hay incoherencia.
+    # Incoherencia
     coherence_penalty = 0
     incoherence_msgs = []
     
-    # Caso 1: Dice ser Arriesgado vs Actúa con Prudencia/Miedo
-    if o['risk_propensity'] > 60 and f['cautious'] > 20:
-        coherence_penalty += 10
-        incoherence_msgs.append("Incoherencia detectada: Auto-percepción de riesgo alta vs. Conducta real prudente.")
+    if o['risk_propensity'] > 65 and f['cautious'] > 30:
+        coherence_penalty += 10; incoherence_msgs.append("Incoherencia: Alta auto-percepción de riesgo vs. Prudencia real.")
         
-    # Caso 2: Dice ser Innovador vs Actúa Diligente/Burocrático
-    if o['innovativeness'] > 60 and f['diligent'] > 20:
-        coherence_penalty += 10
-        incoherence_msgs.append("Incoherencia detectada: Auto-percepción creativa alta vs. Apego a procesos.")
+    if o['innovativeness'] > 65 and f['diligent'] > 30:
+        coherence_penalty += 10; incoherence_msgs.append("Incoherencia: Alta creatividad vs. Apego a procesos.")
 
-    # CÁLCULO DE IRE ROBUSTO
-    # Base: Potencial - (Fricción / 2)
-    ire = avg - (friction * 0.5)
-    
-    # Castigo por Incoherencia (Si contestas al azar, esto te hunde)
-    ire -= coherence_penalty
-    
-    # Castigo por perfil bajo (Si no llegas al mínimo de potencial, no eres viable)
-    if avg < 40:
-        ire -= 15 # Penalización extra por perfil insuficiente
-    
-    # Descarriladores
+    # IRE Final
+    ire = avg - (friction * 0.5) - coherence_penalty
+    if avg < 40: ire -= 15 
     if len(triggers) > 0: ire -= 5
 
-    ire = max(0, min(100, ire)) # Limites 0-100
+    ire = max(0, min(100, ire))
     delta = round(avg - ire, 2)
     
-    # Añadir mensajes de incoherencia a los triggers si existen
-    if incoherence_msgs:
-        triggers.extend(incoherence_msgs)
+    if incoherence_msgs: triggers.extend(incoherence_msgs)
 
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, [], delta
 
@@ -217,14 +207,10 @@ def draw_segmented_bar(c, x, y, width, height, value):
     c.setStrokeColorRGB(0.8, 0.8, 0.8); c.setLineWidth(0.5); c.setFillColorRGB(0.95, 0.95, 0.95)
     c.rect(x, y, w_red1, height, fill=1, stroke=1); c.rect(x + w_red1, y, w_yel, height, fill=1, stroke=1)
     c.rect(x + w_red1 + w_yel, y, w_grn, height, fill=1, stroke=1); c.rect(x + w_red1 + w_yel + w_grn, y, w_red2, height, fill=1, stroke=1)
-    if value > 0:
-        c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x, y, min(value, 25)/25*w_red1, height, fill=1, stroke=0)
-    if value > 25:
-        c.setFillColorRGB(0.9, 0.7, 0.0); c.rect(x + w_red1, y, min(value-25, 35)/35*w_yel, height, fill=1, stroke=0)
-    if value > 60:
-        c.setFillColorRGB(0.2, 0.6, 0.2); c.rect(x + w_red1 + w_yel, y, min(value-60, 15)/15*w_grn, height, fill=1, stroke=0)
-    if value > 75:
-        c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x + w_red1 + w_yel + w_grn, y, min(value-75, 25)/25*w_red2, height, fill=1, stroke=0)
+    if value > 0: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x, y, min(value, 25)/25*w_red1, height, fill=1, stroke=0)
+    if value > 25: c.setFillColorRGB(0.9, 0.7, 0.0); c.rect(x + w_red1, y, min(value-25, 35)/35*w_yel, height, fill=1, stroke=0)
+    if value > 60: c.setFillColorRGB(0.2, 0.6, 0.2); c.rect(x + w_red1 + w_yel, y, min(value-60, 15)/15*w_grn, height, fill=1, stroke=0)
+    if value > 75: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x + w_red1 + w_yel + w_grn, y, min(value-75, 25)/25*w_red2, height, fill=1, stroke=0)
 
 def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
     c.setFont(font_name, font_size); words = text.split(); lines = []; current_line = []
