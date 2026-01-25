@@ -42,7 +42,6 @@ VAR_MAP = {"logro":"achievement", "riesgo":"risk_propensity", "innovacion":"inno
 
 def init_session():
     if 'octagon' not in st.session_state:
-        # BASE 0: Confiamos en el CSV rebalanceado
         st.session_state.octagon = {k: 0 for k in LABELS.keys()}
         st.session_state.flags = {k: 0 for k in FLAGS}
         st.session_state.current_step = 0
@@ -58,7 +57,6 @@ def parse_logic(logic_str):
             k = p[0].lower(); val = int(p[1])
             k = VAR_MAP.get(k, k) 
             if k in st.session_state.octagon:
-                # Topes 0-100
                 st.session_state.octagon[k] = max(0, min(100, st.session_state.octagon[k] + val))
             elif k in st.session_state.flags:
                 st.session_state.flags[k] += val
@@ -68,21 +66,22 @@ def calculate_results():
     o = st.session_state.octagon
     f = st.session_state.flags
     avg = sum(o.values()) / 8
-    
-    # Fricción: Dividimos por 3 (con ~30 puntos de flag es suficiente para alertar)
     friction = min(100, sum(f.values()) / 3)
     
     triggers = []
-    # Arquetipos
     if o['achievement']>75 and o['emotional_stability']<40 and o['locus_control']<40: triggers.append(ARCHETYPES['tyrant']['t'])
     if o['innovativeness']>75 and o['self_efficacy']>75 and o['achievement']<40: triggers.append(ARCHETYPES['false_prophet']['t'])
     if o['achievement']>75 and o['risk_propensity']<40 and o['autonomy']<40: triggers.append(ARCHETYPES['micromanager']['t'])
     if o['risk_propensity']>75 and o['self_efficacy']>75 and o['locus_control']<40: triggers.append(ARCHETYPES['gambler']['t'])
     if o['innovativeness']<40 and o['autonomy']<40 and o['emotional_stability']>75: triggers.append(ARCHETYPES['soldier']['t'])
     
-    # IRE
-    ire = avg - (friction * 0.5)
-    if avg < 40: ire -= 15 # Penalización por perfil insuficiente
+    # Incoherencia
+    coherence_pen = 0
+    if o['risk_propensity']>70 and f['cautious']>20: coherence_pen += 10
+    if o['innovativeness']>70 and f['diligent']>20: coherence_pen += 10
+
+    ire = avg - (friction * 0.5) - coherence_pen
+    if avg < 40: ire -= 15
     if triggers: ire -= 5
     
     return max(0, min(100, ire)), round(avg,2), round(friction,2), triggers
@@ -102,15 +101,11 @@ def draw_pdf(ire, avg, fric, triggers, user, stats):
     c.setFont("Helvetica-Bold",12); c.drawString(40,y,"2. PERFIL COMPETENCIAL"); y-=25
     for k,v in stats.items():
         c.setFont("Helvetica",9); c.drawString(50,y,LABELS.get(k,k))
-        # Barra semáforo
         c.setFillColorRGB(0.9,0.9,0.9); c.rect(200,y,150,8,fill=1,stroke=0)
-        
-        # Color Semáforo (Rojo <25, Amarillo <60, Verde <75, Rojo >75)
         col = (0.8,0.2,0.2) 
         if v >= 25 and v < 60: col = (0.9,0.7,0)
         if v >= 60 and v <= 75: col = (0.2,0.6,0.2)
         if v > 75: col = (0.8,0.2,0.2)
-        
         c.setFillColorRGB(*col); c.rect(200,y,v*1.5,8,fill=1,stroke=0)
         c.setFillColorRGB(0,0,0); c.drawString(360,y,str(round(v,1))); y-=15
     
@@ -119,7 +114,6 @@ def draw_pdf(ire, avg, fric, triggers, user, stats):
 # --- 4. INTERFAZ ---
 init_session()
 
-# Login
 if not st.session_state.get("auth"):
     inject_style("login"); c1,c2,c3 = st.columns([1,2,1])
     with c2:
@@ -132,49 +126,73 @@ if not st.session_state.get("auth"):
 
 inject_style("app")
 
-# Datos
 if not st.session_state.data_verified:
     st.markdown("#### Datos del Candidato")
     name = st.text_input("Nombre"); age = st.number_input("Edad",18,99)
     if st.button("Continuar") and name:
         st.session_state.user_data={"name":name}; st.session_state.data_verified=True; st.rerun()
 
-# Sector
 elif not st.session_state.started:
     st.markdown("#### Selecciona Sector")
+    
     def go(s):
         try:
-            # Asegúrate de subir SATE_v2_balanced.csv renombrado a SATE_v1.csv
-            rows = list(csv.DictReader(open("SATE_v1.csv"), delimiter=";"))
-            st.session_state.data = [r for r in rows if r['SECTOR']==s or r['SECTOR']=="TECH"]
-            st.session_state.user_data['sector']=s; st.session_state.started=True; st.rerun()
-        except: st.error("Falta el archivo de preguntas.")
+            # --- LECTURA SEGURA DEL CSV ---
+            # Intenta leer con codificación Excel (utf-8-sig) o estandar (latin-1)
+            try:
+                with open("SATE_v1.csv", encoding='utf-8-sig') as f:
+                    rows = list(csv.DictReader(f, delimiter=";"))
+            except UnicodeDecodeError:
+                with open("SATE_v1.csv", encoding='latin-1') as f:
+                    rows = list(csv.DictReader(f, delimiter=";"))
+            
+            # FILTRADO ROBUSTO: Ignora mayúsculas/minúsculas y espacios
+            st.session_state.data = [r for r in rows if r['SECTOR'].strip().upper() == s.upper()]
+            
+            if not st.session_state.data:
+                st.error(f"⚠️ ERROR: No se han encontrado preguntas para el sector '{s}'. Revisa que el archivo CSV tenga datos y use punto y coma (;).")
+                return
+
+            st.session_state.user_data['sector']=s
+            st.session_state.started=True
+            st.rerun()
+        except FileNotFoundError:
+            st.error("❌ ERROR: No se encuentra el archivo 'SATE_v1.csv' en el servidor.")
+        except Exception as e:
+            st.error(f"❌ Error desconocido leyendo el archivo: {e}")
     
     c1,c2 = st.columns(2)
     with c1:
         if st.button("Startup Tech"): go("TECH")
         if st.button("PYME"): go("PYME")
+        if st.button("Autoempleo"): go("AUTOEMPLEO")
+        if st.button("Intraemprendimiento"): go("INTRA")
     with c2:
         if st.button("Consultoría"): go("CONSULTORIA")
         if st.button("Hostelería"): go("HOSTELERIA")
+        if st.button("Emprendimiento Social"): go("SOCIAL")
+        if st.button("Salud"): go("SALUD")
 
-# Preguntas
 elif not st.session_state.finished:
     if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished=True; st.rerun()
     row = st.session_state.data[st.session_state.current_step]
-    st.progress((st.session_state.current_step+1)/len(st.session_state.data))
+    
+    # Progress Bar segura
+    prog = (st.session_state.current_step+1) / max(1, len(st.session_state.data))
+    st.progress(prog)
+    
     st.markdown(f"### {row['TITULO']}")
     c1,c2 = st.columns([2,1])
     with c1: st.info(row['NARRATIVA'])
     with c2:
         if st.button("A: "+row.get('OPCION_A_TXT','')): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step+=1; st.rerun()
         if st.button("B: "+row.get('OPCION_B_TXT','')): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step+=1; st.rerun()
-        if row.get('OPCION_C_TXT'): 
+        # Solo mostrar botón C y D si tienen texto (evita botones vacíos)
+        if row.get('OPCION_C_TXT') and len(str(row.get('OPCION_C_TXT'))) > 1: 
             if st.button("C: "+row.get('OPCION_C_TXT','')): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step+=1; st.rerun()
-        if row.get('OPCION_D_TXT'): 
+        if row.get('OPCION_D_TXT') and len(str(row.get('OPCION_D_TXT'))) > 1: 
             if st.button("D: "+row.get('OPCION_D_TXT','')): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step+=1; st.rerun()
 
-# Resultados
 else:
     ire, avg, fric, triggers = calculate_results()
     st.title(f"Informe {st.session_state.user_data['name']}")
