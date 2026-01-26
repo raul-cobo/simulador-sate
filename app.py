@@ -21,7 +21,7 @@ except ImportError:
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (EXACTO V50.8) ---
+# --- 2. GESTIÓN DE ESTILOS (RESTAURADO DE V50.8) ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
@@ -61,7 +61,7 @@ def inject_style(mode):
 
     st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. DATOS Y LÓGICA (EL CEREBRO NUEVO) ---
+# --- 3. DICCIONARIOS Y LÓGICA (CEREBRO V52) ---
 
 SECTOR_MAP = {
     "Startup Tecnológica (Scalable)": "TECH",
@@ -76,7 +76,7 @@ SECTOR_MAP = {
     "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
 }
 
-# 3.1 DICCIONARIO TRADUCTOR (REPARA LOS CEROS)
+# 3.1 DICCIONARIO TRADUCTOR (SOLUCIONA LOS CEROS)
 KEY_TRANSLATION = {
     # Achievement
     "achievement": "achievement", "logro": "achievement", "ambition": "achievement", "success": "achievement", 
@@ -99,7 +99,7 @@ KEY_TRANSLATION = {
     "pivot": "innovativeness", "differentiation": "innovativeness", "new": "innovativeness", "smart": "innovativeness",
     "resourcefulness": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
     
-    # Locus Control (AQUÍ ESTABA EL FALLO DEL CERO)
+    # Locus Control (CORREGIDO AQUI)
     "locus": "locus_control", "locus_control": "locus_control", "control": "locus_control", 
     "responsibility": "locus_control", "ownership": "locus_control", "realism": "locus_control", 
     "accountability": "locus_control", "problem_solving": "locus_control", "proactivity": "locus_control",
@@ -137,7 +137,6 @@ KEY_TRANSLATION = {
     "victimism": "melodramatic", "drama": "melodramatic", "complaint": "melodramatic"
 }
 
-# 3.2 TIPO DE VARIABLE (Clasificador)
 VARIABLE_TYPE = {
     "achievement": "TRAIT", "risk_propensity": "TRAIT", "innovativeness": "TRAIT", 
     "locus_control": "TRAIT", "self_efficacy": "TRAIT", "autonomy": "TRAIT", 
@@ -148,7 +147,7 @@ VARIABLE_TYPE = {
     "melodramatic": "FLAG", "diligent": "FLAG", "dependent": "FLAG"
 }
 
-# 3.3 TEXTOS IGAZLR (EL ALMA)
+# 3.2 TEXTOS RICOS (IGAZLR)
 TRAIT_TEXTS = {
     "achievement": {
         "low": "ÁREA DE MEJORA: Dificultad para mantener el foco en resultados tangibles.",
@@ -163,7 +162,7 @@ TRAIT_TEXTS = {
     "innovativeness": {
         "low": "ÁREA DE MEJORA: Tendencia a replicar lo existente sin diferenciar.",
         "med": "FORTALEZA: Capacidad para encontrar soluciones nuevas y pivotar.",
-        "high": "ALERTA DE DISPERSIÓN: Síndrome del objeto brillante. Muchas ideas, poco cierre."
+        "high": "ALERTA DE DISPERSIÓN: Síndrome del objeto brillante."
     },
     "locus_control": {
         "low": "RIESGO DE VICTIMISMO: Sensación de falta de control sobre el destino.",
@@ -192,7 +191,7 @@ TRAIT_TEXTS = {
     }
 }
 
-# --- 4. FUNCIONES CORE ---
+# --- 4. LÓGICA DE PROGRAMA ---
 
 if 'traits' not in st.session_state:
     st.session_state.traits = {k: 10 for k in ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']}
@@ -219,7 +218,7 @@ def load_questions():
         except: continue
     return []
 
-# --- PARSEO INTELIGENTE (Traducción + División / 5) ---
+# --- PARSEO INTELIGENTE: TRADUCCIÓN + DIVISIÓN (/5) ---
 def parse_logic(logic_str):
     if not logic_str or not isinstance(logic_str, str): return
     parts = logic_str.split('|')
@@ -231,11 +230,11 @@ def parse_logic(logic_str):
             raw_key = tokens[0].lower().strip()
             val_str = tokens[1]
             
-            # 1. TRADUCCIÓN
+            # 1. TRADUCCIÓN: Convierte 'control' en 'locus_control'
             clean_key = KEY_TRANSLATION.get(raw_key, raw_key)
             val = int(val_str)
             
-            # 2. AUTO-BALANCEO (DIVISIÓN POR 5)
+            # 2. AUTO-BALANCEO: Convierte 25 puntos en 5 puntos
             balanced_val = int(round(val / 5.0))
             if balanced_val == 0 and val > 0: balanced_val = 1
             
@@ -272,7 +271,7 @@ def calculate_results():
     penalty = friction / 200.0
     ire = avg * (1 - penalty)
     
-    # Textos
+    # Textos PDF
     trait_details = []
     for k, v in final_traits.items():
         if v < 40: txt = TRAIT_TEXTS[k]["low"]
@@ -290,7 +289,7 @@ def get_ire_text(score):
     if score >= 40: return "Nivel MEDIO: Riesgos operativos."
     return "Nivel CRÍTICO: Alta probabilidad de bloqueo."
 
-# --- 5. INTERFAZ GRÁFICA (V50.8 ORIGINAL) ---
+# --- 5. INTERFAZ (DISEÑO GOLD V50.8) ---
 def render_header():
     c1, c2 = st.columns([1, 6])
     with c1:
@@ -301,7 +300,12 @@ def render_header():
 
 if st.session_state.current_step == 0:
     inject_style("login")
-    st.markdown("<div style='text-align: center; margin-top: 50px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=80)
+    with c_title:
+        st.markdown("<div style='margin-top: 20px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
+    st.divider()
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         name = st.text_input("Nombre / ID de Candidato", placeholder="Ej: Juan Pérez")
@@ -318,14 +322,15 @@ elif st.session_state.current_step == 1:
     
     def go_sector(sec_name):
         code = SECTOR_MAP.get(sec_name)
-        raw = load_questions()
-        st.session_state.sector_data = [r for r in raw if r['SECTOR'] == code]
+        raw_data = load_questions()
+        st.session_state.sector_data = [row for row in raw_data if row['SECTOR'] == code]
         try: st.session_state.sector_data.sort(key=lambda x: int(x['MES']))
         except: pass
         if st.session_state.sector_data:
             st.session_state.current_step = 2
             safe_rerun()
-        else: st.error("No hay preguntas para este sector.")
+        else:
+            st.error(f"No hay preguntas para {code}.")
 
     c1, c2 = st.columns(2)
     with c1: 
@@ -354,19 +359,19 @@ elif st.session_state.current_step == 2:
     st.caption(f"Mes {row['MES']} | {row['TITULO']}")
     st.markdown(f"#### {row['NARRATIVA']}")
     
-    def next_q(opt, logic, txt):
+    def next_q(opt, logic):
         parse_logic(logic)
         st.session_state.history.append({'opcion': opt})
         safe_rerun()
 
     if row.get('OPCION_A_TXT'):
-        if st.button(f"A) {row['OPCION_A_TXT']}", use_container_width=True): next_q('A', row.get('OPCION_A_LOGIC'), row.get('OPCION_A_TXT'))
+        if st.button(f"A) {row['OPCION_A_TXT']}", use_container_width=True): next_q('A', row.get('OPCION_A_LOGIC'))
     if row.get('OPCION_B_TXT'):
-        if st.button(f"B) {row['OPCION_B_TXT']}", use_container_width=True): next_q('B', row.get('OPCION_B_LOGIC'), row.get('OPCION_B_TXT'))
+        if st.button(f"B) {row['OPCION_B_TXT']}", use_container_width=True): next_q('B', row.get('OPCION_B_LOGIC'))
     if row.get('OPCION_C_TXT'):
-        if st.button(f"C) {row['OPCION_C_TXT']}", use_container_width=True): next_q('C', row.get('OPCION_C_LOGIC'), row.get('OPCION_C_TXT'))
+        if st.button(f"C) {row['OPCION_C_TXT']}", use_container_width=True): next_q('C', row.get('OPCION_C_LOGIC'))
     if row.get('OPCION_D_TXT'):
-        if st.button(f"D) {row['OPCION_D_TXT']}", use_container_width=True): next_q('D', row.get('OPCION_D_LOGIC'), row.get('OPCION_D_TXT'))
+        if st.button(f"D) {row['OPCION_D_TXT']}", use_container_width=True): next_q('D', row.get('OPCION_D_LOGIC'))
 
 elif st.session_state.current_step == 3:
     inject_style("dark")
@@ -375,12 +380,15 @@ elif st.session_state.current_step == 3:
     
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
     k1, k2, k3 = st.columns(3)
-    k1.metric("IRE", f"{ire}/100")
+    k1.metric("Índice IRE", f"{ire}/100")
     k2.metric("Potencial", f"{avg}/100")
     k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
     
+    # Chart Iteration Fixed
     vals = [min(10, v/10) for v in st.session_state.traits.values()]
-    fig = go.Figure(data=go.Scatterpolar(r=vals, theta=[k.replace('_', ' ').title() for k in st.session_state.traits.keys()], fill='toself'))
+    labels = [k.replace('_', ' ').title() for k in st.session_state.traits.keys()]
+    
+    fig = go.Figure(data=go.Scatterpolar(r=vals, theta=labels, fill='toself', name='Perfil'))
     fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
     
     c_chart, c_desc = st.columns([1, 1])
