@@ -48,6 +48,12 @@ def init_session():
         st.session_state.current_step = 0
         st.session_state.data = []
         st.session_state.user_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        # --- CORRECCIÓN: Inicialización de variables de estado ---
+        st.session_state.auth = False
+        st.session_state.data_verified = False
+        st.session_state.started = False
+        st.session_state.user_data = {}
 
 def parse_logic(logic_str):
     if not isinstance(logic_str, str): return
@@ -145,11 +151,8 @@ elif not st.session_state.started:
     def go(s):
         try:
             # --- LECTURA BLINDADA (LATIN-1 DETECTADO) ---
-            # Como el diagnóstico confirmó latin-1, usamos latin-1 primero.
-            # Si falla, intentamos utf-8 por seguridad.
             try:
                 with open("SATE_v1.csv", encoding='latin-1') as f:
-                    # Detectar separador automáticamente (puede ser ; o ,)
                     first_line = f.readline()
                     delimiter = ';' if ';' in first_line else ','
                     f.seek(0)
@@ -158,16 +161,15 @@ elif not st.session_state.started:
                 with open("SATE_v1.csv", encoding='utf-8-sig') as f:
                     rows = list(csv.DictReader(f, delimiter=";"))
             
-            # Filtro insensible a mayúsculas/espacios
             st.session_state.data = [r for r in rows if r['SECTOR'].strip().upper() == s.upper()]
             
             if not st.session_state.data:
-                st.error(f"⚠️ No se han encontrado preguntas para {s}. El archivo se lee pero no coincide el nombre del sector.")
+                st.error(f"⚠️ No se han encontrado preguntas para {s}.")
                 return
 
             st.session_state.user_data['sector']=s; st.session_state.started=True; st.rerun()
         except Exception as e: 
-            st.error(f"Falta el archivo de preguntas o error de lectura: {e}")
+            st.error(f"Error de lectura: {e}")
     
     c1,c2 = st.columns(2)
     with c1:
