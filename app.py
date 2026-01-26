@@ -364,11 +364,13 @@ elif not st.session_state.started:
         if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
+        if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
     with c2:
         if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
         if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
         if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
         if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
+        if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
 
 # FASE 3
 elif not st.session_state.finished:
