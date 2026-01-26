@@ -103,19 +103,127 @@ NARRATIVES_DB = {
     "locus_control": { "excess": "ALERTA: Asunción excesiva de culpa.", "optimal": "FORTALEZA: Responsabilidad proactiva.", "moderate": "MEJORA: Atribución externa ocasional.", "low": "RIESGO: Victimismo sistemático." },
     "self_efficacy": { "excess": "ALERTA: Arrogancia y subestimación de retos.", "optimal": "FORTALEZA: Confianza sólida.", "moderate": "MEJORA: Dudas sobre capacidad.", "low": "RIESGO: Inseguridad paralizante." }
 }
-VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
-# --- 1.1 MAPA DE SECTORES (ACTUALIZADO) ---
-SECTOR_MAP = {
-    "Startup Tecnológica (Scalable)": "TECH",
-    "Consultoría / Servicios Profesionales": "CONSULTORIA",
-    "Pequeña y Mediana Empresa (PYME)": "PYME",
-    "Hostelería y Restauración": "HOSTELERIA",
-    "Autoempleo / Freelance": "AUTOEMPLEO",
-    "Emprendimiento Social": "SOCIAL",
-    "Intraemprendimiento": "INTRA",
-    "Salud": "SALUD",
-    "Psicología Sanitaria": "PSICOLOGIA_SANITARIA",
-    "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
+ # --- 3. MAPA DE VARIABLES (SUPER-EXTENDIDO V53) ---
+# Este mapa conecta cualquier palabra que uses en el CSV con su rasgo correspondiente.
+# Incluye correcciones específicas para que LOCUS DE CONTROL no salga bajo.
+
+VARIABLE_MAP = {
+    # --- 1. LOCUS DE CONTROL (CORREGIDO) ---
+    # Palabras que suman puntos a Locus de Control
+    "locus_control": "locus_control", "locus": "locus_control", "internal_locus": "locus_control",
+    "control": "locus_control", # ¡CLAVE! Muchas veces se pone solo "control"
+    "responsibility": "locus_control", "responsabilidad": "locus_control", "ownership": "locus_control",
+    "accountability": "locus_control", "realism": "locus_control", "realismo": "locus_control",
+    "problem_solving": "locus_control", "solution": "locus_control", "fixing": "locus_control",
+    "proactivity": "locus_control", "proactividad": "locus_control", "initiative": "locus_control",
+    "no_excuses": "locus_control", "execution": "locus_control", "action_taking": "locus_control",
+    "decision": "locus_control", "decision_making": "locus_control", "choice": "locus_control",
+    "autodidact": "locus_control", "learning_by_doing": "locus_control",
+    
+    # --- 2. NECESIDAD DE LOGRO (ACHIEVEMENT) ---
+    "achievement": "achievement", "logro": "achievement", "achiever": "achievement",
+    "results": "achievement", "result": "achievement", "resultados": "achievement",
+    "goal": "achievement", "goals": "achievement", "meta": "achievement", "target": "achievement",
+    "profit": "achievement", "beneficio": "achievement", "money": "achievement", "dinero": "achievement",
+    "growth": "achievement", "crecimiento": "achievement", "scale": "achievement", "escalar": "achievement",
+    "efficiency": "achievement", "eficiencia": "achievement", "productivity": "achievement",
+    "ambition": "achievement", "ambicion": "achievement", "drive": "achievement",
+    "focus": "achievement", "foco": "achievement", "discipline": "achievement", "disciplina": "achievement",
+    "tenacity": "achievement", "tenacidad": "achievement", "persistence": "achievement", "grit": "achievement",
+    "success": "achievement", "exito": "achievement", "business": "achievement", "negocio": "achievement",
+    "valuation": "achievement", "valoracion": "achievement", "exit": "achievement", "venta": "achievement",
+    "cost_saving": "achievement", "ahorro": "achievement", "financial": "achievement", "financiero": "achievement",
+
+    # --- 3. PROPENSIÓN AL RIESGO (RISK) ---
+    "risk_propensity": "risk_propensity", "risk": "risk_propensity", "riesgo": "risk_propensity",
+    "courage": "risk_propensity", "valentia": "risk_propensity", "coraje": "risk_propensity",
+    "audacity": "risk_propensity", "audacia": "risk_propensity", "boldness": "risk_propensity",
+    "action": "risk_propensity", "accion": "risk_propensity", "speed": "risk_propensity", "velocidad": "risk_propensity",
+    "investment": "risk_propensity", "inversion": "risk_propensity", "bet": "risk_propensity", "apuesta": "risk_propensity",
+    "debt": "risk_propensity", "deuda": "risk_propensity", "leverage": "risk_propensity", "apalancamiento": "risk_propensity",
+    "financial_risk": "risk_propensity", "uncertainty_action": "risk_propensity",
+    "experimentation": "risk_propensity", "experimentacion": "risk_propensity", "trial": "risk_propensity",
+
+    # --- 4. INNOVATIVIDAD (INNOVATION) ---
+    "innovativeness": "innovativeness", "innovation": "innovativeness", "innovacion": "innovativeness",
+    "creativity": "innovativeness", "creatividad": "innovativeness", "creative": "innovativeness",
+    "vision": "innovativeness", "visionary": "innovativeness", "future": "innovativeness", "futuro": "innovativeness",
+    "strategy": "innovativeness", "estrategia": "innovativeness", "strategic": "innovativeness",
+    "change": "innovativeness", "cambio": "innovativeness", "pivot": "innovativeness", "pivotar": "innovativeness",
+    "adaptability": "innovativeness", "adaptabilidad": "innovativeness", "flexibility": "innovativeness",
+    "new": "innovativeness", "nuevo": "innovativeness", "novelty": "innovativeness", "novedad": "innovativeness",
+    "differentiation": "innovativeness", "diferenciacion": "innovativeness", "unique": "innovativeness",
+    "tech": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
+    "curiosity": "innovativeness", "curiosidad": "innovativeness", "learning": "innovativeness", "aprendizaje": "innovativeness",
+    "reframing": "innovativeness", "imaginative": "innovativeness", "ideation": "innovativeness",
+
+    # --- 5. AUTOEFICACIA (SELF_EFFICACY) ---
+    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "efficacy": "self_efficacy",
+    "confidence": "self_efficacy", "confianza": "self_efficacy", "self_confidence": "self_efficacy",
+    "assertiveness": "self_efficacy", "asertividad": "self_efficacy", "firmness": "self_efficacy",
+    "leadership": "self_efficacy", "liderazgo": "self_efficacy", "leader": "self_efficacy",
+    "influence": "self_efficacy", "influencia": "self_efficacy", "persuasion": "self_efficacy",
+    "sales": "self_efficacy", "ventas": "self_efficacy", "selling": "self_efficacy",
+    "negotiation": "self_efficacy", "negociacion": "self_efficacy", "deal": "self_efficacy",
+    "communication": "self_efficacy", "comunicacion": "self_efficacy", "speaking": "self_efficacy",
+    "networking": "self_efficacy", "contacts": "self_efficacy", "relationships": "self_efficacy",
+    "management": "self_efficacy", "gestion": "self_efficacy", "direction": "self_efficacy",
+    "pricing_power": "self_efficacy", "confrontation": "self_efficacy", "conflict_resolution": "self_efficacy",
+    "mentorship": "self_efficacy", "delegation": "self_efficacy", "team_building": "self_efficacy",
+
+    # --- 6. AUTONOMÍA (AUTONOMY) ---
+    "autonomy": "autonomy", "autonomia": "autonomy", "autonomous": "autonomy",
+    "independence": "autonomy", "independencia": "autonomy", "independent": "autonomy",
+    "freedom": "autonomy", "libertad": "autonomy", "free": "autonomy",
+    "sovereignty": "autonomy", "soberania": "autonomy", "control_destiny": "autonomy",
+    "boundaries": "autonomy", "limites": "autonomy", "saying_no": "autonomy", "refusal": "autonomy",
+    "identity": "autonomy", "identidad": "autonomy", "authenticity": "autonomy",
+    "lifestyle": "autonomy", "estilo_de_vida": "autonomy", "work_life_balance": "autonomy",
+    "detachment": "autonomy", "desapego": "autonomy", "walking_away": "autonomy",
+
+    # --- 7. TOLERANCIA A LA AMBIGÜEDAD ---
+    "ambiguity_tolerance": "ambiguity_tolerance", "ambiguity": "ambiguity_tolerance", "ambiguedad": "ambiguity_tolerance",
+    "tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance",
+    "uncertainty": "ambiguity_tolerance", "incertidumbre": "ambiguity_tolerance", "chaos": "ambiguity_tolerance",
+    "patience": "ambiguity_tolerance", "paciencia": "ambiguity_tolerance", "waiting": "ambiguity_tolerance",
+    "resilience": "ambiguity_tolerance", "resiliencia": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
+    "calm": "ambiguity_tolerance", "calma": "ambiguity_tolerance", "stoicism": "ambiguity_tolerance", "estoicismo": "ambiguity_tolerance",
+    "hope": "ambiguity_tolerance", "esperanza": "ambiguity_tolerance", "optimism": "ambiguity_tolerance", "optimismo": "ambiguity_tolerance",
+    "acceptance": "ambiguity_tolerance", "aceptacion": "ambiguity_tolerance", "trust": "ambiguity_tolerance", "confianza_proceso": "ambiguity_tolerance",
+
+    # --- 8. ESTABILIDAD EMOCIONAL ---
+    "emotional_stability": "emotional_stability", "stability": "emotional_stability", "estabilidad": "emotional_stability",
+    "emotional": "emotional_stability", "emocional": "emotional_stability", "eq": "emotional_stability",
+    "integrity": "emotional_stability", "integridad": "emotional_stability", "ethics": "emotional_stability", "etica": "emotional_stability",
+    "values": "emotional_stability", "valores": "emotional_stability", "principles": "emotional_stability",
+    "honesty": "emotional_stability", "honestidad": "emotional_stability", "truth": "emotional_stability",
+    "justice": "emotional_stability", "justicia": "emotional_stability", "fairness": "emotional_stability",
+    "transparency": "emotional_stability", "transparencia": "emotional_stability",
+    "humility": "emotional_stability", "humildad": "emotional_stability", "modesty": "emotional_stability",
+    "empathy": "emotional_stability", "empatia": "emotional_stability", "humanity": "emotional_stability",
+    "loyalty": "emotional_stability", "lealtad": "emotional_stability",
+    "balance": "emotional_stability", "equilibrio": "emotional_stability", "self_care": "emotional_stability",
+    "coherence": "emotional_stability", "coherencia": "emotional_stability", "respect": "emotional_stability",
+
+    # --- BANDERAS ROJAS (FLAGS) - RESTAN PUNTOS ---
+    "excitable": "excitable", "anger": "excitable", "ira": "excitable", "aggression": "excitable", "agresividad": "excitable",
+    "violence": "excitable", "conflict": "excitable", "reaction": "excitable", "impulsiveness": "excitable",
+    "skeptical": "skeptical", "skepticism": "skeptical", "escepticismo": "skeptical", "doubt": "skeptical", "duda": "skeptical",
+    "distrust": "skeptical", "desconfianza": "skeptical", "cynicism": "skeptical", "cinismo": "skeptical",
+    "cautious": "cautious", "caution": "cautious", "precaucion": "cautious", "fear": "cautious", "miedo": "cautious",
+    "anxiety": "cautious", "ansiedad": "cautious", "paralysis": "cautious", "paralisis": "cautious", "risk_aversion": "cautious",
+    "reserved": "reserved", "introversion": "reserved", "isolation": "reserved", "aislamiento": "reserved",
+    "passive_aggressive": "passive_aggressive", "resentment": "passive_aggressive", "rencor": "passive_aggressive",
+    "arrogant": "arrogant", "arrogance": "arrogant", "soberbia": "arrogant", "ego": "arrogant", "pride": "arrogant", "orgullo": "arrogant",
+    "narcissism": "arrogant", "superiority": "arrogant", "vanity": "arrogant",
+    "mischievous": "mischievous", "manipulation": "mischievous", "manipulacion": "mischievous", "lie": "mischievous", "mentira": "mischievous",
+    "greed": "mischievous", "codicia": "mischievous", "corruption": "mischievous", "corrupcion": "mischievous",
+    "melodramatic": "melodramatic", "drama": "melodramatic", "victimism": "melodramatic", "victimismo": "melodramatic",
+    "complaint": "melodramatic", "queja": "melodramatic", "fragility": "melodramatic",
+    "diligent": "diligent", "perfectionism": "diligent", "perfeccionismo": "diligent", "obsession": "diligent", "obsesion": "diligent",
+    "micromanagement": "diligent", "rigidity": "diligent", "rigidez": "diligent",
+    "dependent": "dependent", "dependency": "dependent", "dependencia": "dependent", "submission": "dependent", "sumision": "dependent",
+    "pleaser": "dependent", "complacencia": "dependent", "obedience": "dependent", "obediencia": "dependent"
 }
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
