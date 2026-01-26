@@ -104,8 +104,19 @@ NARRATIVES_DB = {
     "self_efficacy": { "excess": "ALERTA: Arrogancia y subestimación de retos.", "optimal": "FORTALEZA: Confianza sólida.", "moderate": "MEJORA: Dudas sobre capacidad.", "low": "RIESGO: Inseguridad paralizante." }
 }
 VARIABLE_MAP = { "achievement": "achievement", "logro": "achievement", "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "innovativeness": "innovativeness", "innovacion": "innovativeness", "locus_control": "locus_control", "locus": "locus_control", "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "collaboration": "self_efficacy", "autonomy": "autonomy", "autonomia": "autonomy", "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", "imaginative": "ambiguity_tolerance", "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", "excitable": "excitable", "skeptical": "skeptical", "cautious": "cautious", "reserved": "reserved", "passive_aggressive": "passive_aggressive", "arrogant": "arrogant", "mischievous": "mischievous", "melodramatic": "melodramatic", "diligent": "diligent", "dependent": "dependent" }
-SECTOR_MAP = { "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA", "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA", "Autoempleo / Freelance": "AUTOEMPLEO", "Emprendimiento Social": "SOCIAL", "Intraemprendimiento": "INTRA", "Salud": "SALUD" }
-
+# --- 1.1 MAPA DE SECTORES (ACTUALIZADO) ---
+SECTOR_MAP = {
+    "Startup Tecnológica (Scalable)": "TECH",
+    "Consultoría / Servicios Profesionales": "CONSULTORIA",
+    "Pequeña y Mediana Empresa (PYME)": "PYME",
+    "Hostelería y Restauración": "HOSTELERIA",
+    "Autoempleo / Freelance": "AUTOEMPLEO",
+    "Emprendimiento Social": "SOCIAL",
+    "Intraemprendimiento": "INTRA",
+    "Salud": "SALUD",
+    "Psicología Sanitaria": "PSICOLOGIA_SANITARIA",
+    "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
+}
 def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 # --- INICIALIZACIÓN (BASE CERO PARA SATE V2) ---
