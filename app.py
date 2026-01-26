@@ -8,14 +8,27 @@ import textwrap
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.utils import ImageReader
+
+# --- GESTIÓN DE DEPENDENCIAS OPCIONALES (PDF) ---
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
+# Función de compatibilidad para rerun
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
+
+# --- 2. GESTIÓN DE ESTILOS ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
@@ -49,18 +62,14 @@ def inject_style(mode):
                 border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); 
             }
             .metric-card { background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center; }
-            .metric-value { font-size: 32px; font-weight: bold; color: #FAFAFA; }
-            .metric-label { font-size: 14px; color: #9CA3AF; margin-top: 4px; }
-            .diag-text { background-color: #1F2937; padding: 15px; border-radius: 8px; border-left: 4px solid #3B82F6; color: #D1D5DB; }
         """
     else:
         theme_css = ""
 
     st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LOGICA Y DATOS ---
+# --- 3. MAPAS DE DATOS ---
 
-# 3.1 MAPA DE SECTORES (ACTUALIZADO)
 SECTOR_MAP = {
     "Startup Tecnológica (Scalable)": "TECH",
     "Consultoría / Servicios Profesionales": "CONSULTORIA",
@@ -74,9 +83,9 @@ SECTOR_MAP = {
     "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
 }
 
-# 3.2 MAPA DE VARIABLES (SUPER-REGULADO V53)
+# MAPA DE VARIABLES (SUPER-REGULADO V53)
 VARIABLE_MAP = {
-    # --- DIMENSIONES POSITIVAS (SUMAN POTENCIAL) ---
+    # POSITIVOS
     "achievement": "achievement", "logro": "achievement", "pragmatism": "achievement", 
     "focus": "achievement", "discipline": "achievement", "tenacity": "achievement",
     "persistence": "achievement", "results": "achievement", "efficiency": "achievement", 
@@ -127,39 +136,30 @@ VARIABLE_MAP = {
     "balance": "emotional_stability", "self_care": "emotional_stability", "coherence": "emotional_stability", 
     "respect": "emotional_stability",
 
-    # --- RASGOS NEGATIVOS (FLAGS) ---
+    # NEGATIVOS (FLAGS)
     "excitable": "excitable", "aggression": "excitable", "violence": "excitable", "anger": "excitable", 
     "conflict": "excitable", "reaction": "excitable", "vengeance": "excitable", "impulsiveness": "excitable", 
     "drama": "excitable", 
-    
     "skeptical": "skeptical", "skepticism": "skeptical", "cynicism": "skeptical", "distrust": "skeptical", 
     "suspicion": "skeptical", "hostility": "skeptical", 
-    
     "cautious": "cautious", "caution": "cautious", "fear": "cautious", "anxiety": "cautious", "avoidance": "cautious", 
     "prudence": "cautious", "security": "cautious", "safety": "cautious", "risk_aversion": "cautious", 
     "conservatism": "cautious", "hesitation": "cautious", "paralysis": "cautious", "trust_risk": "cautious", 
     "delay": "cautious", 
-    
     "reserved": "reserved", "introversion": "reserved", "isolation": "reserved", "secrecy": "reserved", 
     "secretive": "reserved", "distance": "reserved", 
-    
     "passive_aggressive": "passive_aggressive", "resentment": "passive_aggressive", "obstruction": "passive_aggressive", 
     "stubbornness": "passive_aggressive", "resistance": "passive_aggressive", 
-    
     "arrogant": "arrogant", "arrogance": "arrogant", "ego": "arrogant", "narcissism": "arrogant", 
     "superiority": "arrogant", "elitism": "arrogant", "image": "arrogant", "spectacle": "arrogant", 
     "vanity": "arrogant", "bluff": "arrogant", "pride": "arrogant", "class": "arrogant", 
-    
     "mischievous": "mischievous", "cunning": "mischievous", "deceit": "mischievous", "manipulation": "mischievous", 
     "opportunist": "mischievous", "corruption": "mischievous", "exploitation": "mischievous", "greed": "mischievous", 
     "illegal": "mischievous", "machiavellian": "mischievous", "artificial": "mischievous", "tactics": "mischievous", 
-    
     "melodramatic": "melodramatic", "victimism": "melodramatic", "complaint": "melodramatic", "fragility": "melodramatic", 
     "delusion": "melodramatic", "attention_seeking": "melodramatic", 
-    
     "diligent": "diligent", "perfectionism": "diligent", "micromanagement": "diligent", "rigidity": "diligent", 
     "obsession": "diligent", "bureaucracy": "diligent", "complexity": "diligent", 
-    
     "dependent": "dependent", "dependency": "dependent", "submission": "dependent", "pleaser": "dependent", 
     "conformity": "dependent", "obedience": "dependent", "external_validation": "dependent", "reassurance": "dependent", 
     "imitation": "dependent", "external_locus": "dependent", "weakness": "dependent", "surrender": "dependent"
@@ -177,11 +177,9 @@ if 'history' not in st.session_state: st.session_state.history = []
 
 # --- 4. FUNCIONES DE LÓGICA (CORE) ---
 
-# CARGA DE DATOS ROBUSTA
 @st.cache_data
 def load_questions():
     filename = 'SATE_v1.csv'
-    
     if not os.path.exists(filename):
         st.error(f"Error: No se encuentra el archivo '{filename}'.")
         return []
@@ -194,11 +192,9 @@ def load_questions():
                 if data and 'SECTOR' in data[0]: return data
         except:
             continue
-            
     st.error("Error crítico de codificación del CSV.")
     return []
 
-# PARSEO DE LÓGICA (MAPEA CSV -> ESTADO)
 def parse_logic(logic_str):
     if not logic_str or not isinstance(logic_str, str): return
     parts = logic_str.split('|')
@@ -206,11 +202,9 @@ def parse_logic(logic_str):
         try:
             tokens = part.strip().split()
             if len(tokens) < 2: continue
-            
             key_raw = tokens[0].lower().strip()
             val = int(tokens[1])
             target_key = VARIABLE_MAP.get(key_raw)
-            
             if target_key:
                 if target_key in st.session_state.traits:
                     st.session_state.traits[target_key] += val
@@ -219,182 +213,64 @@ def parse_logic(logic_str):
         except:
             continue
 
-# CÁLCULO DE RESULTADOS (ESTABILIZADO LOGARÍTMICO)
+# CÁLCULO DE RESULTADOS LOGARÍTMICO (V54)
 def calculate_results():
-    # 1. CÁLCULO DE POTENCIAL (Suavizado)
-    # Sumamos los puntos brutos de las 8 dimensiones positivas
+    # 1. POTENCIAL (Curva Logística)
     raw_points = sum(st.session_state.traits.values())
-    
-    # Fórmula logística de saturación:
-    # Evita llegar a 100 fácilmente. Con 200 puntos tienes un ~57. Con 400 puntos un ~73.
+    # Esta fórmula hace que sea fácil llegar a 50, pero muy difícil llegar a 100
     avg = 100 * (1 - (1 / (1 + (raw_points / 150.0))))
     
-    # 2. CÁLCULO DE FRICCIÓN (Solo Flags)
-    # Sumamos SOLO las banderas rojas (Flags), no los rasgos positivos.
+    # 2. FRICCIÓN (Solo Flags Reales)
     raw_friction = sum(st.session_state.flags.values())
-    
-    # La fricción escala linealmente hasta un tope de 100.
-    # 50 puntos de fricción ya es el máximo (100%).
     friction = min(100, (raw_friction / 50.0) * 100)
     
-    # 3. ÍNDICE DE RENDIMIENTO EMPRENDEDOR (IRE)
-    # Fórmula: Potencial * (1 - Factor de Penalización)
-    # Si tienes Fricción 100, penaliza un 50% de tu potencial.
+    # 3. IRE FINAL
     penalty_factor = friction / 200.0 
     ire = avg * (1 - penalty_factor)
     
-    # Textos de diagnóstico
     triggers = [k for k, v in st.session_state.flags.items() if v > 10]
     
-    # Explicaciones detalladas de fricción para el PDF
+    # Explicaciones para PDF
     fric_reasons = []
-    if friction > 20:
-        fric_reasons.append("Se detectan patrones de comportamiento que podrían limitar el rendimiento bajo presión.")
-    if "excitable" in triggers:
-        fric_reasons.append("Tendencia a la volatilidad emocional o reactividad ante conflictos.")
-    if "cautious" in triggers:
-        fric_reasons.append("Exceso de prudencia que puede llevar a la parálisis por análisis.")
-    if "skeptical" in triggers:
-        fric_reasons.append("Desconfianza sistemática que dificulta la delegación y alianzas.")
-    if "arrogant" in triggers:
-        fric_reasons.append("Exceso de confianza que puede subestimar riesgos reales.")
+    if friction > 20: fric_reasons.append("Patrones de comportamiento limitantes bajo estrés.")
+    if "excitable" in triggers: fric_reasons.append("Volatilidad emocional.")
+    if "cautious" in triggers: fric_reasons.append("Parálisis por análisis.")
+    if "arrogant" in triggers: fric_reasons.append("Exceso de confianza.")
     
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, 0
 
 def get_ire_text(score):
-    if score >= 75: return "Nivel ÉLITE: Alta viabilidad y resiliencia. Perfil de alto rendimiento."
-    if score >= 60: return "Nivel SÓLIDO: Buen potencial, requiere ajustes menores en gestión de riesgos."
-    if score >= 40: return "Nivel MEDIO: Riesgos operativos detectados. Se recomienda plan de mejora."
-    return "Nivel CRÍTICO: Alta probabilidad de bloqueo o burnout. Viabilidad comprometida."
+    if score >= 75: return "Nivel ÉLITE: Alta viabilidad."
+    if score >= 60: return "Nivel SÓLIDO: Buen potencial."
+    if score >= 40: return "Nivel MEDIO: Riesgos operativos."
+    return "Nivel CRÍTICO: Alta probabilidad de bloqueo."
 
-# --- 5. GRÁFICOS ---
-def radar_chart():
-    # Normalizamos los valores para que el gráfico se vea bonito (escala 0-10 relativa)
-    # Asumimos que un valor de 50 puntos en un rasgo es un "10" visual.
-    values = list(st.session_state.traits.values())
-    values_norm = [min(10, (v / 50.0) * 10) for v in values]
-    
-    categories = [k.replace('_', ' ').title() for k in st.session_state.traits.keys()]
-    
-    fig = go.Figure(data=go.Scatterpolar(
-        r=values_norm,
-        theta=categories,
-        fill='toself',
-        name='Perfil Competencial',
-        line_color='#3B82F6',
-        fillcolor='rgba(59, 130, 246, 0.2)'
-    ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 10], showticklabels=False, linecolor='#374151'),
-            angularaxis=dict(tickfont=dict(size=10, color='#9CA3AF'))
-        ),
-        showlegend=False,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=20, b=20, l=40, r=40),
-        height=350
-    )
-    return fig
+# --- 5. INTERFAZ GRÁFICA ---
 
-# --- 6. PDF ---
-def create_pdf(ire, avg, friction, triggers, fric_reasons):
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    
-    # Cabecera
-    c.setFillColorRGB(0.1, 0.1, 0.1)
-    c.setFont("Helvetica-Bold", 24)
-    c.drawString(50, height - 50, "Audeo")
-    c.setFont("Helvetica", 14)
-    c.drawString(50, height - 80, "INFORME TÉCNICO S.A.P.E.")
-    c.setFont("Helvetica", 10)
-    c.drawString(50, height - 95, "Sistema de Análisis de la Personalidad Emprendedora")
-    
-    c.setStrokeColorRGB(0.8, 0.8, 0.8)
-    c.line(50, height - 110, width - 50, height - 110)
-    
-    # Datos Candidato
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(50, height - 140, f"Candidato: {st.session_state.user_data.get('name', 'N/A')}")
-    c.setFont("Helvetica", 11)
-    c.drawString(300, height - 140, f"ID: {st.session_state.user_data.get('id', 'N/A')}")
-    c.drawString(50, height - 160, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}")
-    
-    # Métricas Principales
-    y_metrics = height - 210
-    c.setFillColorRGB(0.95, 0.96, 0.98)
-    c.rect(40, y_metrics - 20, width - 80, 60, fill=1, stroke=0)
-    
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(60, y_metrics + 10, f"IRE FINAL: {ire}/100")
-    c.setFont("Helvetica", 10)
-    c.drawString(300, y_metrics + 10, f"Potencial: {avg} | Fricción: {friction}")
-    
-    c.setFont("Helvetica-Oblique", 10)
-    c.drawString(60, y_metrics - 10, f"Diagnóstico: {get_ire_text(ire)}")
-    
-    # Gráfico (Captura simulada o texto)
-    # Nota: Insertar gráfico interactivo en PDF es complejo sin guardar imagen temporal.
-    # Aquí pondremos el desglose textual.
-    
-    y_pos = height - 300
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y_pos, "2. PERFIL COMPETENCIAL (DETALLE)")
-    y_pos -= 20
-    
-    c.setFont("Helvetica", 10)
-    # Tabla simple de rasgos
-    traits_list = list(st.session_state.traits.items())
-    col1_x = 50
-    col2_x = 300
-    
-    for i, (k, v) in enumerate(traits_list):
-        x = col1_x if i % 2 == 0 else col2_x
-        if i % 2 == 0: y_pos -= 15
-        
-        # Normalizamos valor para mostrar 0-100 visualmente en el PDF
-        val_display = int(min(100, (v / 50.0) * 100))
-        label = k.replace('_', ' ').title()
-        c.drawString(x, y_pos, f"{label}: {val_display}")
-    
-    y_pos -= 40
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y_pos, "3. ANÁLISIS DE RIESGOS (FRICCIÓN)")
-    y_pos -= 20
-    c.setFont("Helvetica", 10)
-    
-    if triggers:
-        for t in triggers:
-            c.setFillColorRGB(0.8, 0, 0)
-            c.drawString(50, y_pos, f"• ALERTA: {t.title()}")
-            c.setFillColorRGB(0, 0, 0)
-            y_pos -= 15
-    else:
-        c.drawString(50, y_pos, "No se han detectado patrones de riesgo críticos.")
-        y_pos -= 15
-        
-    if fric_reasons:
-        y_pos -= 10
-        c.setFont("Helvetica-Oblique", 9)
-        for reason in fric_reasons:
-            c.drawString(50, y_pos, f"- {reason}")
-            y_pos -= 12
+def render_header():
+    c1, c2 = st.columns([1, 6])
+    with c1:
+        # LOGO RESTAURADO: Busca logo.png, si no usa emoji
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=60)
+        else:
+            st.markdown("### 🧬")
+    with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
+    st.divider()
 
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return buffer
-
-# --- 7. FLUJO DE LA APLICACIÓN ---
-
-# FASE 1: LOGIN
+# FASE 1: LOGIN (DISEÑO RESTAURADO)
 if st.session_state.current_step == 0:
     inject_style("login")
-    st.markdown("<div style='text-align: center; margin-top: 50px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
+    
+    # Logo en Login
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=80)
+    with c_title:
+        st.markdown("<div style='margin-top: 20px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
+    
+    st.divider()
+    
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         name = st.text_input("Nombre / ID de Candidato", placeholder="Ej: Juan Pérez")
@@ -402,9 +278,9 @@ if st.session_state.current_step == 0:
             if name:
                 st.session_state.user_data = {'name': name, 'id': ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}
                 st.session_state.current_step = 1
-                st.rerun()
+                safe_rerun()
 
-# FASE 2: SELECTOR DE SECTOR
+# FASE 2: SECTOR
 elif st.session_state.current_step == 1:
     inject_style("dark")
     render_header()
@@ -413,17 +289,15 @@ elif st.session_state.current_step == 1:
     def go_sector(sec_name):
         code = SECTOR_MAP.get(sec_name)
         raw_data = load_questions()
-        # Filtrar datos
         st.session_state.sector_data = [row for row in raw_data if row['SECTOR'] == code]
-        # Ordenar por mes
         try: st.session_state.sector_data.sort(key=lambda x: int(x['MES']))
         except: pass
         
         if not st.session_state.sector_data:
-            st.error(f"No hay preguntas cargadas para el sector {code}. Revisa el CSV.")
+            st.error(f"No hay preguntas para {code}.")
         else:
             st.session_state.current_step = 2
-            st.rerun()
+            safe_rerun()
 
     c1, c2 = st.columns(2)
     with c1: 
@@ -446,43 +320,28 @@ elif st.session_state.current_step == 2:
     render_header()
     
     q_idx = len(st.session_state.history)
-    
     if q_idx >= len(st.session_state.sector_data):
         st.session_state.current_step = 3
-        st.rerun()
+        safe_rerun()
     
     row = st.session_state.sector_data[q_idx]
-    
-    # Barra de progreso
-    progress = (q_idx + 1) / len(st.session_state.sector_data)
-    st.progress(progress)
-    
+    st.progress((q_idx + 1) / len(st.session_state.sector_data))
     st.caption(f"Mes {row['MES']} | {row['TITULO']}")
     st.markdown(f"#### {row['NARRATIVA']}")
     
-    def next_q(opt_letter, logic_str, text_str):
-        parse_logic(logic_str)
-        st.session_state.history.append({
-            'mes': row['MES'], 'titulo': row['TITULO'], 'opcion': opt_letter, 'texto': text_str
-        })
-        st.rerun()
+    def next_q(opt, logic, txt):
+        parse_logic(logic)
+        st.session_state.history.append({'opcion': opt})
+        safe_rerun()
 
-    st.write("")
-    if row.get('OPCION_A_TXT') and row.get('OPCION_A_TXT') != "None":
-        if st.button(f"A) {row['OPCION_A_TXT']}", use_container_width=True): 
-            next_q('A', row.get('OPCION_A_LOGIC'), row.get('OPCION_A_TXT'))
-            
-    if row.get('OPCION_B_TXT') and row.get('OPCION_B_TXT') != "None":
-        if st.button(f"B) {row['OPCION_B_TXT']}", use_container_width=True): 
-            next_q('B', row.get('OPCION_B_LOGIC'), row.get('OPCION_B_TXT'))
-            
-    if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
-        if st.button(f"C) {row['OPCION_C_TXT']}", use_container_width=True): 
-            next_q('C', row.get('OPCION_C_LOGIC'), row.get('OPCION_C_TXT'))
-            
-    if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
-        if st.button(f"D) {row['OPCION_D_TXT']}", use_container_width=True): 
-            next_q('D', row.get('OPCION_D_LOGIC'), row.get('OPCION_D_TXT'))
+    if row.get('OPCION_A_TXT'):
+        if st.button(f"A) {row['OPCION_A_TXT']}", use_container_width=True): next_q('A', row.get('OPCION_A_LOGIC'), row.get('OPCION_A_TXT'))
+    if row.get('OPCION_B_TXT'):
+        if st.button(f"B) {row['OPCION_B_TXT']}", use_container_width=True): next_q('B', row.get('OPCION_B_LOGIC'), row.get('OPCION_B_TXT'))
+    if row.get('OPCION_C_TXT'):
+        if st.button(f"C) {row['OPCION_C_TXT']}", use_container_width=True): next_q('C', row.get('OPCION_C_LOGIC'), row.get('OPCION_C_TXT'))
+    if row.get('OPCION_D_TXT'):
+        if st.button(f"D) {row['OPCION_D_TXT']}", use_container_width=True): next_q('D', row.get('OPCION_D_LOGIC'), row.get('OPCION_D_TXT'))
 
 # FASE 4: RESULTADOS
 elif st.session_state.current_step == 3:
@@ -492,27 +351,48 @@ elif st.session_state.current_step == 3:
     ire, avg, friction, triggers, fric_reasons, _ = calculate_results()
     
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
-    
     k1, k2, k3 = st.columns(3)
     k1.metric("Índice IRE", f"{ire}/100")
     k2.metric("Potencial", f"{avg}/100")
     k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
     
+    # Radar Chart
+    vals = [min(10, (v / 50.0) * 10) for v in st.session_state.traits.values()]
+    fig = go.Figure(data=go.Scatterpolar(
+        r=vals, theta=[k.replace('_', ' ').title() for k in st.session_state.traits.keys()],
+        fill='toself', name='Perfil'
+    ))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, 
+                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
+    
     c_chart, c_desc = st.columns([1, 1])
-    with c_chart: st.plotly_chart(radar_chart(), use_container_width=True)
+    with c_chart: st.plotly_chart(fig, use_container_width=True)
     with c_desc:
         st.markdown("### Diagnóstico")
         st.info(get_ire_text(ire))
-        if triggers:
-            st.warning(f"**Alertas:** {', '.join([t.title() for t in triggers])}")
-        else:
-            st.success("Perfil equilibrado sin riesgos críticos.")
-
-    # PDF Download
+        if triggers: st.warning(f"**Alertas:** {', '.join([t.title() for t in triggers])}")
+    
     if PDF_AVAILABLE:
-        pdf_data = create_pdf(ire, avg, friction, triggers, fric_reasons)
-        st.download_button(label="Descargar Informe PDF", data=pdf_data, file_name="Informe_SAPE.pdf", mime="application/pdf")
+        def create_pdf_file():
+            b = io.BytesIO()
+            c = canvas.Canvas(b, pagesize=A4)
+            c.drawString(50, 800, f"Audeo - Informe S.A.P.E.")
+            c.drawString(50, 780, f"Candidato: {st.session_state.user_data['name']}")
+            c.drawString(50, 760, f"IRE: {ire} | Potencial: {avg} | Fricción: {friction}")
+            if triggers: c.drawString(50, 740, f"Riesgos: {', '.join(triggers)}")
+            
+            # Dibujar gráfico simple (barras simuladas)
+            y = 700
+            for k, v in st.session_state.traits.items():
+                c.drawString(50, y, f"{k.title()}: {int(v)}")
+                y -= 15
+                
+            c.save()
+            b.seek(0)
+            return b
+            
+        st.download_button("Descargar Informe PDF", data=create_pdf_file(), file_name="Informe_SAPE.pdf", mime="application/pdf")
         
     if st.button("Reiniciar Evaluación"):
         st.session_state.clear()
-        st.rerun()
+        safe_rerun()
