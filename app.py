@@ -135,31 +135,47 @@ def init_session():
         st.session_state.user_data = {}
 
 @st.cache_data
+@st.cache_data
 def load_questions():
-    # Nombre del archivo (Asegúrate de que coincide con el que subiste)
+    # Nombre exacto del archivo en GitHub
     filename = 'SATE_v1.csv'  
     
     if not os.path.exists(filename):
-        st.error(f"Error: No se encuentra el archivo '{filename}'.")
+        st.error(f"Error: No se encuentra el archivo '{filename}'. Asegúrate de haberlo subido a GitHub con ese nombre.")
         return []
     
-    # Lista de codificaciones a probar (de moderna a antigua)
-    encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252']
-    
-    for enc in encodings:
-        try:
-            with open(filename, encoding=enc, errors='replace') as f:
-                # Leemos y forzamos que sea una lista de diccionarios
-                data = list(csv.DictReader(f, delimiter=';'))
-                
-                # Verificación rápida: si ha leído algo y tiene la columna SECTOR
-                if data and 'SECTOR' in data[0]:
-                    return data
-        except Exception:
-            continue # Si falla, prueba la siguiente codificación
-            
-    st.error("Error crítico: No se ha podido leer el archivo CSV con ninguna codificación estándar.")
-    return []
+    # 1. Intentar primero con UTF-8-SIG (Excel moderno con BOM)
+    try:
+        with open(filename, encoding='utf-8-sig', errors='strict') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            return data
+    except UnicodeDecodeError:
+        pass  # Si falla, seguimos al siguiente
+
+    # 2. Intentar con UTF-8 normal (Estándar web)
+    try:
+        with open(filename, encoding='utf-8', errors='strict') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            return data
+    except UnicodeDecodeError:
+        pass
+
+    # 3. Intentar con Latin-1 (Excel antiguo / Windows Europa)
+    try:
+        with open(filename, encoding='latin-1', errors='strict') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            return data
+    except UnicodeDecodeError:
+        pass
+
+    # 4. Último recurso: CP1252 (Windows occidental específico)
+    try:
+        with open(filename, encoding='cp1252', errors='replace') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            return data
+    except Exception as e:
+        st.error(f"Error crítico de codificación: {e}")
+        return []
 
 # --- LÓGICA DE PUNTOS (PURA) ---
 def parse_logic(logic_str):
