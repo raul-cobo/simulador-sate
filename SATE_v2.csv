@@ -1,0 +1,321 @@
+SECTOR;MES;TITULO;NARRATIVA;OPCION_A_TXT;OPCION_A_LOGIC;OPCION_B_TXT;OPCION_B_LOGIC;OPCION_C_TXT;OPCION_C_LOGIC;OPCION_D_TXT;OPCION_D_LOGIC
+TECH;1;El MVP;Lanzas mañana. Faltan funciones clave. Competencia aprieta.;Lanzo vendiendo la visión (humo) pero arreglo rápido.;mischievous 10 | arrogant 5 | risk_propensity 15 | locus_control -5;Retraso 3 semanas. La calidad es lo primero.;diligent 10 | risk_propensity -5 | achievement -5;Soft Launch secreto a 50 amigos.;cautious 10 | risk_propensity -5 | self_efficacy -5;Lanzo Beta fea y arreglo en vivo.;achievement 15 | risk_propensity 15 | emotional_stability 10
+TECH;2;El Inversor;VC agresivo ofrece 500k por el 40%. Caja crítica.;Firmo. El dinero es oxígeno.;risk_propensity 10 | dependent 5 | achievement 10 | autonomy -10;Rechazo. Valgo más.;arrogant 5 | autonomy 20 | risk_propensity 0;Negocio: 40% si garantizan 2 años de runway.;negotiation 5 | self_efficacy 15 | risk_propensity 5;Pido dinero a amigos y familia.;cautious 5 | autonomy 10 | risk_propensity 5
+TECH;3;El Pivote;Nadie usa la App. El chat interno lo peta.;Pivoto al chat YA. Borrón y cuenta nueva.;innovativeness 20 | emotional_stability 10 | achievement 10;Sigo con la idea original. Hay que educar al mercado.;arrogant 5 | diligent 5 | locus_control 5 | risk_propensity -5;Mantengo los dos productos.;imaginative 5 | focus -10 | risk_propensity 5;Vendo la tecnología y cierro.;mercenary 5 | emotional_stability 5 | achievement 5
+TECH;4;El Genio Tirano;Tu CTO es un genio pero hace llorar al equipo.;Le despido. La cultura escala, el genio no.;emotional_stability 10 | diligent 5 | risk_propensity 10 | achievement 5;Le aíslo en un puesto técnico sin gente.;astute 5 | innovativeness 5 | conflict_resolution 10;Le doy otra oportunidad con coach.;optimism 5 | dependent 5 | risk_propensity -2;Me pongo de su lado. Exigencia máxima.;achievement 10 | arrogant 10 | empathy -10
+TECH;5;Growth Hacking;Script para spamear LinkedIn. Crecimiento 200%.;Hazlo. Pedir perdón, no permiso.;mischievous 15 | achievement 10 | risk_propensity 10;Ni de broma. Ética ante todo.;diligent 10 | cautious 5 | integrity 10;Hazlo desde dominio falso.;mischievous 10 | astute 10 | risk_propensity 10;Buscamos alternativa legal.;cautious 5 | diligent 5 | patience 5
+TECH;6;Caída del Servidor;Web caída en Black Friday. Pierdes dinero. Pánico.;Tomo el mando gritando órdenes.;excitable 10 | achievement 10 | leadership 5;Calma zen. Pizzas y paso a paso.;emotional_stability 20 | self_efficacy 15 | leadership 15;Tweet gracioso para ganar tiempo.;imaginative 5 | risk_propensity 5 | focus -5;Llamo a consultor externo urgente.;dependent 10 | risk_propensity -2
+TECH;7;La Oferta de Google;Te compran por 5M. Te retiras rico. Cierran tu producto.;Vendo. Pájaro en mano.;cautious 5 | mercenary 10 | ambition -10;Rechazo. Valemos 100M.;arrogant 10 | achievement 15 | risk_propensity 15;Negocio protección de equipo.;negotiation 5 | empathy 10 | self_efficacy 10;Pido el doble de precio.;astute 5 | risk_propensity 10 | greed 5
+TECH;8;Deuda Técnica;"Cliente gigante pide función ""chapuza"" ya.";Hacemos la chapuza. Hay que cerrar.;achievement 10 | risk_propensity 10 | short_term 5;No. No rompo el producto.;arrogant 5 | diligent 10 | cautious 5;Lo vendo como consultoría aparte.;astute 10 | mercenary 5 | resourcefulness 10;Prometo que estará (mentira).;mischievous 10 | diplomacy 5
+TECH;9;Amazon Entra;Amazon lanza tu producto gratis.;Pánico. Vendo rápido.;excitable 10 | risk_propensity -10 | emotional_stability -10;Nos enfocamos en nicho específico.;astute 10 | innovativeness 10 | locus_control 10;Guerra de guerrillas en redes.;melodramatic 5 | risk_propensity 5;Ignoro a Amazon. Sigo mi plan.;emotional_stability 15 | self_efficacy 15 | focus 10
+TECH;10;Métricas;Usuarios bajan. Registros suben. ¿Qué reportas?;Destaco Registros. Maquillo.;mischievous 10 | impression_mgmt 5 | honesty -5;Muestro dato malo y plan de choque.;diligent 10 | emotional_stability 10 | honesty 10;Cambio definición de métrica.;astute 5 | mischievous 5;No envío reporte hoy.;passive_aggressive 10 | deceit 5
+TECH;11;Remoto;Equipo pide 100% remoto o se van.;Obligo 3 días oficina. Cultura.;arrogant 5 | autonomy 10 | control 5;Cedo. Remote first.;innovativeness 10 | flexibility 10;Solo contrato locales.;cautious 5 | risk_propensity -5;Software espía de pantallas.;skeptical 10 | trust -10
+TECH;12;Sin Caja;No hay para nóminas este mes.;Pido trabajar gratis por stock.;leadership 10 | risk_propensity 10 | honesty 10;Pido crédito personal yo mismo.;self_sacrifice 10 | achievement 10 | risk_propensity 10;Despido 30% plantilla hoy.;toughness 10 | risk_propensity 5 | emotional_stability 5;Miento a inversores.;mischievous 15 | integrity -10
+TECH;13;Moda IA;Equipo quiere meter IA a todo. Perdemos foco.;Les dejo jugar 20% tiempo.;innovativeness 15 | focus -2 | risk_propensity 5;Corto el rollo. Foco en producto.;diligent 10 | cautious 5 | autonomy 10;Pongo IA en la web (mentira).;mischievous 10 | astute 5;Pivoto todo a IA.;impulsive 10 | risk_propensity 15
+TECH;14;Unit Economics;Pierdes dinero con cada venta.;Pivoto a servicios rentables.;cautious 5 | locus_control 10 | realism 10;Sigo vendiendo, la escala lo arreglará.;mischievous 5 | risk_propensity 5 | denial 10;Vendo la tecnología.;mercenary 5 | astute 5;Subo precios 100%.;arrogant 5 | achievement 10 | risk_propensity 10
+TECH;15;Hacker;Chaval de 16 años pide rescate de 5k.;Pago legal y arreglo.;diligent 10 | integrity 10 | risk_propensity -5;Lo arreglo y le ignoro.;arrogant 5 | risk_propensity 5;Pago en B y le contrato.;astute 10 | innovativeness 10 | mischievous 5;Le amenazo legalmente.;aggressive 5 | emotional_stability -5
+TECH;16;Amigo;Tu amigo pide trabajo. Es mediocre.;Lo contrato. Lealtad.;dependent 10 | loyalty 10 | achievement -10;No. Solo los mejores.;diligent 10 | emotional_stability 10 | boundaries 10;Puesto inventado inofensivo.;cautious 5 | conflict_avoidance 5;Le ayudo con su CV.;altruism 5 | diplomacy 5
+TECH;17;Burnout;Estás quemado. Odias tu startup.;Vendo y me voy al campo.;self_preservation 10 | emotional_stability -10;Contrato CEO y paso a Presidente.;delegation 10 | autonomy 10 | humility 5;Retiro espiritual (Ghosting).;irresponsibility 10 | risk_propensity 5;Sigo empujando con pastillas.;melodramatic 10 | stubbornness 10
+TECH;18;Legalidad;Producto en zona gris legal.;Tiramos milla. Pedir perdón.;mischievous 5 | risk_propensity 15 | achievement 10;Frenamos. Cumplir ley.;diligent 10 | cautious 10 | growth -5;Lobby político.;arrogant 5 | influence 10 | fighting_spirit 5;Sede en paraíso fiscal.;astute 5 | risk_propensity 10
+TECH;19;Haters;Reviews de 1 estrella falsas.;Respondo con agresividad.;excitable 10 | arrogant 5 | defense 5;Rediseño basado en quejas.;humility 10 | innovativeness 5 | diligent 10;Compro reviews falsas.;mischievous 15 | ethics -10;Video llorando.;melodramatic 10 | victim 10
+TECH;20;Robar Talento;Fichar ingeniero de competencia con cláusula.;Le ficho y pago multa.;mercenary 10 | risk_propensity 15 | achievement 10;Le convenzo para venir en 1 año.;cautious 5 | patience 5;Contrato como externo (trampa).;mischievous 10 | astute 10;Paso. No quiero líos.;diligent 5 | cautious 5
+TECH;21;Fama;Sales en Forbes 30 under 30.;Disfruto. Soy la marca.;narcissism 10 | focus -10;Síndrome impostor. Trabajo doble.;diligence 10 | humility 5;Uso la fama para vender.;astute 10 | achievement 10;Me burlo del premio.;skepticism 5 | authenticity 5
+TECH;22;Open Source;Comunidad pide tu código.;No. Es mi IP.;secretive 5 | mercenary 5;Libero todo. Karma.;altruism 10 | idealism 5;Libero lo viejo, guardo lo nuevo.;astute 10 | strategy 5;Patrocino pero no doy código.;diplomacy 5
+TECH;23;El Becario;Becario tiene mejor idea que tú.;Le hago líder del proyecto.;humility 10 | innovativeness 10 | leadership 10;Robo su idea.;mischievous 10 | arrogance 10;Mato la idea por ego.;arrogant 15 | insecurity 10;Le subo el sueldo.;astute 5 | retention 5
+TECH;24;Factura AWS;Error de junior cuesta 15k.;Despido al junior.;cruel 10 | emotional_stability -5;Asumo error de supervisión.;locus_control 15 | responsibility 15;Lloro a Amazon para que perdonen.;negotiation 5 | dependent 5;No pago y huyo.;mischievous 10 | risk_propensity 10
+TECH;25;Troll;Influencer te ataca.;Le humillo con datos.;excitable 5 | witty 5;Le soborno/invito.;bribery 5 | astute 5;Le ignoro.;arrogant 5 | emotional_stability 10;Cuentas falsas para atacar.;mischievous 15
+TECH;26;Cultura;Equipo de 15 tíos iguales.;Sigo así. Velocidad.;clique 5 | speed 5 | diversity -5;Fuerzo diversidad.;social_justice 10 | patience 5;Fotos falsas en la web.;mischievous 10 | fake 10;Curso de sensibilización.;cautious 5 | bureaucracy 5
+TECH;27;Crimen;Narcos usan tu chat.;Miro a otro lado. Privacidad.;mercenary 5 | risk_propensity 5;Colaboro con policía.;diligent 10 | ethics 10;Cobro en Crypto premium.;mischievous 15 | profit 10;Baneo cuentas. Pierdo tráfico.;cautious 5 | integrity 10
+TECH;28;Despidos;Preguntan si habrá despidos. Mañana sí.;Miento. Que trabajen tranquilos.;mischievous 10 | manipulation 5;Digo la verdad. Pánico.;honesty 10 | risk_propensity 5;Discurso vacío corporativo.;ambiguity_tolerance 5 | cowardice 5;Depende de si trabajáis duro.;cruel 10 | leadership -10
+TECH;29;Código Malo;Código basura. ¿Refactor o Features?;Paramos y reescribimos.;diligent 15 | long_term 10;Seguimos parcheando.;cautious 5 | short_term 5;Capas nuevas sobre viejas.;innovativeness 5 | pragmatism 5;Consultora externa.;delegation 5 | avoidance 5
+TECH;30;Cisne Negro;Crisis mundial. Ingresos cero.;Hiberno la empresa.;cautious 10 | survival 10;Pivoto radicalmente.;innovativeness 20 | risk_propensity 15;Cierro y devuelvo dinero.;honesty 10 | responsibility 10;Gasto lo que queda en Ads.;risk_propensity 15 | desperation 10
+TECH;31;La Niebla;Futuro incierto.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+TECH;32;El Golpe;Cliente se va. No es tu culpa.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día libre.;cautious 5
+TECH;33;Soledad;Decisión difícil solo.;Decido.;autonomy 20 | self_efficacy 15;Busco mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Medida tibia.;cautious 5
+TECH;34;Caos Creativo;Romper lo que funciona.;Sí, innovar.;innovativeness 20 | risk_propensity 15;No tocar.;innovativeness 5 | risk_propensity 5;Piloto pequeño.;innovativeness -5;Esperar.;cautious 5
+TECH;35;Meta Alta;No llegas al objetivo.;Redoblo esfuerzo.;achievement 20 | locus_control 15;Bajo meta.;achievement 5 | locus_control 5;Culpo mercado.;achievement -5;Abandono.;cautious 5
+TECH;36;Info 40%;Decidir con pocos datos.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero datos.;ambiguity_tolerance -5;Suerte.;cautious 5
+TECH;37;Crítica;Ataque en redes.;Respondo elegante.;emotional_stability 20 | self_efficacy 15;Me enfado.;emotional_stability 5 | self_efficacy 5;Me hundo.;emotional_stability -5;Me escondo.;cautious 5
+TECH;38;Burocracia;Descontrol.;Mínimo control.;autonomy 20 | innovativeness 15;Burocracia total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copiar multinacional.;cautious 5
+TECH;39;Esfuerzo;Esfuerzo sin resultados.;Solo importa resultado.;achievement 20 | locus_control 15;Felicito intento.;achievement 5 | locus_control 5;Me quejo.;achievement -5;Bajo exigencia.;cautious 5
+TECH;40;Reinvención;Falta skill clave.;La aprendo.;achievement 20 | self_efficacy 15;Delego todo.;achievement 5 | self_efficacy 5;La ignoro.;achievement -5;Vendo.;cautious 5
+CONSULTORIA;1;Equipo Fantasma;Vendes seniors, tienes juniors.;Fingid hasta lograrlo.;mischievous 15 | achievement 10 | risk_propensity 10;Confieso la verdad.;diligent 10 | honesty 10 | risk_propensity -5;Contrato actores.;astute 10 | image 10 | risk_propensity 5;Vendo la juventud.;innovativeness 10 | communication 10
+CONSULTORIA;2;Descuento;Cliente grande pide descuento 40%.;Acepto por marketing.;achievement 5 | risk_propensity 5;Me niego. Mi valor.;arrogant 10 | self_efficacy 20 | dignity 10;Recorto alcance.;locus_control 10 | diligent 10 | negotiation 10;Success Fee agresivo.;achievement 15 | risk_propensity 15
+CONSULTORIA;3;Viernes Negro;Urgencia en fin de semana.;Lo hago yo.;dependent 5 | achievement 5 | burnout 10;Paso al junior.;mercenary 10 | empathy -10;Digo que no.;autonomy 20 | assertiveness 15 | risk_propensity 10;Tarifa urgencia x3.;astute 15 | mercenary 10 | locus_control 10
+CONSULTORIA;4;Socio Lastre;Socio no trabaja.;Ultimátum.;assertiveness 20 | achievement 10 | risk_propensity 10;No digo nada.;loyalty 10 | dependent 10 | stagnation 5;Desvío clientes.;mischievous 15 | betrayal 10 | autonomy 10;Tareas aburridas.;passive_aggressive 10 | astute 10
+CONSULTORIA;5;Impago;Cliente no paga.;Paro servicio y burofax.;aggressive 10 | diligent 10 | risk_propensity 5;Sigo trabajando.;dependent 10 | cautious 10 | fear 10;Voy a su oficina.;melodramatic 10 | assertiveness 10 | risk_propensity 10;Ofrezco quita.;negotiation 10 | pragmatic 10
+CONSULTORIA;6;Error Excel;Error de cálculo 50k.;Asumo pérdida.;integrity 20 | locus_control 10 | diligent 10;Miento sobre error informático.;mischievous 10 | deceit 10 | risk_propensity 10;Inflo horas extra.;astute 10 | unethical 10;Cancelo proyecto.;avoidance 10 | cautious 10
+CONSULTORIA;7;Oferta Empleo;Cliente te ficha.;Acepto.;security 20 | ambition -10;Rechazo. Libertad.;autonomy 20 | risk_propensity 15;Interim Manager.;negotiation 10 | innovativeness 10;Inversión.;sales 10 | audacity 10
+CONSULTORIA;8;LinkedIn;Competencia vende humo.;Vendo humo yo también.;mischievous 10 | marketing 10;Sigo a lo mío.;diligent 10 | cautious 10;Critico públicamente.;excitable 10 | conflict 10;Ghostwriter.;delegation 10 | astute 10
+CONSULTORIA;9;Plagio;Ex empleado te copia.;Demanda.;litigious 10 | diligent 10;Le ignoro.;arrogant 10 | self_efficacy 10;Guerra de precios.;reactive 10 | insecurity 10;Rediseño marca.;innovativeness 15 | leadership 15
+CONSULTORIA;10;Escalar;Saturado de trabajo.;Producto/Cursos.;innovativeness 20 | autonomy 10;Agencia/Juniors.;achievement 10 | management 10;Boutique/Precios altos.;autonomy 15 | profit 10;Aguanto igual.;cautious 10 | stagnation 10
+CONSULTORIA;11;Cliente Tóxico;Cliente trata mal al equipo.;Le despido.;culture 20 | integrity 15 | risk_propensity 10;Aguanto.;mercenary 10 | submission 10;Subo tarifa molestia.;cautious 5 | mercenary 10;Equipo duro.;management 10 | pragmatism 10
+CONSULTORIA;12;IA;ChatGPT hace tu trabajo.;Experto en IA.;adaptability 20 | innovativeness 15;Niego realidad.;denial 10 | conservative 10;Uso secreto.;mischievous 10 | efficiency 10;Cambio a presencial.;strategic 10 | vision 10
+CONSULTORIA;13;Soborno;Comisión encubierta.;Acepto.;corruption 10 | risk_propensity 15;Denuncio.;integrity 20 | brave 15 | risk_propensity 10;Rechazo educado.;cautious 10 | integrity 10;Acepto y engaño.;mischievous 20 | deceit 15
+CONSULTORIA;14;Networking;Eventos inútiles.;Dejo de ir. Inbound.;autonomy 15 | focus 15;Sigo yendo.;optimism 10 | social 10;Solo eventos VIP.;strategic 15 | elitism 10;Mando junior.;delegation 10
+CONSULTORIA;15;Fusión;Te compran con acciones.;No. Solo Cash.;skeptical 20 | autonomy 10;Acepto.;naive 10 | belonging 10;50/50.;negotiation 15 | prudent 10;Alianza.;autonomy 10 | collaboration 10
+CONSULTORIA;16;Marca Personal;Eres el producto.;Me escondo.;strategic 15 | long_term 10;Gurú total.;narcissism 10 | profit 10;Metodología propia.;innovativeness 15 | scale 15;Me resigno.;realism 10 | acceptance 10
+CONSULTORIA;17;Impuestos;No hay para IVA.;Aplazamiento.;financial_management -10 | optimism 10;Crédito.;dependent 10 | risk_propensity 5;No pago.;irresponsibility 15 | risk_propensity 15;No pago proveedores.;ruthless 15 | compliance 10
+CONSULTORIA;18;Exclusividad;Contrato exclusivo.;Firmo.;security 10 | scarcity 10;No firmo.;autonomy 15 | negotiation 10;Marca blanca.;mischievous 20 | risk_propensity 15;Acoto.;astute 15 | negotiation 10
+CONSULTORIA;19;Becario Gratis;Mano de obra gratis.;Los cojo.;opportunist 10 | cost_saving 10;No. Pagan.;integrity 15 | social_justice 10;Formación real.;mentorship 15 | altruism 10;Explotación.;arrogant 15 | exploitation 10
+CONSULTORIA;20;Reputación;Error público.;Borro y bloqueo.;avoidance 15 | weakness 10;Fe de erratas.;diligent 10 | humility 10;Video perdón.;courage 15 | emotional_stability 15;Ataco.;arrogant 10 | conflict 10
+CONSULTORIA;21;Cliente Amigo;Pide gratis.;Le cobro.;assertiveness 15 | business 10;Le invito.;dependent 10 | loyalty 10;Excusa mentira.;lie 10 | avoidance 10;Precio coste.;negotiation 10 | compromise 10
+CONSULTORIA;22;Nichos;Sector desconocido.;Lo cojo.;generalist 10 | adaptability 10;Derivo.;collaboration 15 | honesty 10;No.;discipline 15 | strategy 10;Subcontrato.;orchestrator 15 | business 10
+CONSULTORIA;23;Oficina;¿Oficina o no?;Oficina.;image 10 | culture 10;Remoto.;lean 15 | focus 10;Piso ilegal.;mischievous 10 | saving 10;Zanahoria.;motivation 10 | sales_focus 10
+CONSULTORIA;24;Divorcio Socio;Ex reclama acciones.;Ayudo a comprar.;loyalty 10 | problem_solving 10;Compro yo.;opportunist 15 | mercenary 10;Nada.;detachment 10 | risk_propensity -5;Blindaje legal.;astute 15 | legal 10
+CONSULTORIA;25;TEDx;Charla sin contenido.;Voy (Humo).;image 20 | superficial 10;No voy.;integrity 15 | substance 10;Polémica.;risk_propensity 15 | innovativeness 10;Guionista.;delegation 10 | performance 10
+CONSULTORIA;26;Tecnología;Subida precio software.;Pago.;submission 10 | survival 10;Migro Open Source.;autonomy 20 | rebellion 10;Amenazo.;negotiation 10 | aggressive 10;Repercuto.;transparency 15 | business 10
+CONSULTORIA;27;Sabotaje;Empleado borra datos.;Denuncia.;justice 10 | revenge 10;Paso página.;stoicism 15 | resilience 10;Amenaza física.;excitable 15 | violence 10;Público.;vengeance 10 | reputation 10
+CONSULTORIA;28;Salud Mental;Depresión.;Finjo.;discipline 10 | repression 10;Miento.;self_care 10 | avoidance 10;Verdad.;vulnerability 15 | honesty 10;Delego.;delegation 15 | support 10
+CONSULTORIA;29;Pelotazo;Negocio rápido ajeno.;Lo hago.;opportunist 10 | flexibility 10;No.;discipline 20 | focus 15;Oculto.;secretive 10 | greed 10;;
+CONSULTORIA;30;Legado;Epitafio.;Dinero.;mercenary 20;Ayuda.;service 15;Libertad.;autonomy 20;Cambio.;innovativeness 15
+CONSULTORIA;31;La Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+CONSULTORIA;32;El Golpe;Cliente se va.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día libre.;cautious 5
+CONSULTORIA;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+CONSULTORIA;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+CONSULTORIA;35;Meta Alta;No llegas.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+CONSULTORIA;36;Info 40%;Pocos datos.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+CONSULTORIA;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+CONSULTORIA;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+CONSULTORIA;39;Esfuerzo;Sin resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+CONSULTORIA;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+HOSTELERIA;1;Local Maldito;Suicidio anterior.;Lo cojo.;risk_propensity 15 | pragmatic 20;No.;cautious 10 | intuition 10;Ceremonia.;mischievous 10 | marketing 10;Investigo.;analytical 10 | diligent 10
+HOSTELERIA;2;Chef Diva;Déspota.;Despido.;culture 20 | emotional_stability 15;Aguanto.;dependent 10 | profit 10;Grito más.;authoritarian 10 | conflict 10;Socio.;strategy 10 | negotiation 10
+HOSTELERIA;3;Reseña Falsa;Competencia.;Denuncio.;diligent 10 | patience 10;Humor.;witty 10 | resilience 10;Compro falsas.;mischievous 10 | unethical 10;Venganza.;vengeance 10 | aggressive 10
+HOSTELERIA;4;Carne Barata;Sin etiqueta.;Compro.;greedy 10 | risk_propensity 10;No.;integrity 20 | diligent 15;Mitad y mitad.;mischievous 10 | risk 5;Teléfono.;hesitant 10 | temptation 10
+HOSTELERIA;5;Robo Caja;Faltan 50e.;Cámaras.;distrust 10 | control 10;Castigo colectivo.;authoritarian 10 | unfair 10;Despido 3.;ruthless 10 | speed 10;Interrogatorio.;psychology 10 | intuition 10
+HOSTELERIA;6;Influencer;Comer gratis.;Invito.;marketing 10 | opportunist 10;Cobro.;arrogant 10 | dignity 10;Trato.;innovativeness 10 | negotiation 10;Echo.;excitable 10 | conflict 10
+HOSTELERIA;7;Inspección;Grasa ilegal.;Soborno.;corruption 10 | risk_propensity 10;Asumo.;responsibility 15 | integrity 15;Lloro.;victim 10 | dependent 10;Culpo.;cowardice 10 | leadership -10
+HOSTELERIA;8;Narco;Fiesta privada.;Acepto.;mercenary 10 | risk_propensity 10;Rechazo.;cautious 10 | integrity 10;Chivato.;dangerous 10 | stupidity 10;Excusa.;diplomacy 10 | fear 10
+HOSTELERIA;9;Camarero Estrella;Se va.;Contraoferta.;desperate 10 | retention 10;Suerte.;self_efficacy 15 | resilience 15;Amenazo.;mischievous 10 | intimidation 10;Hablo mal.;petty 10 | toxic 10
+HOSTELERIA;10;Vegano;Mundo vegano.;Fiel.;stubbornness 10 | identity 10;Pivoto.;adaptability 20 | innovativeness 15;Marca virtual.;astute 10 | strategy 10;Burla.;arrogant 10 | marketing 10
+HOSTELERIA;11;Obras;Calle cortada.;Delivery.;resilience 20 | innovativeness 15;Ayudas.;dependent 10 | passive 10;Protesta.;fighting_spirit 10 | political 10;Mudo.;boldness 10 | risk_propensity 10
+HOSTELERIA;12;Borracho;Molesta.;Echo.;assertiveness 10 | physical 10;Policía.;cautious 10 | protocol 10;Invito.;diplomacy 10 | psychology 10;Cambio mesa.;cowardice 10 | injustice 10
+HOSTELERIA;13;Franquiciar;Crecer.;Sí.;ambition 20 | scale 15;No.;craftsmanship 10 | control 10;Segundo local.;prudence 10 | growth 10;Vendo modelo.;freedom 10 | strategy 10
+HOSTELERIA;14;Ticket;Subir.;Subo precio.;arrogant 10 | profit 10;Upselling.;management 10 | sales 10;Reduzco ración.;mischievous 10 | short_term 10;Más mesas.;greedy 10 | volume 10
+HOSTELERIA;15;Personal;Nadie quiere.;Mejoro condiciones.;innovation 10 | empathy 10;Ilegales.;illegal 10 | exploitation 10;Quejo.;victim 10 | outdated 10;Robots.;technology 10 | efficiency 10
+HOSTELERIA;16;Cucaracha;Cliente estafa.;Invito.;fear 10 | conflict_avoidance 10;Cámaras.;detective 10 | assertiveness 10;Niego.;arrogant 10 | denial 10;Policía.;aggressive 10 | escalation 10
+HOSTELERIA;17;Capitalista;Socio manda.;Acepto.;submission 10 | money 10;No.;autonomy 20 | integrity 15;Engaño.;mischievous 10 | deceit 10;Negocio.;negotiation 10 | partnership 10
+HOSTELERIA;18;Sobras;Comida.;Tiro.;compliance 10 | wasteful 10;Personal.;generosity 10 | team 10;Vendo App.;business 10 | sustainability 10;Dono.;altruism 10 | values 10
+HOSTELERIA;19;Crítico;Visita.;Normal.;integrity 10 | confidence 10;Pánico.;perfectionism 10 | anxiety 10;Pelota.;bribery 10 | insecurity 10;Escupo.;hostility 10 | resentment 10
+HOSTELERIA;20;Incendio;Cocina.;Barbacoa.;resilience 20 | creativity 15;Cierro.;cautious 10 | passivity 10;Alquilo.;speed 10 | determination 10;Hundo.;defeat 10 | fragility 10
+HOSTELERIA;21;Deuda;Banco.;Renocio.;proactive 10 | responsibility 10;Impago.;avoidance 10 | irresponsibility 10;Prestamista.;desperation 10 | risk 20;Vendo coche.;sacrifice 10 | commitment 10
+HOSTELERIA;22;Menú Día;Margen.;Quito.;elitism 10 | profit 10;Calidad baja.;greedy 10 | short_term 10;Subo.;marketing 10 | strategy 10;Mantengo.;marketing 10 | loss_leader 10
+HOSTELERIA;23;Amigo;No paga.;Cobro.;assertiveness 10 | business 10;Invito.;loyalty 10 | sentimental 10;Mentira.;lie 10 | conflict_avoidance 10;Coste.;negotiation 10 | compromise 10
+HOSTELERIA;24;Plato;Aburre.;Quito.;artist 10 | autonomy 10;Subo.;business 10 | smart 10;Mantengo.;service 10 | humility 10;Barato.;efficiency 10 | adaptation 10
+HOSTELERIA;25;Vecinos;Ruido.;Insonorizo.;civic 10 | responsibility 10;Multas.;mercenary 10 | conflict 10;Cena.;diplomacy 10 | corruption 5;Firmas.;activism 10 | conflict 10
+HOSTELERIA;26;Socio;Vago.;Hablo.;justice 10 | communication 10;Callo.;passive 10 | resentment 10;Vago yo.;immature 10 | equality 10;Compro.;solution 10 | action 10
+HOSTELERIA;27;Catering;Nuevo.;Sí.;growth 10 | risk 10;No.;focus 10 | discipline 10;Subcontrato.;broker 10 | smart 10;Desastre.;optimism 10 | incompetence 10
+HOSTELERIA;28;Propinas;Reparto.;Igual.;equity 10 | team 10;Individual.;individualism 10 | competition 10;Empresa.;thief 10 | abuse 10;Cena.;culture 10 | celebration 10
+HOSTELERIA;29;Vino;Caro.;Cambio.;business 20 | cold 10;Aprieto.;negotiation 10 | loyalty 10;Sigo.;loyalty 20 | sentimental 10;Engaño.;mischievous 10 | strategy 10
+HOSTELERIA;30;Estrella;Michelin.;Voy.;ambition 20 | risk 10;Paso.;pragmatism 20 | profit 10;Asesor.;investment 10 | strategy 10;Yo.;authenticity 20 | artist 10
+HOSTELERIA;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+HOSTELERIA;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+HOSTELERIA;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+HOSTELERIA;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+HOSTELERIA;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+HOSTELERIA;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+HOSTELERIA;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+HOSTELERIA;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+HOSTELERIA;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+HOSTELERIA;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+PYME;1;MVP;Lanzar.;Visión.;mischievous 15 | arrogant 5;Retraso.;diligent 10;Secreto.;cautious 10;Beta.;achievement 20
+PYME;2;Inversor;Dinero.;Firmo.;risk_propensity 15;Rechazo.;arrogant 10;Negocio.;negotiation 10;Familia.;cautious 10
+PYME;3;Pivote;Cambio.;Pivoto.;innovativeness 20;Sigo.;arrogant 10;Doble.;imaginative 10;Vendo.;mercenary 10
+PYME;4;Tirano;CTO.;Despido.;emotional_stability 15;Aíslo.;astute 10;Coach.;optimism 10;Apoyo.;achievement 15
+PYME;5;Spam;Growth.;Hazlo.;mischievous 20;No.;diligent 15;Falso.;mischievous 15;Legal.;cautious 10
+PYME;6;Caída;Server.;Grito.;excitable 15;Calma.;emotional_stability 20;Tweet.;imaginative 10;Consultor.;dependent 15
+PYME;7;Venta;Google.;Vendo.;cautious 10;No.;arrogant 15;Protección.;negotiation 10;Doble.;astute 10
+PYME;8;Deuda;Chapuza.;Hago.;achievement 15;No.;arrogant 10;Consultoría.;astute 15;Mentira.;mischievous 15
+PYME;9;Amazon;Competencia.;Pánico.;excitable 15;Nicho.;astute 15;Guerra.;melodramatic 10;Ignoro.;emotional_stability 20
+PYME;10;Métricas;Reporte.;Maquillo.;mischievous 15;Verdad.;diligent 15;Cambio.;astute 10;Nada.;passive_aggressive 15
+PYME;11;Remoto;Equipo.;Oficina.;arrogant 10;Remoto.;innovativeness 15;Local.;cautious 10;Espía.;skeptical 15
+PYME;12;Nómina;Dinero.;Gratis.;leadership 15;Crédito.;self_sacrifice 15;Despido.;toughness 15;Miento.;mischievous 20
+PYME;13;Moda;IA.;Jugar.;innovativeness 20;Foco.;diligent 15;Mentira.;mischievous 15;Pivote.;impulsive 15
+PYME;14;Unit;Pérdida.;Servicios.;cautious 10;Sigo.;mischievous 10;Vendo.;mercenary 10;Precio.;arrogant 10
+PYME;15;Hacker;Rescate.;Pago.;diligent 15;Ignoro.;arrogant 10;Contrato.;astute 15;Amenazo.;aggressive 10
+PYME;16;Amigo;Trabajo.;Contrato.;dependent 15;No.;diligent 15;Inventado.;cautious 10;CV.;altruism 10
+PYME;17;Burnout;Quemado.;Vendo.;self_preservation 15;CEO.;delegation 15;Retiro.;irresponsibility 15;Pastillas.;melodramatic 15
+PYME;18;Legal;Gris.;Tiro.;mischievous 10;Freno.;diligent 15;Lobby.;arrogant 10;Paraíso.;astute 10
+PYME;19;Haters;Reviews.;Agresivo.;excitable 15;Rediseño.;humility 15;Falsas.;mischievous 20;Lloro.;melodramatic 15
+PYME;20;Robar;Talento.;Ficho.;mercenary 15;Convenzo.;cautious 10;Externo.;mischievous 15;Paso.;diligent 10
+PYME;21;Fama;Forbes.;Disfruto.;narcissism 15;Impostor.;diligence 15;Vendo.;astute 15;Burla.;skepticism 10
+PYME;22;Code;Open.;Mío.;secretive 10;Todo.;altruism 15;Parte.;astute 15;Dinero.;diplomacy 10
+PYME;23;Becario;Idea.;Líder.;humility 15;Robo.;mischievous 15;Mato.;arrogant 20;Sueldo.;astute 10
+PYME;24;Factura;Error.;Despido.;cruel 15;Asumo.;locus_control 20;Lloro.;negotiation 10;Huyo.;mischievous 15
+PYME;25;Troll;Influencer.;Zasca.;excitable 10;Soborno.;bribery 10;Ignoro.;arrogant 10;Fakes.;mischievous 20
+PYME;26;Cultura;Tíos.;Sigo.;clique 10;Diversidad.;social_justice 15;Fotos.;mischievous 15;Curso.;cautious 10
+PYME;27;Crimen;Narcos.;Miro.;mercenary 10;Policía.;diligent 15;Crypto.;mischievous 20;Baneo.;cautious 10
+PYME;28;Despido;Rumor.;Miento.;mischievous 15;Verdad.;honesty 15;Vacio.;ambiguity_tolerance 10;Amenazo.;cruel 15
+PYME;29;Código;Malo.;Paro.;diligent 20;Parche.;cautious 10;Capas.;innovativeness 10;Externo.;delegation 10
+PYME;30;Crisis;Cisne.;Hiberno.;cautious 15;Pivoto.;innovativeness 25;Cierro.;honesty 15;Gasto.;risk_propensity 20
+PYME;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+PYME;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+PYME;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+PYME;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+PYME;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+PYME;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+PYME;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+PYME;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+PYME;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+PYME;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+AUTOEMPLEO;1;MVP;Lanzar.;Visión.;mischievous 15 | arrogant 5;Retraso.;diligent 10;Secreto.;cautious 10;Beta.;achievement 20
+AUTOEMPLEO;2;Inversor;Dinero.;Firmo.;risk_propensity 15;Rechazo.;arrogant 10;Negocio.;negotiation 10;Familia.;cautious 10
+AUTOEMPLEO;3;Pivote;Cambio.;Pivoto.;innovativeness 20;Sigo.;arrogant 10;Doble.;imaginative 10;Vendo.;mercenary 10
+AUTOEMPLEO;4;Tirano;CTO.;Despido.;emotional_stability 15;Aíslo.;astute 10;Coach.;optimism 10;Apoyo.;achievement 15
+AUTOEMPLEO;5;Spam;Growth.;Hazlo.;mischievous 20;No.;diligent 15;Falso.;mischievous 15;Legal.;cautious 10
+AUTOEMPLEO;6;Caída;Server.;Grito.;excitable 15;Calma.;emotional_stability 20;Tweet.;imaginative 10;Consultor.;dependent 15
+AUTOEMPLEO;7;Venta;Google.;Vendo.;cautious 10;No.;arrogant 15;Protección.;negotiation 10;Doble.;astute 10
+AUTOEMPLEO;8;Deuda;Chapuza.;Hago.;achievement 15;No.;arrogant 10;Consultoría.;astute 15;Mentira.;mischievous 15
+AUTOEMPLEO;9;Amazon;Competencia.;Pánico.;excitable 15;Nicho.;astute 15;Guerra.;melodramatic 10;Ignoro.;emotional_stability 20
+AUTOEMPLEO;10;Métricas;Reporte.;Maquillo.;mischievous 15;Verdad.;diligent 15;Cambio.;astute 10;Nada.;passive_aggressive 15
+AUTOEMPLEO;11;Remoto;Equipo.;Oficina.;arrogant 10;Remoto.;innovativeness 15;Local.;cautious 10;Espía.;skeptical 15
+AUTOEMPLEO;12;Nómina;Dinero.;Gratis.;leadership 15;Crédito.;self_sacrifice 15;Despido.;toughness 15;Miento.;mischievous 20
+AUTOEMPLEO;13;Moda;IA.;Jugar.;innovativeness 20;Foco.;diligent 15;Mentira.;mischievous 15;Pivote.;impulsive 15
+AUTOEMPLEO;14;Unit;Pérdida.;Servicios.;cautious 10;Sigo.;mischievous 10;Vendo.;mercenary 10;Precio.;arrogant 10
+AUTOEMPLEO;15;Hacker;Rescate.;Pago.;diligent 15;Ignoro.;arrogant 10;Contrato.;astute 15;Amenazo.;aggressive 10
+AUTOEMPLEO;16;Amigo;Trabajo.;Contrato.;dependent 15;No.;diligent 15;Inventado.;cautious 10;CV.;altruism 10
+AUTOEMPLEO;17;Burnout;Quemado.;Vendo.;self_preservation 15;CEO.;delegation 15;Retiro.;irresponsibility 15;Pastillas.;melodramatic 15
+AUTOEMPLEO;18;Legal;Gris.;Tiro.;mischievous 10;Freno.;diligent 15;Lobby.;arrogant 10;Paraíso.;astute 10
+AUTOEMPLEO;19;Haters;Reviews.;Agresivo.;excitable 15;Rediseño.;humility 15;Falsas.;mischievous 20;Lloro.;melodramatic 15
+AUTOEMPLEO;20;Robar;Talento.;Ficho.;mercenary 15;Convenzo.;cautious 10;Externo.;mischievous 15;Paso.;diligent 10
+AUTOEMPLEO;21;Fama;Forbes.;Disfruto.;narcissism 15;Impostor.;diligence 15;Vendo.;astute 15;Burla.;skepticism 10
+AUTOEMPLEO;22;Code;Open.;Mío.;secretive 10;Todo.;altruism 15;Parte.;astute 15;Dinero.;diplomacy 10
+AUTOEMPLEO;23;Becario;Idea.;Líder.;humility 15;Robo.;mischievous 15;Mato.;arrogant 20;Sueldo.;astute 10
+AUTOEMPLEO;24;Factura;Error.;Despido.;cruel 15;Asumo.;locus_control 20;Lloro.;negotiation 10;Huyo.;mischievous 15
+AUTOEMPLEO;25;Troll;Influencer.;Zasca.;excitable 10;Soborno.;bribery 10;Ignoro.;arrogant 10;Fakes.;mischievous 20
+AUTOEMPLEO;26;Cultura;Tíos.;Sigo.;clique 10;Diversidad.;social_justice 15;Fotos.;mischievous 15;Curso.;cautious 10
+AUTOEMPLEO;27;Crimen;Narcos.;Miro.;mercenary 10;Policía.;diligent 15;Crypto.;mischievous 20;Baneo.;cautious 10
+AUTOEMPLEO;28;Despido;Rumor.;Miento.;mischievous 15;Verdad.;honesty 15;Vacio.;ambiguity_tolerance 10;Amenazo.;cruel 15
+AUTOEMPLEO;29;Código;Malo.;Paro.;diligent 20;Parche.;cautious 10;Capas.;innovativeness 10;Externo.;delegation 10
+AUTOEMPLEO;30;Crisis;Cisne.;Hiberno.;cautious 15;Pivoto.;innovativeness 25;Cierro.;honesty 15;Gasto.;risk_propensity 20
+AUTOEMPLEO;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+AUTOEMPLEO;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+AUTOEMPLEO;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+AUTOEMPLEO;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+AUTOEMPLEO;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+AUTOEMPLEO;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+AUTOEMPLEO;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+AUTOEMPLEO;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+AUTOEMPLEO;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+AUTOEMPLEO;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+INTRA;1;MVP;Lanzar.;Visión.;mischievous 15 | arrogant 5;Retraso.;diligent 10;Secreto.;cautious 10;Beta.;achievement 20
+INTRA;2;Inversor;Dinero.;Firmo.;risk_propensity 15;Rechazo.;arrogant 10;Negocio.;negotiation 10;Familia.;cautious 10
+INTRA;3;Pivote;Cambio.;Pivoto.;innovativeness 20;Sigo.;arrogant 10;Doble.;imaginative 10;Vendo.;mercenary 10
+INTRA;4;Tirano;CTO.;Despido.;emotional_stability 15;Aíslo.;astute 10;Coach.;optimism 10;Apoyo.;achievement 15
+INTRA;5;Spam;Growth.;Hazlo.;mischievous 20;No.;diligent 15;Falso.;mischievous 15;Legal.;cautious 10
+INTRA;6;Caída;Server.;Grito.;excitable 15;Calma.;emotional_stability 20;Tweet.;imaginative 10;Consultor.;dependent 15
+INTRA;7;Venta;Google.;Vendo.;cautious 10;No.;arrogant 15;Protección.;negotiation 10;Doble.;astute 10
+INTRA;8;Deuda;Chapuza.;Hago.;achievement 15;No.;arrogant 10;Consultoría.;astute 15;Mentira.;mischievous 15
+INTRA;9;Amazon;Competencia.;Pánico.;excitable 15;Nicho.;astute 15;Guerra.;melodramatic 10;Ignoro.;emotional_stability 20
+INTRA;10;Métricas;Reporte.;Maquillo.;mischievous 15;Verdad.;diligent 15;Cambio.;astute 10;Nada.;passive_aggressive 15
+INTRA;11;Remoto;Equipo.;Oficina.;arrogant 10;Remoto.;innovativeness 15;Local.;cautious 10;Espía.;skeptical 15
+INTRA;12;Nómina;Dinero.;Gratis.;leadership 15;Crédito.;self_sacrifice 15;Despido.;toughness 15;Miento.;mischievous 20
+INTRA;13;Moda;IA.;Jugar.;innovativeness 20;Foco.;diligent 15;Mentira.;mischievous 15;Pivote.;impulsive 15
+INTRA;14;Unit;Pérdida.;Servicios.;cautious 10;Sigo.;mischievous 10;Vendo.;mercenary 10;Precio.;arrogant 10
+INTRA;15;Hacker;Rescate.;Pago.;diligent 15;Ignoro.;arrogant 10;Contrato.;astute 15;Amenazo.;aggressive 10
+INTRA;16;Amigo;Trabajo.;Contrato.;dependent 15;No.;diligent 15;Inventado.;cautious 10;CV.;altruism 10
+INTRA;17;Burnout;Quemado.;Vendo.;self_preservation 15;CEO.;delegation 15;Retiro.;irresponsibility 15;Pastillas.;melodramatic 15
+INTRA;18;Legal;Gris.;Tiro.;mischievous 10;Freno.;diligent 15;Lobby.;arrogant 10;Paraíso.;astute 10
+INTRA;19;Haters;Reviews.;Agresivo.;excitable 15;Rediseño.;humility 15;Falsas.;mischievous 20;Lloro.;melodramatic 15
+INTRA;20;Robar;Talento.;Ficho.;mercenary 15;Convenzo.;cautious 10;Externo.;mischievous 15;Paso.;diligent 10
+INTRA;21;Fama;Forbes.;Disfruto.;narcissism 15;Impostor.;diligence 15;Vendo.;astute 15;Burla.;skepticism 10
+INTRA;22;Code;Open.;Mío.;secretive 10;Todo.;altruism 15;Parte.;astute 15;Dinero.;diplomacy 10
+INTRA;23;Becario;Idea.;Líder.;humility 15;Robo.;mischievous 15;Mato.;arrogant 20;Sueldo.;astute 10
+INTRA;24;Factura;Error.;Despido.;cruel 15;Asumo.;locus_control 20;Lloro.;negotiation 10;Huyo.;mischievous 15
+INTRA;25;Troll;Influencer.;Zasca.;excitable 10;Soborno.;bribery 10;Ignoro.;arrogant 10;Fakes.;mischievous 20
+INTRA;26;Cultura;Tíos.;Sigo.;clique 10;Diversidad.;social_justice 15;Fotos.;mischievous 15;Curso.;cautious 10
+INTRA;27;Crimen;Narcos.;Miro.;mercenary 10;Policía.;diligent 15;Crypto.;mischievous 20;Baneo.;cautious 10
+INTRA;28;Despido;Rumor.;Miento.;mischievous 15;Verdad.;honesty 15;Vacio.;ambiguity_tolerance 10;Amenazo.;cruel 15
+INTRA;29;Código;Malo.;Paro.;diligent 20;Parche.;cautious 10;Capas.;innovativeness 10;Externo.;delegation 10
+INTRA;30;Crisis;Cisne.;Hiberno.;cautious 15;Pivoto.;innovativeness 25;Cierro.;honesty 15;Gasto.;risk_propensity 20
+INTRA;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+INTRA;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+INTRA;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+INTRA;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+INTRA;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+INTRA;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+INTRA;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+INTRA;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+INTRA;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+INTRA;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+SOCIAL;1;MVP;Lanzar.;Visión.;mischievous 15 | arrogant 5;Retraso.;diligent 10;Secreto.;cautious 10;Beta.;achievement 20
+SOCIAL;2;Inversor;Dinero.;Firmo.;risk_propensity 15;Rechazo.;arrogant 10;Negocio.;negotiation 10;Familia.;cautious 10
+SOCIAL;3;Pivote;Cambio.;Pivoto.;innovativeness 20;Sigo.;arrogant 10;Doble.;imaginative 10;Vendo.;mercenary 10
+SOCIAL;4;Tirano;CTO.;Despido.;emotional_stability 15;Aíslo.;astute 10;Coach.;optimism 10;Apoyo.;achievement 15
+SOCIAL;5;Spam;Growth.;Hazlo.;mischievous 20;No.;diligent 15;Falso.;mischievous 15;Legal.;cautious 10
+SOCIAL;6;Caída;Server.;Grito.;excitable 15;Calma.;emotional_stability 20;Tweet.;imaginative 10;Consultor.;dependent 15
+SOCIAL;7;Venta;Google.;Vendo.;cautious 10;No.;arrogant 15;Protección.;negotiation 10;Doble.;astute 10
+SOCIAL;8;Deuda;Chapuza.;Hago.;achievement 15;No.;arrogant 10;Consultoría.;astute 15;Mentira.;mischievous 15
+SOCIAL;9;Amazon;Competencia.;Pánico.;excitable 15;Nicho.;astute 15;Guerra.;melodramatic 10;Ignoro.;emotional_stability 20
+SOCIAL;10;Métricas;Reporte.;Maquillo.;mischievous 15;Verdad.;diligent 15;Cambio.;astute 10;Nada.;passive_aggressive 15
+SOCIAL;11;Remoto;Equipo.;Oficina.;arrogant 10;Remoto.;innovativeness 15;Local.;cautious 10;Espía.;skeptical 15
+SOCIAL;12;Nómina;Dinero.;Gratis.;leadership 15;Crédito.;self_sacrifice 15;Despido.;toughness 15;Miento.;mischievous 20
+SOCIAL;13;Moda;IA.;Jugar.;innovativeness 20;Foco.;diligent 15;Mentira.;mischievous 15;Pivote.;impulsive 15
+SOCIAL;14;Unit;Pérdida.;Servicios.;cautious 10;Sigo.;mischievous 10;Vendo.;mercenary 10;Precio.;arrogant 10
+SOCIAL;15;Hacker;Rescate.;Pago.;diligent 15;Ignoro.;arrogant 10;Contrato.;astute 15;Amenazo.;aggressive 10
+SOCIAL;16;Amigo;Trabajo.;Contrato.;dependent 15;No.;diligent 15;Inventado.;cautious 10;CV.;altruism 10
+SOCIAL;17;Burnout;Quemado.;Vendo.;self_preservation 15;CEO.;delegation 15;Retiro.;irresponsibility 15;Pastillas.;melodramatic 15
+SOCIAL;18;Legal;Gris.;Tiro.;mischievous 10;Freno.;diligent 15;Lobby.;arrogant 10;Paraíso.;astute 10
+SOCIAL;19;Haters;Reviews.;Agresivo.;excitable 15;Rediseño.;humility 15;Falsas.;mischievous 20;Lloro.;melodramatic 15
+SOCIAL;20;Robar;Talento.;Ficho.;mercenary 15;Convenzo.;cautious 10;Externo.;mischievous 15;Paso.;diligent 10
+SOCIAL;21;Fama;Forbes.;Disfruto.;narcissism 15;Impostor.;diligence 15;Vendo.;astute 15;Burla.;skepticism 10
+SOCIAL;22;Code;Open.;Mío.;secretive 10;Todo.;altruism 15;Parte.;astute 15;Dinero.;diplomacy 10
+SOCIAL;23;Becario;Idea.;Líder.;humility 15;Robo.;mischievous 15;Mato.;arrogant 20;Sueldo.;astute 10
+SOCIAL;24;Factura;Error.;Despido.;cruel 15;Asumo.;locus_control 20;Lloro.;negotiation 10;Huyo.;mischievous 15
+SOCIAL;25;Troll;Influencer.;Zasca.;excitable 10;Soborno.;bribery 10;Ignoro.;arrogant 10;Fakes.;mischievous 20
+SOCIAL;26;Cultura;Tíos.;Sigo.;clique 10;Diversidad.;social_justice 15;Fotos.;mischievous 15;Curso.;cautious 10
+SOCIAL;27;Crimen;Narcos.;Miro.;mercenary 10;Policía.;diligent 15;Crypto.;mischievous 20;Baneo.;cautious 10
+SOCIAL;28;Despido;Rumor.;Miento.;mischievous 15;Verdad.;honesty 15;Vacio.;ambiguity_tolerance 10;Amenazo.;cruel 15
+SOCIAL;29;Código;Malo.;Paro.;diligent 20;Parche.;cautious 10;Capas.;innovativeness 10;Externo.;delegation 10
+SOCIAL;30;Crisis;Cisne.;Hiberno.;cautious 15;Pivoto.;innovativeness 25;Cierro.;honesty 15;Gasto.;risk_propensity 20
+SOCIAL;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+SOCIAL;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+SOCIAL;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+SOCIAL;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+SOCIAL;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+SOCIAL;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+SOCIAL;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+SOCIAL;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+SOCIAL;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+SOCIAL;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
+SALUD;1;MVP;Lanzar.;Visión.;mischievous 15 | arrogant 5;Retraso.;diligent 10;Secreto.;cautious 10;Beta.;achievement 20
+SALUD;2;Inversor;Dinero.;Firmo.;risk_propensity 15;Rechazo.;arrogant 10;Negocio.;negotiation 10;Familia.;cautious 10
+SALUD;3;Pivote;Cambio.;Pivoto.;innovativeness 20;Sigo.;arrogant 10;Doble.;imaginative 10;Vendo.;mercenary 10
+SALUD;4;Tirano;CTO.;Despido.;emotional_stability 15;Aíslo.;astute 10;Coach.;optimism 10;Apoyo.;achievement 15
+SALUD;5;Spam;Growth.;Hazlo.;mischievous 20;No.;diligent 15;Falso.;mischievous 15;Legal.;cautious 10
+SALUD;6;Caída;Server.;Grito.;excitable 15;Calma.;emotional_stability 20;Tweet.;imaginative 10;Consultor.;dependent 15
+SALUD;7;Venta;Google.;Vendo.;cautious 10;No.;arrogant 15;Protección.;negotiation 10;Doble.;astute 10
+SALUD;8;Deuda;Chapuza.;Hago.;achievement 15;No.;arrogant 10;Consultoría.;astute 15;Mentira.;mischievous 15
+SALUD;9;Amazon;Competencia.;Pánico.;excitable 15;Nicho.;astute 15;Guerra.;melodramatic 10;Ignoro.;emotional_stability 20
+SALUD;10;Métricas;Reporte.;Maquillo.;mischievous 15;Verdad.;diligent 15;Cambio.;astute 10;Nada.;passive_aggressive 15
+SALUD;11;Remoto;Equipo.;Oficina.;arrogant 10;Remoto.;innovativeness 15;Local.;cautious 10;Espía.;skeptical 15
+SALUD;12;Nómina;Dinero.;Gratis.;leadership 15;Crédito.;self_sacrifice 15;Despido.;toughness 15;Miento.;mischievous 20
+SALUD;13;Moda;IA.;Jugar.;innovativeness 20;Foco.;diligent 15;Mentira.;mischievous 15;Pivote.;impulsive 15
+SALUD;14;Unit;Pérdida.;Servicios.;cautious 10;Sigo.;mischievous 10;Vendo.;mercenary 10;Precio.;arrogant 10
+SALUD;15;Hacker;Rescate.;Pago.;diligent 15;Ignoro.;arrogant 10;Contrato.;astute 15;Amenazo.;aggressive 10
+SALUD;16;Amigo;Trabajo.;Contrato.;dependent 15;No.;diligent 15;Inventado.;cautious 10;CV.;altruism 10
+SALUD;17;Burnout;Quemado.;Vendo.;self_preservation 15;CEO.;delegation 15;Retiro.;irresponsibility 15;Pastillas.;melodramatic 15
+SALUD;18;Legal;Gris.;Tiro.;mischievous 10;Freno.;diligent 15;Lobby.;arrogant 10;Paraíso.;astute 10
+SALUD;19;Haters;Reviews.;Agresivo.;excitable 15;Rediseño.;humility 15;Falsas.;mischievous 20;Lloro.;melodramatic 15
+SALUD;20;Robar;Talento.;Ficho.;mercenary 15;Convenzo.;cautious 10;Externo.;mischievous 15;Paso.;diligent 10
+SALUD;21;Fama;Forbes.;Disfruto.;narcissism 15;Impostor.;diligence 15;Vendo.;astute 15;Burla.;skepticism 10
+SALUD;22;Code;Open.;Mío.;secretive 10;Todo.;altruism 15;Parte.;astute 15;Dinero.;diplomacy 10
+SALUD;23;Becario;Idea.;Líder.;humility 15;Robo.;mischievous 15;Mato.;arrogant 20;Sueldo.;astute 10
+SALUD;24;Factura;Error.;Despido.;cruel 15;Asumo.;locus_control 20;Lloro.;negotiation 10;Huyo.;mischievous 15
+SALUD;25;Troll;Influencer.;Zasca.;excitable 10;Soborno.;bribery 10;Ignoro.;arrogant 10;Fakes.;mischievous 20
+SALUD;26;Cultura;Tíos.;Sigo.;clique 10;Diversidad.;social_justice 15;Fotos.;mischievous 15;Curso.;cautious 10
+SALUD;27;Crimen;Narcos.;Miro.;mercenary 10;Policía.;diligent 15;Crypto.;mischievous 20;Baneo.;cautious 10
+SALUD;28;Despido;Rumor.;Miento.;mischievous 15;Verdad.;honesty 15;Vacio.;ambiguity_tolerance 10;Amenazo.;cruel 15
+SALUD;29;Código;Malo.;Paro.;diligent 20;Parche.;cautious 10;Capas.;innovativeness 10;Externo.;delegation 10
+SALUD;30;Crisis;Cisne.;Hiberno.;cautious 15;Pivoto.;innovativeness 25;Cierro.;honesty 15;Gasto.;risk_propensity 20
+SALUD;31;Niebla;Futuro.;Avanzo.;ambiguity_tolerance 20 | self_efficacy 15;Congelo.;ambiguity_tolerance 5 | self_efficacy 5;Copio.;ambiguity_tolerance -5;Voto.;cautious 5
+SALUD;32;Golpe;Cliente.;Asumo.;locus_control 20 | emotional_stability 15;Maldigo.;locus_control 5 | emotional_stability 5;Suplico.;locus_control -5;Día.;cautious 5
+SALUD;33;Soledad;Decisión.;Decido.;autonomy 20 | self_efficacy 15;Mentor.;autonomy 5 | self_efficacy 5;Pos pongo.;autonomy -5;Tibia.;cautious 5
+SALUD;34;Caos;Romper.;Sí.;innovativeness 20 | risk_propensity 15;No.;innovativeness 5 | risk_propensity 5;Piloto.;innovativeness -5;Espero.;cautious 5
+SALUD;35;Meta;Alta.;Redoblo.;achievement 20 | locus_control 15;Bajo.;achievement 5 | locus_control 5;Culpo.;achievement -5;Abandono.;cautious 5
+SALUD;36;Info;40%.;Intuición.;ambiguity_tolerance 20 | risk_propensity 15;Consultor.;ambiguity_tolerance 5 | risk_propensity 5;Espero.;ambiguity_tolerance -5;Suerte.;cautious 5
+SALUD;37;Crítica;Redes.;Elegante.;emotional_stability 20 | self_efficacy 15;Enfado.;emotional_stability 5 | self_efficacy 5;Hundo.;emotional_stability -5;Escondo.;cautious 5
+SALUD;38;Burocracia;Control.;Mínimo.;autonomy 20 | innovativeness 15;Total.;autonomy 5 | innovativeness 5;Caos.;autonomy -5;Copio.;cautious 5
+SALUD;39;Esfuerzo;Resultado.;Resultado.;achievement 20 | locus_control 15;Felicito.;achievement 5 | locus_control 5;Quejo.;achievement -5;Bajo.;cautious 5
+SALUD;40;Reinvención;Skill.;Aprendo.;achievement 20 | self_efficacy 15;Delego.;achievement 5 | self_efficacy 5;Ignoro.;achievement -5;Vendo.;cautious 5
