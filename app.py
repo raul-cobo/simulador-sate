@@ -104,85 +104,125 @@ NARRATIVES_DB = {
     "self_efficacy": { "excess": "ALERTA: Arrogancia y subestimación de retos.", "optimal": "FORTALEZA: Confianza sólida.", "moderate": "MEJORA: Dudas sobre capacidad.", "low": "RIESGO: Inseguridad paralizante." }
 }
 # --- 1.2 MAPA DE VARIABLES (CORREGIDO Y COMPLETO) ---
-VARIABLE_MAP = {
-    # --- RASGOS POSITIVOS (SUMAN POTENCIAL) ---
-    "achievement": "achievement", "logro": "achievement", "pragmatism": "achievement", 
-    "focus": "achievement", "discipline": "achievement", "tenacity": "achievement",
-    "persistence": "achievement", "results": "achievement", "efficiency": "achievement", 
-    "profit": "achievement", "growth": "achievement", "scale": "achievement",
-    "ambition": "achievement", "cost_saving": "achievement", "financial_focus": "achievement", 
-    "valuation": "achievement", "business_acumen": "achievement", "business": "achievement",
+V# --- NUEVOS DICCIONARIOS INTELIGENTES (COPIAR Y PEGAR AQUÍ) ---
 
-    "risk_propensity": "risk_propensity", "riesgo": "risk_propensity", "risk": "risk_propensity", 
-    "courage": "risk_propensity", "audacity": "risk_propensity", "action": "risk_propensity", 
-    "speed": "risk_propensity", "investment": "risk_propensity", "debt": "risk_propensity", 
-    "financial_risk": "risk_propensity", "boldness": "risk_propensity", "bravery": "risk_propensity", 
-    "experimentation": "risk_propensity",
-
-    "innovativeness": "innovativeness", "innovacion": "innovativeness", "strategy": "innovativeness", 
-    "vision": "innovativeness", "creativity": "innovativeness", "adaptability": "innovativeness", 
-    "flexibility": "innovativeness", "resourcefulness": "innovativeness", "curiosity": "innovativeness", 
-    "open_minded": "innovativeness", "learning": "innovativeness", "differentiation": "innovativeness", 
-    "pivot": "innovativeness", "change": "innovativeness", "reframing": "innovativeness", 
-    "forward": "innovativeness", "imaginative": "innovativeness",
-
-    "locus_control": "locus_control", "locus": "locus_control", "responsibility": "locus_control", 
-    "ownership": "locus_control", "realism": "locus_control", "accountability": "locus_control", 
-    "problem_solving": "locus_control", "decision_making": "locus_control", 
-    "internal_locus": "locus_control", "proactivity": "locus_control", "self_awareness": "locus_control", 
-    "analysis": "locus_control",
-
+# 1. TRADUCTOR: Convierte palabras "sucias" del CSV en claves oficiales
+KEY_TRANSLATION = {
+    # Achievement
+    "achievement": "achievement", "logro": "achievement", "ambition": "achievement", "success": "achievement", 
+    "profit": "achievement", "results": "achievement", "result": "achievement", "growth": "achievement", 
+    "scale": "achievement", "efficiency": "achievement", "business": "achievement", "valuation": "achievement",
+    "cost_saving": "achievement", "financial_focus": "achievement", "money": "achievement", "wealth": "achievement",
+    "pragmatism": "achievement", "effort": "achievement", "focus": "achievement", "discipline": "achievement",
+    "tenacity": "achievement", "goal": "achievement", "impact": "achievement", "career": "achievement",
+    
+    # Risk
+    "risk": "risk_propensity", "riesgo": "risk_propensity", "risk_propensity": "risk_propensity", 
+    "courage": "risk_propensity", "action": "risk_propensity", "speed": "risk_propensity", 
+    "audacity": "risk_propensity", "boldness": "risk_propensity", "investment": "risk_propensity", 
+    "debt": "risk_propensity", "financial_risk": "risk_propensity", "experimentation": "risk_propensity",
+    "bet": "risk_propensity", "adventurous": "risk_propensity", "fast": "risk_propensity",
+    
+    # Innovation
+    "innovation": "innovativeness", "innovativeness": "innovativeness", "creativity": "innovativeness", 
+    "vision": "innovativeness", "change": "innovativeness", "strategy": "innovativeness", "future": "innovativeness",
+    "adaptability": "innovativeness", "flexibility": "innovativeness", "curiosity": "innovativeness", 
+    "pivot": "innovativeness", "differentiation": "innovativeness", "new": "innovativeness", "smart": "innovativeness",
+    "resourcefulness": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
+    
+    # Locus Control (ESTO ARREGLA EL CERO)
+    "locus": "locus_control", "locus_control": "locus_control", "control": "locus_control", 
+    "responsibility": "locus_control", "ownership": "locus_control", "realism": "locus_control", 
+    "accountability": "locus_control", "problem_solving": "locus_control", "proactivity": "locus_control",
+    "no_excuses": "locus_control", "execution": "locus_control", "decision": "locus_control",
+    
+    # Self-Efficacy
     "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "confidence": "self_efficacy", 
-    "assertiveness": "self_efficacy", "leadership": "self_efficacy", "negotiation": "self_efficacy", 
-    "persuasion": "self_efficacy", "influence": "self_efficacy", "sales": "self_efficacy", 
-    "communication": "self_efficacy", "management": "self_efficacy", "networking": "self_efficacy", 
-    "pricing_power": "self_efficacy", "confrontation": "self_efficacy", "collaboration": "self_efficacy", 
-    "team_focus": "self_efficacy", "mentorship": "self_efficacy", "delegation": "self_efficacy",
-
+    "leadership": "self_efficacy", "assertiveness": "self_efficacy", "influence": "self_efficacy", 
+    "sales": "self_efficacy", "communication": "self_efficacy", "negotiation": "self_efficacy", 
+    "management": "self_efficacy", "networking": "self_efficacy", "delegation": "self_efficacy",
+    
+    # Autonomy
     "autonomy": "autonomy", "autonomia": "autonomy", "independence": "autonomy", "freedom": "autonomy", 
-    "boundaries": "autonomy", "sovereignty": "autonomy", "identity": "autonomy", "lifestyle": "autonomy", 
-    "refusal": "autonomy", "detachment": "autonomy",
-
-    "ambiguity_tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance", 
+    "identity": "autonomy", "sovereignty": "autonomy", "refusal": "autonomy", "boundaries": "autonomy",
+    "solo": "autonomy", "detached": "autonomy", "lifestyle": "autonomy",
+    
+    # Ambiguity
+    "ambiguity": "ambiguity_tolerance", "ambiguity_tolerance": "ambiguity_tolerance", "tolerance": "ambiguity_tolerance", 
     "patience": "ambiguity_tolerance", "resilience": "ambiguity_tolerance", "calm": "ambiguity_tolerance", 
-    "stoicism": "ambiguity_tolerance", "hope": "ambiguity_tolerance", "optimism": "ambiguity_tolerance", 
-    "acceptance": "ambiguity_tolerance", "endurance": "ambiguity_tolerance", "trust": "ambiguity_tolerance", 
-
-    "emotional_stability": "emotional_stability", "estabilidad": "emotional_stability", 
+    "stoicism": "ambiguity_tolerance", "hope": "ambiguity_tolerance", "trust": "ambiguity_tolerance",
+    "uncertainty": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
+    
+    # Emotional Stability
+    "stability": "emotional_stability", "emotional_stability": "emotional_stability", "emotional": "emotional_stability", 
     "integrity": "emotional_stability", "ethics": "emotional_stability", "values": "emotional_stability", 
-    "justice": "emotional_stability", "fairness": "emotional_stability", "transparency": "emotional_stability", 
-    "honesty": "emotional_stability", "humility": "emotional_stability", "empathy": "emotional_stability", 
-    "humanity": "emotional_stability", "culture": "emotional_stability", "loyalty": "emotional_stability", 
-    "balance": "emotional_stability", "self_care": "emotional_stability", "coherence": "emotional_stability", 
-    "respect": "emotional_stability",
+    "justice": "emotional_stability", "honesty": "emotional_stability", "balance": "emotional_stability",
+    "empathy": "emotional_stability", "humility": "emotional_stability", "humanity": "emotional_stability",
+    
+    # Flags (Riesgos)
+    "fear": "cautious", "anxiety": "cautious", "caution": "cautious", "paralysis": "cautious",
+    "anger": "excitable", "aggression": "excitable", "conflict": "excitable", "reaction": "excitable",
+    "doubt": "skeptical", "distrust": "skeptical", "cynicism": "skeptical",
+    "ego": "arrogant", "pride": "arrogant", "arrogance": "arrogant", "vanity": "arrogant",
+    "obsession": "diligent", "perfectionism": "diligent", "micromanagement": "diligent",
+    "submission": "dependent", "dependency": "dependent", "obedience": "dependent",
+    "manipulation": "mischievous", "lie": "mischievous", "greed": "mischievous",
+    "victimism": "melodramatic", "drama": "melodramatic", "complaint": "melodramatic"
+}
 
-    # --- RASGOS NEGATIVOS (SUMAN FRICCIÓN) ---
-    "excitable": "excitable", "aggression": "excitable", "violence": "excitable", "anger": "excitable", 
-    "conflict": "excitable", "reaction": "excitable", "vengeance": "excitable", "impulsiveness": "excitable", 
-    "drama": "excitable", 
-    "skeptical": "skeptical", "skepticism": "skeptical", "cynicism": "skeptical", "distrust": "skeptical", 
-    "suspicion": "skeptical", "hostility": "skeptical", 
-    "cautious": "cautious", "caution": "cautious", "fear": "cautious", "anxiety": "cautious", "avoidance": "cautious", 
-    "prudence": "cautious", "security": "cautious", "safety": "cautious", "risk_aversion": "cautious", 
-    "conservatism": "cautious", "hesitation": "cautious", "paralysis": "cautious", "trust_risk": "cautious", 
-    "delay": "cautious", 
-    "reserved": "reserved", "introversion": "reserved", "isolation": "reserved", "secrecy": "reserved", 
-    "secretive": "reserved", "distance": "reserved", 
-    "passive_aggressive": "passive_aggressive", "resentment": "passive_aggressive", "obstruction": "passive_aggressive", 
-    "stubbornness": "passive_aggressive", "resistance": "passive_aggressive", 
-    "arrogant": "arrogant", "arrogance": "arrogant", "ego": "arrogant", "narcissism": "arrogant", 
-    "superiority": "arrogant", "elitism": "arrogant", "image": "arrogant", "spectacle": "arrogant", 
-    "vanity": "arrogant", "bluff": "arrogant", "pride": "arrogant", "class": "arrogant", 
-    "mischievous": "mischievous", "cunning": "mischievous", "deceit": "mischievous", "manipulation": "mischievous", 
-    "opportunist": "mischievous", "corruption": "mischievous", "exploitation": "mischievous", "greed": "mischievous", 
-    "illegal": "mischievous", "machiavellian": "mischievous", "artificial": "mischievous", "tactics": "mischievous", 
-    "melodramatic": "melodramatic", "victimism": "melodramatic", "complaint": "melodramatic", "fragility": "melodramatic", 
-    "delusion": "melodramatic", "attention_seeking": "melodramatic", 
-    "diligent": "diligent", "perfectionism": "diligent", "micromanagement": "diligent", "rigidity": "diligent", 
-    "obsession": "diligent", "bureaucracy": "diligent", "complexity": "diligent", 
-    "dependent": "dependent", "dependency": "dependent", "submission": "dependent", "pleaser": "dependent", 
-    "conformity": "dependent", "obedience": "dependent", "external_validation": "dependent", "reassurance": "dependent", 
-    "imitation": "dependent", "external_locus": "dependent", "weakness": "dependent", "surrender": "dependent"
+# 2. CLASIFICADOR
+VARIABLE_TYPE = {
+    "achievement": "TRAIT", "risk_propensity": "TRAIT", "innovativeness": "TRAIT", 
+    "locus_control": "TRAIT", "self_efficacy": "TRAIT", "autonomy": "TRAIT", 
+    "ambiguity_tolerance": "TRAIT", "emotional_stability": "TRAIT",
+    
+    "excitable": "FLAG", "skeptical": "FLAG", "cautious": "FLAG", "reserved": "FLAG", 
+    "passive_aggressive": "FLAG", "arrogant": "FLAG", "mischievous": "FLAG", 
+    "melodramatic": "FLAG", "diligent": "FLAG", "dependent": "FLAG"
+}
+
+# 3. TEXTOS RICOS (ESTILO IGAZLR)
+TRAIT_TEXTS = {
+    "achievement": {
+        "low": "ÁREA DE MEJORA: Dificultad para mantener el foco en resultados tangibles.",
+        "med": "FORTALEZA: Orientación sana a objetivos y capacidad de esfuerzo.",
+        "high": "ALERTA DE BURNOUT: Obsesión por resultados sacrificando sostenibilidad."
+    },
+    "risk_propensity": {
+        "low": "ÁREA DE MEJORA: Exceso de conservadurismo y miedo al error.",
+        "med": "FORTALEZA: Valentía para actuar con información incompleta.",
+        "high": "ALERTA DE IMPRUDENCIA: Tendencia a asumir riesgos desmedidos."
+    },
+    "innovativeness": {
+        "low": "ÁREA DE MEJORA: Tendencia a replicar lo existente sin diferenciar.",
+        "med": "FORTALEZA: Capacidad para encontrar soluciones nuevas y pivotar.",
+        "high": "ALERTA DE DISPERSIÓN: Síndrome del objeto brillante. Muchas ideas, poco cierre."
+    },
+    "locus_control": {
+        "low": "RIESGO DE VICTIMISMO: Sensación de falta de control sobre el destino.",
+        "med": "FORTALEZA: Responsabilidad proactiva sobre lo que se puede cambiar.",
+        "high": "ALERTA DE CULPA: Asunción excesiva de responsabilidad por fallos ajenos."
+    },
+    "self_efficacy": {
+        "low": "ÁREA DE MEJORA: Dudas sobre la propia capacidad ('Síndrome del Impostor').",
+        "med": "FORTALEZA: Confianza sólida para vender y liderar.",
+        "high": "ALERTA DE ARROGANCIA: Exceso de confianza que ciega ante errores."
+    },
+    "autonomy": {
+        "low": "ÁREA DE MEJORA: Dependencia excesiva de validación externa.",
+        "med": "FORTALEZA: Independencia operativa sana.",
+        "high": "ALERTA DE AISLAMIENTO: Rechazo sistemático a la ayuda externa."
+    },
+    "ambiguity_tolerance": {
+        "low": "ÁREA DE MEJORA: El estrés bloquea ante la falta de claridad.",
+        "med": "FORTALEZA: Capacidad de operar en la niebla con calma.",
+        "high": "ALERTA DE CAOS: Comodidad excesiva en la desorganización."
+    },
+    "emotional_stability": {
+        "low": "ÁREA DE MEJORA: Vulnerabilidad ante la presión y contratiempos.",
+        "med": "FORTALEZA: Gestión emocional madura en crisis.",
+        "high": "ALERTA DE RIGIDEZ: Frialdad excesiva o falta de empatía."
+    }
 }
 # --- 1.1 MAPA DE SECTORES (ACTUALIZADO) ---
 SECTOR_MAP = {
@@ -259,61 +299,73 @@ def load_questions():
 
 # --- LÓGICA DE PUNTOS (PURA) ---
 def parse_logic(logic_str):
-    if not logic_str: return
-    for action in logic_str.split('|'):
-        parts = action.strip().split()
-        if len(parts) < 2: continue
-        
-        var_code = parts[0].lower().strip()
-        try: 
-            # CAMBIO CLAVE: Sin multiplicador. Confiamos en el Excel.
-            val = int(parts[1])
-        except: continue
-        
-        target = VARIABLE_MAP.get(var_code)
-        if target:
-            if target in st.session_state.octagon: 
-                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
-            elif target in st.session_state.flags: 
-                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
+    if not logic_str or not isinstance(logic_str, str): return
+    parts = logic_str.split('|')
+    for part in parts:
+        try:
+            tokens = part.strip().split()
+            if len(tokens) < 2: continue
+            
+            raw_key = tokens[0].lower().strip()
+            val_str = tokens[1]
+            
+            # 1. TRADUCCIÓN: Busca la clave limpia
+            clean_key = KEY_TRANSLATION.get(raw_key, raw_key)
+            val = int(val_str)
+            
+            # 2. AUTO-BALANCEO: DIVISIÓN POR 5
+            # Convierte 25 -> 5, 20 -> 4, etc.
+            balanced_val = int(round(val / 5.0))
+            if balanced_val == 0 and val > 0: balanced_val = 1
+            
+            # 3. ASIGNACIÓN
+            var_type = VARIABLE_TYPE.get(clean_key)
+            
+            if var_type == "TRAIT":
+                st.session_state.traits[clean_key] += balanced_val
+            elif var_type == "FLAG":
+                st.session_state.flags[clean_key] += balanced_val
+                
+        except Exception:
+            continue
 
 def calculate_results():
-    # 1. CÁLCULO DE POTENCIAL (Curva Logística Suavizada)
-    # Evita que la puntuación se dispare a 100 con pocas respuestas.
-    raw_points = sum(st.session_state.traits.values())
-    # Fórmula matemática: 100 * (1 - 1/(1 + Puntos/150))
-    avg = 100 * (1 - (1 / (1 + (raw_points / 150.0))))
+    # 1. NORMALIZACIÓN (TANQUE DE 500)
+    raw_traits = st.session_state.traits.copy()
+    total_raw = sum(raw_traits.values())
     
-    # 2. CÁLCULO DE FRICCIÓN (Solo Flags Reales)
-    # Sumamos SOLO las banderas rojas, no la ambición ni el riesgo.
+    final_traits = {}
+    # Si te pasas de 500 puntos totales, reduce proporcionalmente
+    if total_raw > 500:
+        factor = 500.0 / total_raw
+        for k, v in raw_traits.items():
+            final_traits[k] = min(100, v * factor)
+    else:
+        for k, v in raw_traits.items():
+            final_traits[k] = min(100, v)
+            
+    avg = sum(final_traits.values()) / 8.0
+    
+    # 2. FRICCIÓN (40 puntos = 100% fricción)
     raw_friction = sum(st.session_state.flags.values())
+    friction = min(100, (raw_friction / 40.0) * 100)
     
-    # Escala: 50 puntos de banderas rojas = 100% de fricción (muy peligroso)
-    friction = min(100, (raw_friction / 50.0) * 100)
+    # 3. IRE
+    penalty = friction / 200.0
+    ire = avg * (1 - penalty)
     
-    # 3. ÍNDICE DE RENDIMIENTO (IRE)
-    # La fricción penaliza el potencial. Si Fricción=100, IRE baja a la mitad.
-    penalty_factor = friction / 200.0 
-    ire = avg * (1 - penalty_factor)
+    # Preparar textos ricos para el PDF
+    trait_details = []
+    for k, v in final_traits.items():
+        if v < 40: txt = TRAIT_TEXTS[k]["low"]
+        elif v < 80: txt = TRAIT_TEXTS[k]["med"]
+        else: txt = TRAIT_TEXTS[k]["high"]
+        trait_details.append((k, v, txt))
+        
+    triggers = [k for k, v in st.session_state.flags.items() if v > 8]
     
-    # Limpieza final de rangos
-    ire = min(100, max(0, ire))
-    avg = min(100, max(0, avg))
-    
-    # Detección de alertas (>10 puntos en un rasgo negativo)
-    triggers = [k for k, v in st.session_state.flags.items() if v > 10]
-    
-    # Generación de textos explicativos para el PDF
-    fric_reasons = []
-    if friction > 20: fric_reasons.append("Se detectan patrones de comportamiento limitantes bajo presión.")
-    if "excitable" in triggers: fric_reasons.append("Riesgo de volatilidad emocional o reactividad.")
-    if "cautious" in triggers: fric_reasons.append("Riesgo de parálisis por análisis o aversión al cambio.")
-    if "skeptical" in triggers: fric_reasons.append("Dificultad para confiar y delegar.")
-    if "arrogant" in triggers: fric_reasons.append("Posible exceso de confianza o subestimación de riesgos.")
-    if "mischievous" in triggers: fric_reasons.append("Tendencia a tomar atajos éticos o riesgos imprudentes.")
-    
-    # Retornamos 6 valores para mantener compatibilidad con tu código actual
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, 0
+    # Devolvemos trait_details en lugar de fric_reasons para el PDF nuevo
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, trait_details, 0
 
 def get_ire_text(s): 
     if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
