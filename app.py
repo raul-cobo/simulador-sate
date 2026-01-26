@@ -8,492 +8,316 @@ import textwrap
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.utils import ImageReader
 
-# --- 1. CONFIGURACIÓN INICIAL ---
+# --- GESTIÓN DE DEPENDENCIAS (PDF) ---
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
+# --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
+# --- 2. ESTILOS ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
-        div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
+        .main .block-container { padding-top: 1rem !important; max-width: 95% !important; }
     """
-    
     if mode == "login":
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
-            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
-                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
-            }
-            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
-            .stButton > button {
-                background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F !important;
-                border-radius: 8px !important; font-weight: bold !important; width: 100%; padding: 0.5rem 1rem;
-            }
-            .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
-            .stButton > button p { color: #FFFFFF !important; }
-            .login-title { color: #050A1F !important; font-size: 2rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
-            .login-subtitle { color: #666666 !important; font-size: 1rem !important; text-align: center; margin-bottom: 2rem !important; }
-            .login-card { padding: 1rem; text-align: center; }
+            .stTextInput input { border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; }
+            .stButton button { background-color: #000000; color: white; border-radius: 8px; padding: 12px; width: 100%; }
         """
     else:
         theme_css = """
-            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
-            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-                background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
-            }
-            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
-            .stCheckbox label p { color: white !important; }
-            .stButton > button { background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px; }
-            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
-            
-            div[data-testid="column"] button {
-                 height: 180px !important; min-height: 180px !important;
-                 background-color: #0F1629 !important; border: 2px solid #2D3748 !important;
-                 color: white !important; font-size: 26px !important; font-weight: 700 !important; line-height: 1.3 !important;
-                 border-radius: 16px !important; white-space: pre-wrap !important; 
-                 display: flex !important; align-items: center !important; justify-content: center !important;
-                 margin-bottom: 1rem !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-            }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; background-color: #1a2236 !important; transform: translateY(-2px); }
-            div[data-testid="column"] button:disabled { border-color: #2D3748 !important; opacity: 0.6; cursor: not-allowed; }
-
-            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
-            .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
-            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
-            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
+            .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
+            .stButton button { background-color: #262730; color: white; border: 1px solid #41444C; border-radius: 8px; }
+            .stButton button:hover { border-color: #FAFAFA; transform: translateY(-2px); }
         """
-    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. LÓGICA Y VARIABLES ---
-LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
+# --- 3. CEREBRO MATEMÁTICO (DICCIONARIOS COMPLETOS) ---
 
-ARCHETYPES_DB = {
-    "tyrant": { "title": "Patrón de Liderazgo Coercitivo Reactivo", "desc": "Combinación de alta exigencia (Logro) con baja regulación emocional y bajo locus de control. Riesgo de gestión tóxica." },
-    "false_prophet": { "title": "Patrón Visionario con Déficit de Ejecución", "desc": "Alta creatividad y confianza sin orientación a resultados. Generación de ideas sin cierre." },
-    "micromanager": { "title": "Patrón Perfeccionista con Bloqueo de Delegación", "desc": "Alto Logro con aversión al riesgo y baja autonomía. Cuello de botella operativo." },
-    "gambler": { "title": "Patrón de Riesgo Desmedido", "desc": "Riesgo alto con autoeficacia desbordada y bajo locus. Peligro de imprudencia legal/financiera." },
-    "soldier": { "title": "Patrón Ejecutor Dependiente", "desc": "Alta estabilidad pero baja autonomía e innovatividad. Bueno para mantener, malo para crear." }
-}
-
-SECTOR_ADVICE_DB = {
-    "TECH": "En Startup/Tech, la velocidad es vida. Evita la 'parálisis por análisis'.",
-    "CONSULTORIA": "La reputación es el activo. Gestiona la presión sin sacrificar estabilidad.",
-    "PYME": "Pragmatismo. La consistencia operativa supera a la disrupción constante.",
-    "HOSTELERIA": "Reacción inmediata. Resolución de conflictos en tiempo real.",
-    "AUTOEMPLEO": "Eres tu propio motor. Disciplina y autoeficacia son claves.",
-    "SOCIAL": "Impacto tangible. No descuides la viabilidad económica.",
-    "INTRA": "Diplomacia corporativa. Mano izquierda política y capacidad técnica.",
-    "SALUD": "Tolerancia cero al error. Ética y meticulosidad."
-}
-
-NARRATIVES_DB = {
-    "emotional_stability": { "excess": "ALERTA: Frialdad emocional excesiva.", "optimal": "FORTALEZA: Regulación emocional óptima.", "moderate": "MEJORA: Vulnerabilidad ante presión.", "low": "RIESGO: Reactividad impulsiva." },
-    "autonomy": { "excess": "ALERTA: Aislamiento y falta de delegación.", "optimal": "FORTALEZA: Independencia operativa sana.", "moderate": "MEJORA: Búsqueda de validación externa.", "low": "RIESGO: Dependencia operativa severa." },
-    "achievement": { "excess": "ALERTA: Obsesión y riesgo de burnout.", "optimal": "FORTALEZA: Foco en objetivos y excelencia.", "moderate": "MEJORA: Inconstancia en resultados.", "low": "RIESGO: Falta de ambición crítica." },
-    "risk_propensity": { "excess": "ALERTA: Imprudencia temeraria.", "optimal": "FORTALEZA: Asunción de riesgos calculados.", "moderate": "MEJORA: Perfil conservador.", "low": "RIESGO: Parálisis por miedo." },
-    "ambiguity_tolerance": { "excess": "ALERTA: Desorden operativo.", "optimal": "FORTALEZA: Gestión eficaz de incertidumbre.", "moderate": "MEJORA: Necesidad de estructura.", "low": "RIESGO: Rigidez y bloqueo ante cambios." },
-    "innovativeness": { "excess": "ALERTA: Dispersión ('Shiny Object').", "optimal": "FORTALEZA: Creatividad aplicada.", "moderate": "MEJORA: Enfoque tradicional.", "low": "RIESGO: Resistencia al cambio." },
-    "locus_control": { "excess": "ALERTA: Asunción excesiva de culpa.", "optimal": "FORTALEZA: Responsabilidad proactiva.", "moderate": "MEJORA: Atribución externa ocasional.", "low": "RIESGO: Victimismo sistemático." },
-    "self_efficacy": { "excess": "ALERTA: Arrogancia y subestimación de retos.", "optimal": "FORTALEZA: Confianza sólida.", "moderate": "MEJORA: Dudas sobre capacidad.", "low": "RIESGO: Inseguridad paralizante." }
-}
- # --- 3. MAPA DE VARIABLES (SUPER-EXTENDIDO V53) ---
-# Este mapa conecta cualquier palabra que uses en el CSV con su rasgo correspondiente.
-# Incluye correcciones específicas para que LOCUS DE CONTROL no salga bajo.
-
-VARIABLE_MAP = {
-    # --- 1. LOCUS DE CONTROL (CORREGIDO) ---
-    # Palabras que suman puntos a Locus de Control
-    "locus_control": "locus_control", "locus": "locus_control", "internal_locus": "locus_control",
-    "control": "locus_control", # ¡CLAVE! Muchas veces se pone solo "control"
-    "responsibility": "locus_control", "responsabilidad": "locus_control", "ownership": "locus_control",
-    "accountability": "locus_control", "realism": "locus_control", "realismo": "locus_control",
-    "problem_solving": "locus_control", "solution": "locus_control", "fixing": "locus_control",
-    "proactivity": "locus_control", "proactividad": "locus_control", "initiative": "locus_control",
-    "no_excuses": "locus_control", "execution": "locus_control", "action_taking": "locus_control",
-    "decision": "locus_control", "decision_making": "locus_control", "choice": "locus_control",
-    "autodidact": "locus_control", "learning_by_doing": "locus_control",
+# 3.1 TRADUCTOR UNIVERSAL (Recupera todos los puntos perdidos)
+# Mapea las palabras de tu CSV (izquierda) a los 8 Rasgos Oficiales (derecha)
+KEY_TRANSLATION = {
+    # 1. ACHIEVEMENT (LOGRO) - Palabras clave: pragmatismo, beneficio, eficiencia...
+    "achievement": "achievement", "logro": "achievement", "ambition": "achievement", "success": "achievement", 
+    "profit": "achievement", "results": "achievement", "result": "achievement", "growth": "achievement", 
+    "scale": "achievement", "efficiency": "achievement", "business": "achievement", "valuation": "achievement",
+    "cost_saving": "achievement", "financial_focus": "achievement", "money": "achievement", "wealth": "achievement",
+    "pragmatism": "achievement", "effort": "achievement", "focus": "achievement", "discipline": "achievement",
+    "tenacity": "achievement", "goal": "achievement", "impact": "achievement", "career": "achievement",
     
-    # --- 2. NECESIDAD DE LOGRO (ACHIEVEMENT) ---
-    "achievement": "achievement", "logro": "achievement", "achiever": "achievement",
-    "results": "achievement", "result": "achievement", "resultados": "achievement",
-    "goal": "achievement", "goals": "achievement", "meta": "achievement", "target": "achievement",
-    "profit": "achievement", "beneficio": "achievement", "money": "achievement", "dinero": "achievement",
-    "growth": "achievement", "crecimiento": "achievement", "scale": "achievement", "escalar": "achievement",
-    "efficiency": "achievement", "eficiencia": "achievement", "productivity": "achievement",
-    "ambition": "achievement", "ambicion": "achievement", "drive": "achievement",
-    "focus": "achievement", "foco": "achievement", "discipline": "achievement", "disciplina": "achievement",
-    "tenacity": "achievement", "tenacidad": "achievement", "persistence": "achievement", "grit": "achievement",
-    "success": "achievement", "exito": "achievement", "business": "achievement", "negocio": "achievement",
-    "valuation": "achievement", "valoracion": "achievement", "exit": "achievement", "venta": "achievement",
-    "cost_saving": "achievement", "ahorro": "achievement", "financial": "achievement", "financiero": "achievement",
+    # 2. RISK (RIESGO) - Palabras clave: coraje, velocidad, deuda...
+    "risk": "risk_propensity", "riesgo": "risk_propensity", "risk_propensity": "risk_propensity", 
+    "courage": "risk_propensity", "action": "risk_propensity", "speed": "risk_propensity", 
+    "audacity": "risk_propensity", "boldness": "risk_propensity", "investment": "risk_propensity", 
+    "debt": "risk_propensity", "financial_risk": "risk_propensity", "experimentation": "risk_propensity",
+    "bet": "risk_propensity", "adventurous": "risk_propensity", "fast": "risk_propensity",
 
-    # --- 3. PROPENSIÓN AL RIESGO (RISK) ---
-    "risk_propensity": "risk_propensity", "risk": "risk_propensity", "riesgo": "risk_propensity",
-    "courage": "risk_propensity", "valentia": "risk_propensity", "coraje": "risk_propensity",
-    "audacity": "risk_propensity", "audacia": "risk_propensity", "boldness": "risk_propensity",
-    "action": "risk_propensity", "accion": "risk_propensity", "speed": "risk_propensity", "velocidad": "risk_propensity",
-    "investment": "risk_propensity", "inversion": "risk_propensity", "bet": "risk_propensity", "apuesta": "risk_propensity",
-    "debt": "risk_propensity", "deuda": "risk_propensity", "leverage": "risk_propensity", "apalancamiento": "risk_propensity",
-    "financial_risk": "risk_propensity", "uncertainty_action": "risk_propensity",
-    "experimentation": "risk_propensity", "experimentacion": "risk_propensity", "trial": "risk_propensity",
+    # 3. INNOVATION (INNOVACIÓN) - Palabras clave: smart, visión, cambio...
+    "innovation": "innovativeness", "innovativeness": "innovativeness", "creativity": "innovativeness", 
+    "vision": "innovativeness", "change": "innovativeness", "strategy": "innovativeness", "future": "innovativeness",
+    "adaptability": "innovativeness", "flexibility": "innovativeness", "curiosity": "innovativeness", 
+    "pivot": "innovativeness", "differentiation": "innovativeness", "new": "innovativeness", "smart": "innovativeness",
+    "resourcefulness": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
+    
+    # 4. LOCUS CONTROL - Palabras clave: control, responsabilidad, sin excusas...
+    "locus": "locus_control", "locus_control": "locus_control", "control": "locus_control", 
+    "responsibility": "locus_control", "ownership": "locus_control", "realism": "locus_control", 
+    "accountability": "locus_control", "problem_solving": "locus_control", "proactivity": "locus_control",
+    "no_excuses": "locus_control", "execution": "locus_control", "decision": "locus_control",
+    
+    # 5. SELF-EFFICACY (AUTOEFICACIA) - Palabras clave: negociación, venta, liderazgo...
+    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "confidence": "self_efficacy", 
+    "leadership": "self_efficacy", "assertiveness": "self_efficacy", "influence": "self_efficacy", 
+    "sales": "self_efficacy", "communication": "self_efficacy", "negotiation": "self_efficacy", 
+    "management": "self_efficacy", "networking": "self_efficacy", "delegation": "self_efficacy",
+    "persuasion": "self_efficacy", "pricing": "self_efficacy", "team": "self_efficacy",
 
-    # --- 4. INNOVATIVIDAD (INNOVATION) ---
-    "innovativeness": "innovativeness", "innovation": "innovativeness", "innovacion": "innovativeness",
-    "creativity": "innovativeness", "creatividad": "innovativeness", "creative": "innovativeness",
-    "vision": "innovativeness", "visionary": "innovativeness", "future": "innovativeness", "futuro": "innovativeness",
-    "strategy": "innovativeness", "estrategia": "innovativeness", "strategic": "innovativeness",
-    "change": "innovativeness", "cambio": "innovativeness", "pivot": "innovativeness", "pivotar": "innovativeness",
-    "adaptability": "innovativeness", "adaptabilidad": "innovativeness", "flexibility": "innovativeness",
-    "new": "innovativeness", "nuevo": "innovativeness", "novelty": "innovativeness", "novedad": "innovativeness",
-    "differentiation": "innovativeness", "diferenciacion": "innovativeness", "unique": "innovativeness",
-    "tech": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
-    "curiosity": "innovativeness", "curiosidad": "innovativeness", "learning": "innovativeness", "aprendizaje": "innovativeness",
-    "reframing": "innovativeness", "imaginative": "innovativeness", "ideation": "innovativeness",
-
-    # --- 5. AUTOEFICACIA (SELF_EFFICACY) ---
-    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "efficacy": "self_efficacy",
-    "confidence": "self_efficacy", "confianza": "self_efficacy", "self_confidence": "self_efficacy",
-    "assertiveness": "self_efficacy", "asertividad": "self_efficacy", "firmness": "self_efficacy",
-    "leadership": "self_efficacy", "liderazgo": "self_efficacy", "leader": "self_efficacy",
-    "influence": "self_efficacy", "influencia": "self_efficacy", "persuasion": "self_efficacy",
-    "sales": "self_efficacy", "ventas": "self_efficacy", "selling": "self_efficacy",
-    "negotiation": "self_efficacy", "negociacion": "self_efficacy", "deal": "self_efficacy",
-    "communication": "self_efficacy", "comunicacion": "self_efficacy", "speaking": "self_efficacy",
-    "networking": "self_efficacy", "contacts": "self_efficacy", "relationships": "self_efficacy",
-    "management": "self_efficacy", "gestion": "self_efficacy", "direction": "self_efficacy",
-    "pricing_power": "self_efficacy", "confrontation": "self_efficacy", "conflict_resolution": "self_efficacy",
-    "mentorship": "self_efficacy", "delegation": "self_efficacy", "team_building": "self_efficacy",
-
-    # --- 6. AUTONOMÍA (AUTONOMY) ---
-    "autonomy": "autonomy", "autonomia": "autonomy", "autonomous": "autonomy",
-    "independence": "autonomy", "independencia": "autonomy", "independent": "autonomy",
-    "freedom": "autonomy", "libertad": "autonomy", "free": "autonomy",
-    "sovereignty": "autonomy", "soberania": "autonomy", "control_destiny": "autonomy",
-    "boundaries": "autonomy", "limites": "autonomy", "saying_no": "autonomy", "refusal": "autonomy",
-    "identity": "autonomy", "identidad": "autonomy", "authenticity": "autonomy",
-    "lifestyle": "autonomy", "estilo_de_vida": "autonomy", "work_life_balance": "autonomy",
-    "detachment": "autonomy", "desapego": "autonomy", "walking_away": "autonomy",
-
-    # --- 7. TOLERANCIA A LA AMBIGÜEDAD ---
-    "ambiguity_tolerance": "ambiguity_tolerance", "ambiguity": "ambiguity_tolerance", "ambiguedad": "ambiguity_tolerance",
-    "tolerance": "ambiguity_tolerance", "tolerancia": "ambiguity_tolerance",
-    "uncertainty": "ambiguity_tolerance", "incertidumbre": "ambiguity_tolerance", "chaos": "ambiguity_tolerance",
-    "patience": "ambiguity_tolerance", "paciencia": "ambiguity_tolerance", "waiting": "ambiguity_tolerance",
-    "resilience": "ambiguity_tolerance", "resiliencia": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
-    "calm": "ambiguity_tolerance", "calma": "ambiguity_tolerance", "stoicism": "ambiguity_tolerance", "estoicismo": "ambiguity_tolerance",
-    "hope": "ambiguity_tolerance", "esperanza": "ambiguity_tolerance", "optimism": "ambiguity_tolerance", "optimismo": "ambiguity_tolerance",
-    "acceptance": "ambiguity_tolerance", "aceptacion": "ambiguity_tolerance", "trust": "ambiguity_tolerance", "confianza_proceso": "ambiguity_tolerance",
-
-    # --- 8. ESTABILIDAD EMOCIONAL ---
-    "emotional_stability": "emotional_stability", "stability": "emotional_stability", "estabilidad": "emotional_stability",
-    "emotional": "emotional_stability", "emocional": "emotional_stability", "eq": "emotional_stability",
-    "integrity": "emotional_stability", "integridad": "emotional_stability", "ethics": "emotional_stability", "etica": "emotional_stability",
-    "values": "emotional_stability", "valores": "emotional_stability", "principles": "emotional_stability",
-    "honesty": "emotional_stability", "honestidad": "emotional_stability", "truth": "emotional_stability",
-    "justice": "emotional_stability", "justicia": "emotional_stability", "fairness": "emotional_stability",
-    "transparency": "emotional_stability", "transparencia": "emotional_stability",
-    "humility": "emotional_stability", "humildad": "emotional_stability", "modesty": "emotional_stability",
-    "empathy": "emotional_stability", "empatia": "emotional_stability", "humanity": "emotional_stability",
-    "loyalty": "emotional_stability", "lealtad": "emotional_stability",
-    "balance": "emotional_stability", "equilibrio": "emotional_stability", "self_care": "emotional_stability",
-    "coherence": "emotional_stability", "coherencia": "emotional_stability", "respect": "emotional_stability",
-
-    # --- BANDERAS ROJAS (FLAGS) - RESTAN PUNTOS ---
-    "excitable": "excitable", "anger": "excitable", "ira": "excitable", "aggression": "excitable", "agresividad": "excitable",
-    "violence": "excitable", "conflict": "excitable", "reaction": "excitable", "impulsiveness": "excitable",
-    "skeptical": "skeptical", "skepticism": "skeptical", "escepticismo": "skeptical", "doubt": "skeptical", "duda": "skeptical",
-    "distrust": "skeptical", "desconfianza": "skeptical", "cynicism": "skeptical", "cinismo": "skeptical",
-    "cautious": "cautious", "caution": "cautious", "precaucion": "cautious", "fear": "cautious", "miedo": "cautious",
-    "anxiety": "cautious", "ansiedad": "cautious", "paralysis": "cautious", "paralisis": "cautious", "risk_aversion": "cautious",
-    "reserved": "reserved", "introversion": "reserved", "isolation": "reserved", "aislamiento": "reserved",
-    "passive_aggressive": "passive_aggressive", "resentment": "passive_aggressive", "rencor": "passive_aggressive",
-    "arrogant": "arrogant", "arrogance": "arrogant", "soberbia": "arrogant", "ego": "arrogant", "pride": "arrogant", "orgullo": "arrogant",
-    "narcissism": "arrogant", "superiority": "arrogant", "vanity": "arrogant",
-    "mischievous": "mischievous", "manipulation": "mischievous", "manipulacion": "mischievous", "lie": "mischievous", "mentira": "mischievous",
-    "greed": "mischievous", "codicia": "mischievous", "corruption": "mischievous", "corrupcion": "mischievous",
-    "melodramatic": "melodramatic", "drama": "melodramatic", "victimism": "melodramatic", "victimismo": "melodramatic",
-    "complaint": "melodramatic", "queja": "melodramatic", "fragility": "melodramatic",
-    "diligent": "diligent", "perfectionism": "diligent", "perfeccionismo": "diligent", "obsession": "diligent", "obsesion": "diligent",
-    "micromanagement": "diligent", "rigidity": "diligent", "rigidez": "diligent",
-    "dependent": "dependent", "dependency": "dependent", "dependencia": "dependent", "submission": "dependent", "sumision": "dependent",
-    "pleaser": "dependent", "complacencia": "dependent", "obedience": "dependent", "obediencia": "dependent"
+    # 6. AUTONOMY (AUTONOMÍA) - Palabras clave: libertad, independencia...
+    "autonomy": "autonomy", "autonomia": "autonomy", "independence": "autonomy", "freedom": "autonomy", 
+    "identity": "autonomy", "sovereignty": "autonomy", "refusal": "autonomy", "boundaries": "autonomy",
+    "solo": "autonomy", "detached": "autonomy", "lifestyle": "autonomy",
+    
+    # 7. AMBIGUITY TOLERANCE - Palabras clave: paciencia, calma, resiliencia...
+    "ambiguity": "ambiguity_tolerance", "ambiguity_tolerance": "ambiguity_tolerance", "tolerance": "ambiguity_tolerance", 
+    "patience": "ambiguity_tolerance", "resilience": "ambiguity_tolerance", "calm": "ambiguity_tolerance", 
+    "stoicism": "ambiguity_tolerance", "hope": "ambiguity_tolerance", "trust": "ambiguity_tolerance",
+    "uncertainty": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
+    
+    # 8. EMOTIONAL STABILITY - Palabras clave: ética, integridad, balance...
+    "stability": "emotional_stability", "emotional_stability": "emotional_stability", "emotional": "emotional_stability", 
+    "integrity": "emotional_stability", "ethics": "emotional_stability", "values": "emotional_stability", 
+    "justice": "emotional_stability", "honesty": "emotional_stability", "balance": "emotional_stability",
+    "empathy": "emotional_stability", "humility": "emotional_stability", "humanity": "emotional_stability",
+    "fairness": "emotional_stability", "transparency": "emotional_stability", "health": "emotional_stability",
+    
+    # --- BANDERAS ROJAS (FLAGS) ---
+    "fear": "cautious", "anxiety": "cautious", "caution": "cautious", "paralysis": "cautious", "delay": "cautious", "avoidance": "cautious", "prudence": "cautious",
+    "anger": "excitable", "aggression": "excitable", "conflict": "excitable", "impulsiveness": "excitable", "reaction": "excitable",
+    "doubt": "skeptical", "distrust": "skeptical", "cynicism": "skeptical", "suspicion": "skeptical",
+    "ego": "arrogant", "pride": "arrogant", "arrogance": "arrogant", "vanity": "arrogant", "superiority": "arrogant",
+    "obsession": "diligent", "perfectionism": "diligent", "micromanagement": "diligent", "rigidity": "diligent",
+    "submission": "dependent", "dependency": "dependent", "obedience": "dependent", "conformity": "dependent",
+    "manipulation": "mischievous", "lie": "mischievous", "greed": "mischievous", "cunning": "mischievous", "corruption": "mischievous",
+    "victimism": "melodramatic", "drama": "melodramatic", "complaint": "melodramatic", "fragility": "melodramatic"
 }
-def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-# --- INICIALIZACIÓN (BASE CERO PARA SATE V2) ---
-def init_session():
-    if 'octagon' not in st.session_state:
-        # CAMBIO CLAVE: Base 0 porque el nuevo Excel ya da muchos puntos.
-        st.session_state.octagon = {k: 0 for k in LABELS_ES.keys()}
-        st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
-        st.session_state.current_step = 0
-        st.session_state.finished = False
-        st.session_state.started = False
-        st.session_state.data_verified = False
-        st.session_state.auth = False # Inicializamos auth
-        st.session_state.data = []
-        st.session_state.user_id = generate_id()
-        st.session_state.user_data = {}
+# 3.2 TIPO DE VARIABLE
+VARIABLE_TYPE = {
+    "achievement": "TRAIT", "risk_propensity": "TRAIT", "innovativeness": "TRAIT", 
+    "locus_control": "TRAIT", "self_efficacy": "TRAIT", "autonomy": "TRAIT", 
+    "ambiguity_tolerance": "TRAIT", "emotional_stability": "TRAIT",
+    
+    "excitable": "FLAG", "skeptical": "FLAG", "cautious": "FLAG", "reserved": "FLAG", 
+    "passive_aggressive": "FLAG", "arrogant": "FLAG", "mischievous": "FLAG", 
+    "melodramatic": "FLAG", "diligent": "FLAG", "dependent": "FLAG"
+}
 
-@st.cache_data
+# 3.3 TEXTOS RICOS (ESTILO IGAZLR)
+TRAIT_TEXTS = {
+    "achievement": {
+        "low": "ÁREA DE MEJORA: Dificultad para mantener el foco en resultados tangibles.",
+        "med": "FORTALEZA: Orientación sana a objetivos y capacidad de esfuerzo.",
+        "high": "ALERTA DE BURNOUT: Obsesión por resultados sacrificando sostenibilidad."
+    },
+    "risk_propensity": {
+        "low": "ÁREA DE MEJORA: Exceso de conservadurismo y miedo al error.",
+        "med": "FORTALEZA: Valentía para actuar con información incompleta.",
+        "high": "ALERTA DE IMPRUDENCIA: Tendencia a asumir riesgos desmedidos."
+    },
+    "innovativeness": {
+        "low": "ÁREA DE MEJORA: Tendencia a replicar lo existente sin diferenciar.",
+        "med": "FORTALEZA: Capacidad para encontrar soluciones nuevas y pivotar.",
+        "high": "ALERTA DE DISPERSIÓN: Síndrome del objeto brillante. Muchas ideas, poco cierre."
+    },
+    "locus_control": {
+        "low": "RIESGO DE VICTIMISMO: Sensación de falta de control sobre el destino.",
+        "med": "FORTALEZA: Responsabilidad proactiva sobre lo que se puede cambiar.",
+        "high": "ALERTA DE CULPA: Asunción excesiva de responsabilidad por fallos ajenos."
+    },
+    "self_efficacy": {
+        "low": "ÁREA DE MEJORA: Dudas sobre la propia capacidad ('Síndrome del Impostor').",
+        "med": "FORTALEZA: Confianza sólida para vender y liderar.",
+        "high": "ALERTA DE ARROGANCIA: Exceso de confianza que ciega ante errores."
+    },
+    "autonomy": {
+        "low": "ÁREA DE MEJORA: Dependencia excesiva de validación externa.",
+        "med": "FORTALEZA: Independencia operativa sana.",
+        "high": "ALERTA DE AISLAMIENTO: Rechazo sistemático a la ayuda externa."
+    },
+    "ambiguity_tolerance": {
+        "low": "ÁREA DE MEJORA: El estrés bloquea ante la falta de claridad.",
+        "med": "FORTALEZA: Capacidad de operar en la niebla con calma.",
+        "high": "ALERTA DE CAOS: Comodidad excesiva en la desorganización."
+    },
+    "emotional_stability": {
+        "low": "ÁREA DE MEJORA: Vulnerabilidad ante la presión y contratiempos.",
+        "med": "FORTALEZA: Gestión emocional madura en crisis.",
+        "high": "ALERTA DE RIGIDEZ: Frialdad excesiva o falta de empatía."
+    }
+}
+
+SECTOR_MAP = {
+    "Startup Tecnológica (Scalable)": "TECH",
+    "Consultoría / Servicios Profesionales": "CONSULTORIA",
+    "Pequeña y Mediana Empresa (PYME)": "PYME",
+    "Hostelería y Restauración": "HOSTELERIA",
+    "Autoempleo / Freelance": "AUTOEMPLEO",
+    "Emprendimiento Social": "SOCIAL",
+    "Intraemprendimiento": "INTRA",
+    "Salud": "SALUD",
+    "Psicología Sanitaria": "PSICOLOGIA_SANITARIA",
+    "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
+}
+
+# --- 4. LOGICA CORE ---
+
+if 'traits' not in st.session_state:
+    st.session_state.traits = {k: 10 for k in ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']}
+if 'flags' not in st.session_state:
+    st.session_state.flags = {k: 0 for k in ['excitable', 'skeptical', 'cautious', 'reserved', 'passive_aggressive', 'arrogant', 'mischievous', 'melodramatic', 'diligent', 'dependent']}
+if 'current_step' not in st.session_state: st.session_state.current_step = 0
+if 'user_data' not in st.session_state: st.session_state.user_data = {}
+if 'sector_data' not in st.session_state: st.session_state.sector_data = []
+if 'history' not in st.session_state: st.session_state.history = []
+
 @st.cache_data
 def load_questions():
-    # Nombre exacto del archivo en GitHub
-    filename = 'SATE_v1.csv'  
-    
-    if not os.path.exists(filename):
-        st.error(f"Error: No se encuentra el archivo '{filename}'. Asegúrate de haberlo subido a GitHub con ese nombre.")
-        return []
-    
-    # 1. Intentar primero con UTF-8-SIG (Excel moderno con BOM)
-    try:
-        with open(filename, encoding='utf-8-sig', errors='strict') as f:
-            data = list(csv.DictReader(f, delimiter=';'))
-            return data
-    except UnicodeDecodeError:
-        pass  # Si falla, seguimos al siguiente
-
-    # 2. Intentar con UTF-8 normal (Estándar web)
-    try:
-        with open(filename, encoding='utf-8', errors='strict') as f:
-            data = list(csv.DictReader(f, delimiter=';'))
-            return data
-    except UnicodeDecodeError:
-        pass
-
-    # 3. Intentar con Latin-1 (Excel antiguo / Windows Europa)
-    try:
-        with open(filename, encoding='latin-1', errors='strict') as f:
-            data = list(csv.DictReader(f, delimiter=';'))
-            return data
-    except UnicodeDecodeError:
-        pass
-
-    # 4. Último recurso: CP1252 (Windows occidental específico)
-    try:
-        with open(filename, encoding='cp1252', errors='replace') as f:
-            data = list(csv.DictReader(f, delimiter=';'))
-            return data
-    except Exception as e:
-        st.error(f"Error crítico de codificación: {e}")
-        return []
-
-# --- LÓGICA DE PUNTOS (PURA) ---
-def parse_logic(logic_str):
-    if not logic_str: return
-    for action in logic_str.split('|'):
-        parts = action.strip().split()
-        if len(parts) < 2: continue
-        
-        var_code = parts[0].lower().strip()
-        try: 
-            # CAMBIO CLAVE: Sin multiplicador. Confiamos en el Excel.
-            val = int(parts[1])
+    filename = 'SATE_v1.csv'
+    if not os.path.exists(filename): return []
+    for enc in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
+        try:
+            with open(filename, encoding=enc, errors='strict') as f:
+                data = list(csv.DictReader(f, delimiter=';'))
+                if data and 'SECTOR' in data[0]: return data
         except: continue
-        
-        target = VARIABLE_MAP.get(var_code)
-        if target:
-            if target in st.session_state.octagon: 
-                st.session_state.octagon[target] = max(0, min(100, st.session_state.octagon[target] + val))
-            elif target in st.session_state.flags: 
-                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
+    return []
+
+def parse_logic(logic_str):
+    if not logic_str or not isinstance(logic_str, str): return
+    parts = logic_str.split('|')
+    for part in parts:
+        try:
+            tokens = part.strip().split()
+            if len(tokens) < 2: continue
+            
+            raw_key = tokens[0].lower().strip()
+            val_str = tokens[1]
+            
+            # 1. TRADUCCIÓN: Convertimos "control" en "locus_control"
+            clean_key = KEY_TRANSLATION.get(raw_key, raw_key)
+            val = int(val_str)
+            
+            # 2. AUTO-BALANCEO: 25 puntos -> 5 puntos (División por 5)
+            balanced_val = int(round(val / 5.0))
+            if balanced_val == 0 and val > 0: balanced_val = 1
+            
+            # 3. ASIGNACIÓN
+            var_type = VARIABLE_TYPE.get(clean_key)
+            if var_type == "TRAIT":
+                st.session_state.traits[clean_key] += balanced_val
+            elif var_type == "FLAG":
+                st.session_state.flags[clean_key] += balanced_val
+        except Exception: continue
 
 def calculate_results():
-    o, f = st.session_state.octagon, st.session_state.flags
-    avg = sum(o.values()) / 8
+    # 1. NORMALIZACIÓN TANQUE 500
+    # Ahora que todo suma (gracias al diccionario), es fácil pasarse de 500.
+    # El tanque asegura que si te pasas, se comprime todo para mantener el equilibrio.
+    raw_traits = st.session_state.traits.copy()
+    total_raw = sum(raw_traits.values())
     
-    # Fricción Ajustada (Divisor 3 para escala nativa)
-    raw_friction = sum(f.values())
-    friction = min(100, raw_friction / 3) 
+    final_traits = {}
+    if total_raw > 500:
+        factor = 500.0 / total_raw
+        for k, v in raw_traits.items():
+            final_traits[k] = min(100, v * factor)
+    else:
+        for k, v in raw_traits.items():
+            final_traits[k] = min(100, v)
+            
+    avg = sum(final_traits.values()) / 8.0
     
-    triggers = []
+    # 2. FRICCIÓN
+    raw_friction = sum(st.session_state.flags.values())
+    friction = min(100, (raw_friction / 40.0) * 100)
     
-    # Arquetipos
-    if o['achievement'] > 75 and o['emotional_stability'] < 40 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['tyrant']['title'])
-    if o['innovativeness'] > 75 and o['self_efficacy'] > 75 and o['achievement'] < 40: triggers.append(ARCHETYPES_DB['false_prophet']['title'])
-    if o['achievement'] > 75 and o['risk_propensity'] < 40 and o['autonomy'] < 40: triggers.append(ARCHETYPES_DB['micromanager']['title'])
-    if o['risk_propensity'] > 75 and o['self_efficacy'] > 75 and o['locus_control'] < 40: triggers.append(ARCHETYPES_DB['gambler']['title'])
-    if o['innovativeness'] < 40 and o['autonomy'] < 40 and o['emotional_stability'] > 75: triggers.append(ARCHETYPES_DB['soldier']['title'])
-
-    if f["arrogant"] > 40: triggers.append("Riesgo de Rigidez Cognitiva")
-    if f["mischievous"] > 40: triggers.append("Riesgo de Desalineamiento Normativo")
+    # 3. IRE
+    penalty = friction / 200.0
+    ire = avg * (1 - penalty)
     
-    # Incoherencia
-    coherence_penalty = 0
-    incoherence_msgs = []
-    
-    if o['risk_propensity'] > 65 and f['cautious'] > 30:
-        coherence_penalty += 10
-        incoherence_msgs.append("Incoherencia: Alta auto-percepción de riesgo vs. Prudencia real.")
+    # Textos PDF
+    trait_details = []
+    for k, v in final_traits.items():
+        if v < 40: txt = TRAIT_TEXTS[k]["low"]
+        elif v < 80: txt = TRAIT_TEXTS[k]["med"]
+        else: txt = TRAIT_TEXTS[k]["high"]
+        trait_details.append((k, v, txt))
         
-    if o['innovativeness'] > 65 and f['diligent'] > 30:
-        coherence_penalty += 10
-        incoherence_msgs.append("Incoherencia: Alta creatividad vs. Apego a procesos.")
-
-    # IRE Final
-    ire = avg - (friction * 0.5) - coherence_penalty
-    if avg < 40: ire -= 15 
-    if len(triggers) > 0: ire -= 5
-
-    ire = max(0, min(100, ire))
-    delta = round(avg - ire, 2)
+    triggers = [k for k, v in st.session_state.flags.items() if v > 8]
     
-    if incoherence_msgs: triggers.extend(incoherence_msgs)
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, trait_details
 
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, [], delta
+def get_ire_text(score):
+    if score >= 75: return "Nivel ÉLITE: Alta viabilidad."
+    if score >= 60: return "Nivel SÓLIDO: Buen potencial."
+    if score >= 40: return "Nivel MEDIO: Riesgos operativos."
+    return "Nivel CRÍTICO: Alta probabilidad de bloqueo."
 
-def get_ire_text(s): 
-    if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
-    if s > 50: return "Nivel de Viabilidad: MEDIO (Requiere Ajustes)"
-    return "Nivel de Viabilidad: BAJO (Riesgo Operativo)"
-
-def radar_chart():
-    data = st.session_state.octagon
-    cat = [LABELS_ES.get(k) for k in data.keys()]
-    val = list(data.values())
-    cat += [cat[0]]
-    val += [val[0]]
-    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)'), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
-    return fig
-
-# --- PDF GENERATOR ---
-def draw_segmented_bar(c, x, y, width, height, value):
-    w_red1 = width * 0.25; w_yel = width * 0.35; w_grn = width * 0.15; w_red2 = width * 0.25
-    c.setStrokeColorRGB(0.8, 0.8, 0.8); c.setLineWidth(0.5); c.setFillColorRGB(0.95, 0.95, 0.95)
-    c.rect(x, y, w_red1, height, fill=1, stroke=1); c.rect(x + w_red1, y, w_yel, height, fill=1, stroke=1)
-    c.rect(x + w_red1 + w_yel, y, w_grn, height, fill=1, stroke=1); c.rect(x + w_red1 + w_yel + w_grn, y, w_red2, height, fill=1, stroke=1)
-    if value > 0: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x, y, min(value, 25)/25*w_red1, height, fill=1, stroke=0)
-    if value > 25: c.setFillColorRGB(0.9, 0.7, 0.0); c.rect(x + w_red1, y, min(value-25, 35)/35*w_yel, height, fill=1, stroke=0)
-    if value > 60: c.setFillColorRGB(0.2, 0.6, 0.2); c.rect(x + w_red1 + w_yel, y, min(value-60, 15)/15*w_grn, height, fill=1, stroke=0)
-    if value > 75: c.setFillColorRGB(0.8, 0.2, 0.2); c.rect(x + w_red1 + w_yel + w_grn, y, min(value-75, 25)/25*w_red2, height, fill=1, stroke=0)
-
-def draw_wrapped_text(c, text, x, y, max_width, font_name, font_size, line_spacing=12):
-    c.setFont(font_name, font_size); words = text.split(); lines = []; current_line = []
-    for word in words:
-        current_line.append(word); width = c.stringWidth(" ".join(current_line), font_name, font_size)
-        if width > max_width: current_line.pop(); lines.append(" ".join(current_line)); current_line = [word]
-    lines.append(" ".join(current_line))
-    for line in lines: c.drawString(x, y, line); y -= line_spacing
-    return y 
-
-def check_page_break(c, y, h, w):
-    if y < 80: c.showPage(); draw_pdf_header(c, w, h); return h - 140
-    return y
-
-def draw_pdf_header(p, w, h):
-    p.setFillColorRGB(0.02, 0.04, 0.12); p.rect(0, h-100, w, 100, fill=1, stroke=0)
-    p.setFillColorRGB(1, 1, 1); p.rect(30, h-85, 140, 70, fill=1, stroke=0)
-    if os.path.exists("logo_original.png"):
-        try: img = ImageReader("logo_original.png"); p.drawImage(img, 40, h-80, width=120, height=60, preserveAspectRatio=True, mask='auto')
-        except: pass
-    p.setFillColorRGB(1, 1, 1); p.setFont("Helvetica-Bold", 16); p.drawRightString(w-30, h-40, "INFORME TÉCNICO S.A.P.E.")
-    p.setFont("Helvetica", 10); p.drawRightString(w-30, h-55, "Sistema de Análisis de la Personalidad Emprendedora")
-
-def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
-    buffer = io.BytesIO(); p = canvas.Canvas(buffer, pagesize=A4); w, h = A4; draw_pdf_header(p, w, h)
-    y = h - 130
-    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
-    p.drawString(40, y, f"Candidato: {user.get('name', 'N/A')}"); p.drawString(300, y, f"ID: {st.session_state.user_id}"); y -= 15
-    p.drawString(40, y, f"Sector: {user.get('sector', 'N/A')}"); p.drawString(300, y, f"Fecha: {datetime.now().strftime('%d/%m/%Y')}"); y -= 40
-    
-    p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "1. MÉTRICAS PRINCIPALES"); p.line(40, y-5, w-40, y-5); y -= 30
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"POTENCIAL ({avg}/100):"); p.setFont("Helvetica", 10); p.drawString(200, y, "Capacidad basal (Recursos cognitivos y actitudinales)."); y-=20
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"FRICCIÓN ({friction}):"); p.setFont("Helvetica", 10); p.drawString(200, y, "Resistencia operativa (Miedos, dudas y bloqueos)."); y-=20
-    p.setFont("Helvetica-Bold", 10); p.drawString(50, y, f"IRE FINAL ({ire}/100):"); p.setFont("Helvetica", 10); p.drawString(200, y, get_ire_text(ire)); y-=30
-    
-    y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. PERFIL COMPETENCIAL (DETALLE)"); p.line(40, y-5, w-40, y-5); y -= 30
-    sorted_stats = sorted(stats.items(), key=lambda item: item[1], reverse=True)
-    for k, v in sorted_stats:
-        y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0,0,0); p.drawString(50, y, LABELS_ES.get(k, k))
-        draw_segmented_bar(p, 200, y, 150, 8, v); p.setFillColorRGB(0,0,0); p.drawString(360, y, str(round(v, 1)))
-        narrative_key = "low"
-        if v > 75: narrative_key = "excess"
-        elif v >= 60: narrative_key = "optimal"
-        elif v >= 25: narrative_key = "moderate"
-        y -= 12; narrative = NARRATIVES_DB.get(k, {}).get(narrative_key, "Sin datos."); y = draw_wrapped_text(p, narrative, 50, y, 480, "Helvetica", 8); y -= 15
-
-    y -= 10; y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "3. DIAGNÓSTICO DE PATRONES Y RIESGOS"); p.line(40, y-5, w-40, y-5); y -= 30
-    if triggers:
-        p.setFont("Helvetica-Bold", 10); p.setFillColorRGB(0.8, 0, 0); p.drawString(50, y, "ALERTA DE PATRONES COMBINATORIOS:"); y -= 20
-        p.setFillColorRGB(0, 0, 0); p.setFont("Helvetica", 9)
-        for t in triggers:
-            desc = ""
-            for arch_key, arch_val in ARCHETYPES_DB.items():
-                if arch_val['title'] == t: desc = arch_val['desc']; break
-            p.setFont("Helvetica-Bold", 9); p.drawString(60, y, f"• {t}"); y -= 12
-            if desc: y = draw_wrapped_text(p, desc, 70, y, 460, "Helvetica-Oblique", 9)
-            y -= 10; y = check_page_break(p, y, h, w)
-    else: p.setFont("Helvetica", 10); p.drawString(50, y, "No se han detectado patrones de riesgo combinatorio críticos."); y -= 20
-    
-    y -= 20; y = check_page_break(p, y, h, w); p.setFont("Helvetica-Bold", 12); p.setFillColorRGB(0.02, 0.04, 0.12); p.drawString(40, y, "4. CONCLUSIÓN Y CONTEXTO SECTORIAL"); p.line(40, y-5, w-40, y-5); y -= 30
-    sector_code = SECTOR_MAP.get(user.get('sector'), "TECH"); advice = SECTOR_ADVICE_DB.get(sector_code, "")
-    y = draw_wrapped_text(p, f"Contexto Sectorial: {advice}", 50, y, 480, "Helvetica-Oblique", 10); y -= 15
-    conclusion = f"El perfil presenta un IRE de {ire}/100. "; conclusion += "Perfil altamente viable." if ire > 75 else "Perfil viable con acompañamiento." if ire > 50 else "Se recomienda reevaluar el encaje del perfil."
-    y = draw_wrapped_text(p, conclusion, 50, y, 480, "Helvetica", 10)
-    p.showPage(); p.save(); buffer.seek(0); return buffer
-
+# --- 5. INTERFAZ ---
 def render_header():
-    c1, c2 = st.columns([1.5, 6])
+    c1, c2 = st.columns([1, 6])
     with c1:
-        if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
-        elif os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-        else: st.warning("Logo no encontrado")
-    with c2: st.markdown("""<div style="margin-top: 10px;"><p class="header-title-text">Simulador S.A.P.E.</p><p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p></div>""", unsafe_allow_html=True)
-    st.markdown("---")
+        if os.path.exists("logo.png"): st.image("logo.png", width=60)
+        else: st.markdown("### 🧬")
+    with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
+    st.divider()
 
-# --- 5. APP PRINCIPAL ---
-init_session()
-
-# LOGIN
-if not st.session_state.get("auth", False):
-    inject_style("login"); c1, c2, c3 = st.columns([1, 2, 1])
+if st.session_state.current_step == 0:
+    inject_style("login")
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if os.path.exists("logo.png"): st.image("logo.png", width=80)
+    with c_title:
+        st.markdown("<div style='margin-top: 20px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
+    st.divider()
+    c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-        st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        pwd = st.text_input("Clave de acceso", type="password")
-        if st.button("ENTRAR AL SISTEMA", use_container_width=True):
-            if pwd == st.secrets["general"]["password"]: st.session_state.auth = True; st.rerun()
-            else: st.error("Acceso denegado")
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.stop()
+        name = st.text_input("Nombre / ID de Candidato", placeholder="Ej: Juan Pérez")
+        if st.button("INICIAR EVALUACIÓN"):
+            if name:
+                st.session_state.user_data = {'name': name, 'id': ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}
+                st.session_state.current_step = 1
+                safe_rerun()
 
-inject_style("app") 
+elif st.session_state.current_step == 1:
+    inject_style("dark")
+    render_header()
+    st.markdown("### Selecciona el Sector")
+    def go_sector(sec_name):
+        code = SECTOR_MAP.get(sec_name)
+        raw = load_questions()
+        st.session_state.sector_data = [r for r in raw if r['SECTOR'] == code]
+        try: st.session_state.sector_data.sort(key=lambda x: int(x['MES']))
+        except: pass
+        if st.session_state.sector_data:
+            st.session_state.current_step = 2
+            safe_rerun()
+        else: st.error("No hay preguntas para este sector.")
 
-# FASE 1
-if not st.session_state.data_verified:
-    render_header(); st.markdown("#### 1. Identificación del/a Candidato/a")
-    col1, col2 = st.columns(2); name = col1.text_input("Nombre Completo", key="name_input"); age = col2.number_input("Edad", 18, 99, key="age_input")
-    col3, col4 = st.columns(2); gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input"); country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
-    col5, col6 = st.columns(2); situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input"); experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
-    st.markdown("<br>", unsafe_allow_html=True); consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-    if st.button("VALIDAR DATOS Y CONTINUAR"):
-        if name and age and consent: st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}; st.session_state.data_verified = True; st.rerun()
-        else: st.error("Por favor, completa los campos obligatorios.")
-
-# FASE 2
-elif not st.session_state.started:
-    render_header(); st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-    def go_sector(sec):
-        all_q = load_questions(); code = SECTOR_MAP.get(sec, "TECH")
-        qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
-        # Fallback si no encuentra el sector (usa TECH)
-        if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
-        
-        st.session_state.data = qs; st.session_state.user_data["sector"] = sec; st.session_state.started = True; st.rerun()
     c1, c2 = st.columns(2)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("PYME", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
         if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
@@ -504,34 +328,79 @@ elif not st.session_state.started:
         if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
         if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
 
-# FASE 3
-elif not st.session_state.finished:
-    if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
-    render_header(); row = st.session_state.data[st.session_state.current_step]
-    st.progress((st.session_state.current_step + 1) / len(st.session_state.data)); st.markdown(f"### {row['TITULO']}")
-    c_text, c_opt = st.columns([1.5, 1])
-    with c_text: st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
-    with c_opt:
-        st.markdown("#### Tu decisión:")
-        step = st.session_state.current_step
-        if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True): parse_logic(row.get('OPCION_A_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True): parse_logic(row.get('OPCION_B_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if row.get('OPCION_C_TXT') and row.get('OPCION_C_TXT') != "None":
-            if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True): parse_logic(row.get('OPCION_C_LOGIC')); st.session_state.current_step += 1; st.rerun()
-        if row.get('OPCION_D_TXT') and row.get('OPCION_D_TXT') != "None":
-            if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True): parse_logic(row.get('OPCION_D_LOGIC')); st.session_state.current_step += 1; st.rerun()
+elif st.session_state.current_step == 2:
+    inject_style("dark")
+    render_header()
+    q_idx = len(st.session_state.history)
+    if q_idx >= len(st.session_state.sector_data):
+        st.session_state.current_step = 3
+        safe_rerun()
+    row = st.session_state.sector_data[q_idx]
+    st.progress((q_idx + 1) / len(st.session_state.sector_data))
+    st.caption(f"Mes {row['MES']} | {row['TITULO']}")
+    st.markdown(f"#### {row['NARRATIVA']}")
+    
+    def next_q(opt, logic):
+        parse_logic(logic)
+        st.session_state.history.append({'opcion': opt})
+        safe_rerun()
 
-# FASE 4
-else:
-    render_header(); ire, avg, friction, triggers, fric_reasons, delta = calculate_results()
+    if row.get('OPCION_A_TXT'): 
+        if st.button(f"A) {row['OPCION_A_TXT']}", use_container_width=True): next_q('A', row.get('OPCION_A_LOGIC'))
+    if row.get('OPCION_B_TXT'):
+        if st.button(f"B) {row['OPCION_B_TXT']}", use_container_width=True): next_q('B', row.get('OPCION_B_LOGIC'))
+    if row.get('OPCION_C_TXT'):
+        if st.button(f"C) {row['OPCION_C_TXT']}", use_container_width=True): next_q('C', row.get('OPCION_C_LOGIC'))
+    if row.get('OPCION_D_TXT'):
+        if st.button(f"D) {row['OPCION_D_TXT']}", use_container_width=True): next_q('D', row.get('OPCION_D_LOGIC'))
+
+elif st.session_state.current_step == 3:
+    inject_style("dark")
+    render_header()
+    ire, avg, friction, triggers, trait_details = calculate_results()
+    
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
-    k1, k2, k3 = st.columns(3); k1.metric("Índice IRE", f"{ire}/100"); k2.metric("Potencial", f"{avg}/100"); k3.metric("Fricción", friction, delta_color="inverse")
-    c_chart, c_desc = st.columns([1, 1])
-    with c_chart: st.plotly_chart(radar_chart(), use_container_width=True)
-    with c_desc:
-        st.markdown("### Diagnóstico"); st.markdown(f'<div class="diag-text"><p>{get_ire_text(ire)}</p></div>', unsafe_allow_html=True)
-        if triggers: st.error("Alertas: Se han detectado patrones de riesgo.")
-        else: st.success("Perfil sin patrones de riesgo críticos.")
-    pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, st.session_state.octagon)
-    st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
-    if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Índice IRE", f"{ire}/100")
+    k2.metric("Potencial", f"{avg}/100")
+    k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
+    
+    vals = [min(10, v/10) for k,v in st.session_state.traits.items()]
+    fig = go.Figure(data=go.Scatterpolar(r=vals, theta=[k.replace('_', ' ').title() for k in st.session_state.traits.keys()], fill='toself'))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.info(get_ire_text(ire))
+    if triggers: st.warning(f"Riesgos: {', '.join(triggers)}")
+    
+    if PDF_AVAILABLE:
+        def create_pdf_file():
+            b = io.BytesIO()
+            c = canvas.Canvas(b, pagesize=A4)
+            c.drawString(50, 800, "Audeo - Informe S.A.P.E.")
+            c.drawString(50, 780, f"Candidato: {st.session_state.user_data['name']}")
+            c.drawString(50, 760, f"IRE: {ire} | Potencial: {avg} | Fricción: {friction}")
+            
+            y = 720
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(50, y, "2. PERFIL COMPETENCIAL (DETALLE)")
+            y -= 25
+            c.setFont("Helvetica", 9)
+            
+            for k, score, txt in trait_details:
+                label = k.replace('_', ' ').title()
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(50, y, f"{label}: {int(score)}")
+                c.setFont("Helvetica", 9)
+                c.drawString(200, y, txt)
+                y -= 20
+                if y < 100: c.showPage(); y = 800
+            
+            c.save()
+            b.seek(0)
+            return b
+        st.download_button("Descargar Informe PDF", data=create_pdf_file(), file_name="Informe_SAPE.pdf", mime="application/pdf")
+        
+    if st.button("Reiniciar"):
+        st.session_state.clear()
+        safe_rerun()
