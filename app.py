@@ -83,9 +83,9 @@ SECTOR_MAP = {
     "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
 }
 
-# MAPA DE VARIABLES (SUPER-REGULADO V53)
+# --- AQUÍ ESTÁ EL CAMBIO MATEMÁTICO PRINCIPAL (MAPA REGULADO) ---
 VARIABLE_MAP = {
-    # POSITIVOS
+    # --- DIMENSIONES POSITIVAS (TRAITS) -> SUMAN POTENCIAL ---
     "achievement": "achievement", "logro": "achievement", "pragmatism": "achievement", 
     "focus": "achievement", "discipline": "achievement", "tenacity": "achievement",
     "persistence": "achievement", "results": "achievement", "efficiency": "achievement", 
@@ -136,36 +136,45 @@ VARIABLE_MAP = {
     "balance": "emotional_stability", "self_care": "emotional_stability", "coherence": "emotional_stability", 
     "respect": "emotional_stability",
 
-    # NEGATIVOS (FLAGS)
+    # --- RASGOS NEGATIVOS (FLAGS) -> SUMAN FRICCIÓN ---
     "excitable": "excitable", "aggression": "excitable", "violence": "excitable", "anger": "excitable", 
     "conflict": "excitable", "reaction": "excitable", "vengeance": "excitable", "impulsiveness": "excitable", 
     "drama": "excitable", 
+    
     "skeptical": "skeptical", "skepticism": "skeptical", "cynicism": "skeptical", "distrust": "skeptical", 
     "suspicion": "skeptical", "hostility": "skeptical", 
+    
     "cautious": "cautious", "caution": "cautious", "fear": "cautious", "anxiety": "cautious", "avoidance": "cautious", 
     "prudence": "cautious", "security": "cautious", "safety": "cautious", "risk_aversion": "cautious", 
     "conservatism": "cautious", "hesitation": "cautious", "paralysis": "cautious", "trust_risk": "cautious", 
     "delay": "cautious", 
+    
     "reserved": "reserved", "introversion": "reserved", "isolation": "reserved", "secrecy": "reserved", 
     "secretive": "reserved", "distance": "reserved", 
+    
     "passive_aggressive": "passive_aggressive", "resentment": "passive_aggressive", "obstruction": "passive_aggressive", 
     "stubbornness": "passive_aggressive", "resistance": "passive_aggressive", 
+    
     "arrogant": "arrogant", "arrogance": "arrogant", "ego": "arrogant", "narcissism": "arrogant", 
     "superiority": "arrogant", "elitism": "arrogant", "image": "arrogant", "spectacle": "arrogant", 
     "vanity": "arrogant", "bluff": "arrogant", "pride": "arrogant", "class": "arrogant", 
+    
     "mischievous": "mischievous", "cunning": "mischievous", "deceit": "mischievous", "manipulation": "mischievous", 
     "opportunist": "mischievous", "corruption": "mischievous", "exploitation": "mischievous", "greed": "mischievous", 
     "illegal": "mischievous", "machiavellian": "mischievous", "artificial": "mischievous", "tactics": "mischievous", 
+    
     "melodramatic": "melodramatic", "victimism": "melodramatic", "complaint": "melodramatic", "fragility": "melodramatic", 
     "delusion": "melodramatic", "attention_seeking": "melodramatic", 
+    
     "diligent": "diligent", "perfectionism": "diligent", "micromanagement": "diligent", "rigidity": "diligent", 
     "obsession": "diligent", "bureaucracy": "diligent", "complexity": "diligent", 
+    
     "dependent": "dependent", "dependency": "dependent", "submission": "dependent", "pleaser": "dependent", 
     "conformity": "dependent", "obedience": "dependent", "external_validation": "dependent", "reassurance": "dependent", 
     "imitation": "dependent", "external_locus": "dependent", "weakness": "dependent", "surrender": "dependent"
 }
 
-# 3.3 ESTADO INICIAL
+# 3.3 ESTADO INICIAL (Asegurando que las claves coinciden con el mapa)
 if 'traits' not in st.session_state:
     st.session_state.traits = {k: 0 for k in ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']}
 if 'flags' not in st.session_state:
@@ -202,9 +211,12 @@ def parse_logic(logic_str):
         try:
             tokens = part.strip().split()
             if len(tokens) < 2: continue
+            
             key_raw = tokens[0].lower().strip()
             val = int(tokens[1])
             target_key = VARIABLE_MAP.get(key_raw)
+            
+            # Asignación estricta: Traits a Traits, Flags a Flags
             if target_key:
                 if target_key in st.session_state.traits:
                     st.session_state.traits[target_key] += val
@@ -213,29 +225,40 @@ def parse_logic(logic_str):
         except:
             continue
 
-# CÁLCULO DE RESULTADOS LOGARÍTMICO (V54)
+# --- CÁLCULO DE RESULTADOS LOGARÍTMICO (LA CORRECCIÓN CLAVE) ---
 def calculate_results():
-    # 1. POTENCIAL (Curva Logística)
+    # 1. POTENCIAL (Curva Logística Suavizada)
+    # Evita que se llegue a 100 fácilmente.
+    # Fórmula: 100 * (1 - 1 / (1 + Puntos/150))
     raw_points = sum(st.session_state.traits.values())
-    # Esta fórmula hace que sea fácil llegar a 50, pero muy difícil llegar a 100
     avg = 100 * (1 - (1 / (1 + (raw_points / 150.0))))
     
     # 2. FRICCIÓN (Solo Flags Reales)
+    # Sumamos SOLO las banderas rojas (Flags), no los rasgos positivos.
+    # Antes se sumaba todo lo que sobraba, eso estaba mal.
     raw_friction = sum(st.session_state.flags.values())
+    
+    # Escala de fricción: 50 puntos acumulados de cosas malas = 100% fricción.
     friction = min(100, (raw_friction / 50.0) * 100)
     
-    # 3. IRE FINAL
+    # 3. IRE FINAL (Ponderado)
+    # La fricción penaliza el potencial.
+    # Si tienes Fricción 100 (muy tóxico), tu potencial se reduce a la mitad.
     penalty_factor = friction / 200.0 
     ire = avg * (1 - penalty_factor)
     
+    # Ajuste de límites
+    ire = min(100, max(0, ire))
+    avg = min(100, max(0, avg))
+    
     triggers = [k for k, v in st.session_state.flags.items() if v > 10]
     
-    # Explicaciones para PDF
+    # Explicaciones detalladas para el PDF (igual que antes)
     fric_reasons = []
-    if friction > 20: fric_reasons.append("Patrones de comportamiento limitantes bajo estrés.")
-    if "excitable" in triggers: fric_reasons.append("Volatilidad emocional.")
-    if "cautious" in triggers: fric_reasons.append("Parálisis por análisis.")
-    if "arrogant" in triggers: fric_reasons.append("Exceso de confianza.")
+    if friction > 20: fric_reasons.append("Se detectan patrones de comportamiento limitantes.")
+    if "excitable" in triggers: fric_reasons.append("Riesgo de volatilidad emocional.")
+    if "cautious" in triggers: fric_reasons.append("Riesgo de parálisis por análisis.")
+    if "arrogant" in triggers: fric_reasons.append("Riesgo de exceso de confianza.")
     
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, 0
 
@@ -250,7 +273,7 @@ def get_ire_text(score):
 def render_header():
     c1, c2 = st.columns([1, 6])
     with c1:
-        # LOGO RESTAURADO: Busca logo.png, si no usa emoji
+        # LOGO VISIBLE (Si existe)
         if os.path.exists("logo.png"):
             st.image("logo.png", width=60)
         else:
@@ -258,11 +281,10 @@ def render_header():
     with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
     st.divider()
 
-# FASE 1: LOGIN (DISEÑO RESTAURADO)
+# FASE 1: LOGIN
 if st.session_state.current_step == 0:
     inject_style("login")
     
-    # Logo en Login
     c_logo, c_title = st.columns([1, 5])
     with c_logo:
         if os.path.exists("logo.png"): st.image("logo.png", width=80)
@@ -356,7 +378,7 @@ elif st.session_state.current_step == 3:
     k2.metric("Potencial", f"{avg}/100")
     k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
     
-    # Radar Chart
+    # Radar Chart Normalizado (0-10)
     vals = [min(10, (v / 50.0) * 10) for v in st.session_state.traits.values()]
     fig = go.Figure(data=go.Scatterpolar(
         r=vals, theta=[k.replace('_', ' ').title() for k in st.session_state.traits.keys()],
@@ -381,7 +403,6 @@ elif st.session_state.current_step == 3:
             c.drawString(50, 760, f"IRE: {ire} | Potencial: {avg} | Fricción: {friction}")
             if triggers: c.drawString(50, 740, f"Riesgos: {', '.join(triggers)}")
             
-            # Dibujar gráfico simple (barras simuladas)
             y = 700
             for k, v in st.session_state.traits.items():
                 c.drawString(50, y, f"{k.title()}: {int(v)}")
