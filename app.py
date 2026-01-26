@@ -208,13 +208,38 @@ def parse_logic(logic_str):
             continue
 
 def calculate_results():
-    raw_avg = sum(st.session_state.traits.values()) / 8.0
-    avg = min(100, max(0, raw_avg * 1.5))
+    # 1. CÁLCULO DE POTENCIAL (Suavizado)
+    # Sumamos los puntos brutos de las 8 dimensiones positivas
+    raw_points = sum(st.session_state.traits.values())
+    
+    # Fórmula de saturación: Es fácil llegar a 50, difícil llegar a 100.
+    # Máximo teórico aprox por partida perfecta = ~600 puntos brutos
+    # Usamos una función logística simple para escalar de 0 a 100
+    avg = 100 * (1 - (1 / (1 + (raw_points / 150)))) 
+    # (Con 150 puntos brutos tienes un 50/100. Con 300 puntos un 66. Con 600 un 80. Con 1000 un 87)
+    # Esto evita que se dispare a 100 enseguida.
+    
+    # 2. CÁLCULO DE FRICCIÓN (Solo lo malo cuenta)
+    # Sumamos SOLO las banderas rojas (Flags), no los rasgos positivos excesivos
     raw_friction = sum(st.session_state.flags.values())
-    friction = min(100, max(0, raw_friction))
-    ire = avg - (friction * 0.5)
-    ire = min(100, max(0, ire))
-    triggers = [k for k, v in st.session_state.flags.items() if v > 15]
+    
+    # La fricción escala más rápido porque es peligrosa.
+    # 50 puntos de fricción ya es muy grave (100% fricción)
+    friction = min(100, (raw_friction / 50) * 100)
+    
+    # 3. ÍNDICE DE RENDIMIENTO EMPRENDEDOR (IRE)
+    # Fórmula: Potencial * (1 - Factor de Fricción)
+    # Si tienes Fricción 0, tu IRE es igual a tu Potencial.
+    # Si tienes Fricción 100, tu IRE cae drásticamente.
+    penalty_factor = friction / 200 # Penaliza hasta un 50% del potencial
+    ire = avg * (1 - penalty_factor)
+    
+    # 4. TRIGGERS (Disparadores de Alerta)
+    triggers = []
+    for k, v in st.session_state.flags.items():
+        if v > 10: # Bajamos el umbral para detectar micro-riesgos
+            triggers.append(k)
+            
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers
 
 def get_ire_text(score):
