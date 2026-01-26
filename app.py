@@ -21,33 +21,51 @@ except ImportError:
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
 
-# --- 2. ESTILOS ---
+# --- 2. ESTILOS (DISEÑO GOLD v50.8 RESTAURADO) ---
 def inject_style(mode):
     base_css = """
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+        div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; max-width: 95% !important; }
+        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
     """
+    
     if mode == "login":
         theme_css = """
             .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
+                color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
+            }
             .stTextInput input { border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; }
-            .stButton button { background-color: #000000; color: white; border-radius: 8px; padding: 12px; width: 100%; }
+            .stButton button { 
+                background-color: #000000; color: white; border-radius: 8px; 
+                padding: 12px 24px; font-weight: 600; border: none; width: 100%;
+            }
+            .stButton button:hover { background-color: #333333; color: white; }
         """
-    else:
+    elif mode == "dark":
         theme_css = """
             .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
-            .stButton button { background-color: #262730; color: white; border: 1px solid #41444C; border-radius: 8px; }
-            .stButton button:hover { border-color: #FAFAFA; transform: translateY(-2px); }
+            h1, h2, h3, h4, p { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
+            .stButton button { 
+                background-color: #262730; color: white; border: 1px solid #41444C; 
+                border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
+            }
+            .stButton button:hover { 
+                border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); 
+            }
+            .metric-card { background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center; }
         """
+    else:
+        theme_css = ""
+
     st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
-# --- 3. CEREBRO MATEMÁTICO (DICCIONARIOS COMPLETOS) ---
+# --- 3. CEREBRO MATEMÁTICO (DICCIONARIOS COMPLETOS V52) ---
 
 # 3.1 TRADUCTOR UNIVERSAL (Recupera todos los puntos perdidos)
-# Mapea las palabras de tu CSV (izquierda) a los 8 Rasgos Oficiales (derecha)
 KEY_TRANSLATION = {
-    # 1. ACHIEVEMENT (LOGRO) - Palabras clave: pragmatismo, beneficio, eficiencia...
+    # Achievement (Logro)
     "achievement": "achievement", "logro": "achievement", "ambition": "achievement", "success": "achievement", 
     "profit": "achievement", "results": "achievement", "result": "achievement", "growth": "achievement", 
     "scale": "achievement", "efficiency": "achievement", "business": "achievement", "valuation": "achievement",
@@ -55,52 +73,52 @@ KEY_TRANSLATION = {
     "pragmatism": "achievement", "effort": "achievement", "focus": "achievement", "discipline": "achievement",
     "tenacity": "achievement", "goal": "achievement", "impact": "achievement", "career": "achievement",
     
-    # 2. RISK (RIESGO) - Palabras clave: coraje, velocidad, deuda...
+    # Risk (Riesgo)
     "risk": "risk_propensity", "riesgo": "risk_propensity", "risk_propensity": "risk_propensity", 
     "courage": "risk_propensity", "action": "risk_propensity", "speed": "risk_propensity", 
     "audacity": "risk_propensity", "boldness": "risk_propensity", "investment": "risk_propensity", 
     "debt": "risk_propensity", "financial_risk": "risk_propensity", "experimentation": "risk_propensity",
     "bet": "risk_propensity", "adventurous": "risk_propensity", "fast": "risk_propensity",
 
-    # 3. INNOVATION (INNOVACIÓN) - Palabras clave: smart, visión, cambio...
+    # Innovation (Innovación)
     "innovation": "innovativeness", "innovativeness": "innovativeness", "creativity": "innovativeness", 
     "vision": "innovativeness", "change": "innovativeness", "strategy": "innovativeness", "future": "innovativeness",
     "adaptability": "innovativeness", "flexibility": "innovativeness", "curiosity": "innovativeness", 
     "pivot": "innovativeness", "differentiation": "innovativeness", "new": "innovativeness", "smart": "innovativeness",
     "resourcefulness": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
     
-    # 4. LOCUS CONTROL - Palabras clave: control, responsabilidad, sin excusas...
+    # Locus Control
     "locus": "locus_control", "locus_control": "locus_control", "control": "locus_control", 
     "responsibility": "locus_control", "ownership": "locus_control", "realism": "locus_control", 
     "accountability": "locus_control", "problem_solving": "locus_control", "proactivity": "locus_control",
     "no_excuses": "locus_control", "execution": "locus_control", "decision": "locus_control",
     
-    # 5. SELF-EFFICACY (AUTOEFICACIA) - Palabras clave: negociación, venta, liderazgo...
+    # Self-Efficacy (Autoeficacia)
     "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "confidence": "self_efficacy", 
     "leadership": "self_efficacy", "assertiveness": "self_efficacy", "influence": "self_efficacy", 
     "sales": "self_efficacy", "communication": "self_efficacy", "negotiation": "self_efficacy", 
     "management": "self_efficacy", "networking": "self_efficacy", "delegation": "self_efficacy",
     "persuasion": "self_efficacy", "pricing": "self_efficacy", "team": "self_efficacy",
 
-    # 6. AUTONOMY (AUTONOMÍA) - Palabras clave: libertad, independencia...
+    # Autonomy (Autonomía)
     "autonomy": "autonomy", "autonomia": "autonomy", "independence": "autonomy", "freedom": "autonomy", 
     "identity": "autonomy", "sovereignty": "autonomy", "refusal": "autonomy", "boundaries": "autonomy",
     "solo": "autonomy", "detached": "autonomy", "lifestyle": "autonomy",
     
-    # 7. AMBIGUITY TOLERANCE - Palabras clave: paciencia, calma, resiliencia...
+    # Ambiguity Tolerance
     "ambiguity": "ambiguity_tolerance", "ambiguity_tolerance": "ambiguity_tolerance", "tolerance": "ambiguity_tolerance", 
     "patience": "ambiguity_tolerance", "resilience": "ambiguity_tolerance", "calm": "ambiguity_tolerance", 
     "stoicism": "ambiguity_tolerance", "hope": "ambiguity_tolerance", "trust": "ambiguity_tolerance",
     "uncertainty": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
     
-    # 8. EMOTIONAL STABILITY - Palabras clave: ética, integridad, balance...
+    # Emotional Stability
     "stability": "emotional_stability", "emotional_stability": "emotional_stability", "emotional": "emotional_stability", 
     "integrity": "emotional_stability", "ethics": "emotional_stability", "values": "emotional_stability", 
     "justice": "emotional_stability", "honesty": "emotional_stability", "balance": "emotional_stability",
     "empathy": "emotional_stability", "humility": "emotional_stability", "humanity": "emotional_stability",
     "fairness": "emotional_stability", "transparency": "emotional_stability", "health": "emotional_stability",
     
-    # --- BANDERAS ROJAS (FLAGS) ---
+    # Flags (Banderas Rojas)
     "fear": "cautious", "anxiety": "cautious", "caution": "cautious", "paralysis": "cautious", "delay": "cautious", "avoidance": "cautious", "prudence": "cautious",
     "anger": "excitable", "aggression": "excitable", "conflict": "excitable", "impulsiveness": "excitable", "reaction": "excitable",
     "doubt": "skeptical", "distrust": "skeptical", "cynicism": "skeptical", "suspicion": "skeptical",
@@ -122,7 +140,7 @@ VARIABLE_TYPE = {
     "melodramatic": "FLAG", "diligent": "FLAG", "dependent": "FLAG"
 }
 
-# 3.3 TEXTOS RICOS (ESTILO IGAZLR)
+# 3.3 TEXTOS IGAZLR (EL ALMA DEL INFORME)
 TRAIT_TEXTS = {
     "achievement": {
         "low": "ÁREA DE MEJORA: Dificultad para mantener el foco en resultados tangibles.",
@@ -179,7 +197,14 @@ SECTOR_MAP = {
     "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
 }
 
-# --- 4. LOGICA CORE ---
+# --- 4. LÓGICA CORE (PARSEO INTELIGENTE) ---
+
+# Función de compatibilidad para rerun
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
 
 if 'traits' not in st.session_state:
     st.session_state.traits = {k: 10 for k in ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']}
@@ -202,6 +227,7 @@ def load_questions():
         except: continue
     return []
 
+# --- PARSEO CON AUTO-BALANCEO Y TRADUCCIÓN ---
 def parse_logic(logic_str):
     if not logic_str or not isinstance(logic_str, str): return
     parts = logic_str.split('|')
@@ -213,11 +239,11 @@ def parse_logic(logic_str):
             raw_key = tokens[0].lower().strip()
             val_str = tokens[1]
             
-            # 1. TRADUCCIÓN: Convertimos "control" en "locus_control"
+            # 1. TRADUCCIÓN: Convertimos palabras clave del CSV a las oficiales
             clean_key = KEY_TRANSLATION.get(raw_key, raw_key)
             val = int(val_str)
             
-            # 2. AUTO-BALANCEO: 25 puntos -> 5 puntos (División por 5)
+            # 2. AUTO-BALANCEO: Dividimos por 5 para ajustar la escala
             balanced_val = int(round(val / 5.0))
             if balanced_val == 0 and val > 0: balanced_val = 1
             
@@ -229,10 +255,9 @@ def parse_logic(logic_str):
                 st.session_state.flags[clean_key] += balanced_val
         except Exception: continue
 
+# --- CÁLCULO DE RESULTADOS (NORMALIZACIÓN TANQUE 500) ---
 def calculate_results():
-    # 1. NORMALIZACIÓN TANQUE 500
-    # Ahora que todo suma (gracias al diccionario), es fácil pasarse de 500.
-    # El tanque asegura que si te pasas, se comprime todo para mantener el equilibrio.
+    # 1. NORMALIZACIÓN
     raw_traits = st.session_state.traits.copy()
     total_raw = sum(raw_traits.values())
     
@@ -273,7 +298,7 @@ def get_ire_text(score):
     if score >= 40: return "Nivel MEDIO: Riesgos operativos."
     return "Nivel CRÍTICO: Alta probabilidad de bloqueo."
 
-# --- 5. INTERFAZ ---
+# --- 5. INTERFAZ GRÁFICA (DISEÑO GOLD RESTAURADO) ---
 def render_header():
     c1, c2 = st.columns([1, 6])
     with c1:
@@ -302,22 +327,24 @@ if st.session_state.current_step == 0:
 elif st.session_state.current_step == 1:
     inject_style("dark")
     render_header()
-    st.markdown("### Selecciona el Sector")
+    st.markdown("### Selecciona el Sector del Proyecto")
+    
     def go_sector(sec_name):
         code = SECTOR_MAP.get(sec_name)
-        raw = load_questions()
-        st.session_state.sector_data = [r for r in raw if r['SECTOR'] == code]
+        raw_data = load_questions()
+        st.session_state.sector_data = [row for row in raw_data if row['SECTOR'] == code]
         try: st.session_state.sector_data.sort(key=lambda x: int(x['MES']))
         except: pass
         if st.session_state.sector_data:
             st.session_state.current_step = 2
             safe_rerun()
-        else: st.error("No hay preguntas para este sector.")
+        else:
+            st.error(f"No hay preguntas para {code}.")
 
     c1, c2 = st.columns(2)
     with c1: 
         if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-        if st.button("PYME", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+        if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
         if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
         if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
         if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
@@ -361,7 +388,7 @@ elif st.session_state.current_step == 3:
     
     st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
     k1, k2, k3 = st.columns(3)
-    k1.metric("Índice IRE", f"{ire}/100")
+    k1.metric("IRE", f"{ire}/100")
     k2.metric("Potencial", f"{avg}/100")
     k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
     
