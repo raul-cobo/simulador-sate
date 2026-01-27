@@ -27,85 +27,40 @@ except ImportError:
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V64.7 - CSS DEFINITIVO ORYON) ---
+# --- 2. GESTIÓN DE ESTILOS (ORIGINAL v50.8 RESTAURADO) ---
 def inject_style(mode):
-    # Base CSS (Idéntico a v50.8)
     base_css = """
-    <style>
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
         div[data-testid="stDecoration"] { display: none !important; }
         footer { display: none !important; }
         .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
         .oryon-logo-container {display: flex; justify-content: center; margin-bottom: 20px;}
-    </style>
     """
     
     if mode == "login":
-        # TEMA ORYON (TU CSS EXACTO)
         theme_css = """
-        <style>
-            .stApp { background-color: #FFFFFF !important; }
-            
-            /* TÍTULO GIGANTE (#050A1F) */
-            h1 { 
-                color: #050A1F !important; 
-                font-family: 'Helvetica Neue', sans-serif;
-                font-size: 4rem !important; 
-                font-weight: 800 !important;
-                text-align: center;
+            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
+                color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
             }
-            
-            /* SUBTÍTULOS (#666666) */
-            div[data-testid="stMarkdownContainer"] p { 
-                color: #666666 !important; 
-                font-family: 'Helvetica Neue', sans-serif;
-                font-size: 1.2rem !important;
-                text-align: center;
-            }
-            
-            /* INPUT BLANCO CON BORDE AZUL */
-            .stTextInput input { 
-                border: 2px solid #0F2489 !important; 
-                border-radius: 8px; 
-                padding: 12px; 
-                color: #000000 !important;
-                background-color: #FFFFFF !important;
-            }
-            
-            /* ETIQUETAS */
-            .stTextInput label { color: #050A1F !important; font-weight: bold; }
-            
-            /* BOTÓN AZUL ORYON (#0F2489) */
-            .stButton button { 
-                background-color: #0F2489 !important; 
-                color: #FFFFFF !important; 
-                border-radius: 8px; 
-                padding: 16px 24px; 
-                font-weight: 800; 
-                border: none; 
-                width: 100%;
-                font-size: 1.3rem !important;
-            }
-            .stButton button:hover { background-color: #0a1860 !important; color: white; }
-        </style>
+            .stTextInput input { border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000; }
+            .stButton button { background-color: #000000; color: #FFFFFF; border-radius: 8px; padding: 12px; width: 100%; border: none; }
+            .stButton button:hover { background-color: #333333; color: #FFFFFF; }
         """
-        
+    
     elif mode == "dashboard":
-        # TEMA DASHBOARD (Oscuro Profesional)
+        # ÚNICO AÑADIDO: Estilo para el Cuadro de Mando (Oscuro)
         theme_css = """
-        <style>
             .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
             h1, h2, h3, h4, p, label { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
             .stDataFrame { border: 1px solid #333; border-radius: 5px; }
-        </style>
         """
         
     else:
-        # TEMA TEST (El original v50.8 intacto)
+        # ESTILO DEL JUEGO (v50.8 ORIGINAL)
         theme_css = """
-        <style>
             .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
-            h1, h2, h3, h4, p, label { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
+            h1, h2, h3, h4, p { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
             .stButton button { 
                 background-color: #262730; color: white; border: 1px solid #41444C; 
                 border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
@@ -114,7 +69,6 @@ def inject_style(mode):
                 border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); 
             }
             .metric-card { background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center; }
-        </style>
         """
 
     st.markdown(base_css + theme_css, unsafe_allow_html=True)
