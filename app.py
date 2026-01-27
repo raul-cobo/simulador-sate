@@ -29,8 +29,9 @@ st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout=
 
 # --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
 # --- 2. GESTIÓN DE ESTILOS (CORREGIDO) ---
+# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
 def inject_style(mode):
-    # 1. CSS Base (Común a todas las pantallas)
+    # CSS Base (Limpia la cabecera y el pie de página)
     base_css = """
     <style>
         header, [data-testid="stHeader"] {display: none !important;}
@@ -40,9 +41,11 @@ def inject_style(mode):
     </style>
     """
     
-    # 2. CSS según el Modo (Login, Dashboard o Test)
+    # Inicializamos la variable vacía por seguridad
+    theme_css = ""
+    
+    # Seleccionamos el CSS según el modo
     if mode == "login":
-        # IMPORTANTE: Asegúrate de copiar esta línea 'theme_css ='
         theme_css = """
         <style>
             .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
@@ -63,7 +66,7 @@ def inject_style(mode):
         </style>
         """
     else: 
-        # TEMA ORIGINAL v50.8 (TEST)
+        # TEMA V50.8 ORIGINAL (Para el test)
         theme_css = """
         <style>
             .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
@@ -78,6 +81,9 @@ def inject_style(mode):
             .metric-card {background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center;}
         </style>
         """
+    
+    # Inyectamos el estilo final
+    st.markdown(base_css + theme_css, unsafe_allow_html=True)
     
     # 3. Inyección Final (Esto aplica el estilo sin imprimirlo)
     st.markdown(base_css + theme_css, unsafe_allow_html=True)
