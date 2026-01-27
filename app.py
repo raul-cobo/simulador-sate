@@ -31,8 +31,10 @@ st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout=
 # --- 2. GESTIÓN DE ESTILOS (CORREGIDO) ---
 # --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
 # --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
+# --- 2. GESTIÓN DE ESTILOS (V64 - Títulos Grandes + Botón Azul) ---
 def inject_style(mode):
-    # Definimos los bloques de texto por separado para evitar errores de impresión
+    # Variables de Texto CSS para evitar errores de impresión
+    
     base_css = """
     <style>
         header, [data-testid="stHeader"] {display: none !important;}
@@ -45,12 +47,40 @@ def inject_style(mode):
     login_css = """
     <style>
         .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
-        h1, h2, h3, p, label, div[data-testid="stMarkdownContainer"] p { 
-            color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
+        
+        /* TÍTULOS GIGANTES Y EN NEGRITA */
+        h1 {
+            color: #0E1117 !important; 
+            font-family: 'Helvetica Neue', sans-serif;
+            font-size: 4rem !important; /* 400% más grande */
+            font-weight: 900 !important; /* Negrita extra fuerte */
+            text-align: center;
         }
+        
+        div[data-testid="stMarkdownContainer"] p { 
+            color: #0E1117 !important; 
+            font-size: 1.5rem !important;
+            font-weight: 600 !important;
+            text-align: center;
+        }
+
         .stTextInput input {border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000;}
-        .stButton button {background-color: #000000; color: #FFFFFF; border-radius: 8px; padding: 12px; width: 100%; border: none;}
-        .stButton button:hover {background-color: #333333; color: #FFFFFF;}
+        
+        /* BOTÓN AZUL ORYON CON TEXTO BLANCO */
+        .stButton button {
+            background-color: #007BFF !important; /* AZUL CORPORATIVO */
+            color: #FFFFFF !important; /* TEXTO BLANCO */
+            border-radius: 8px; 
+            padding: 15px; 
+            width: 100%; 
+            border: none;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .stButton button:hover {
+            background-color: #0056b3 !important; /* Azul más oscuro al pasar el ratón */
+            color: #FFFFFF !important;
+        }
     </style>
     """
 
@@ -77,7 +107,6 @@ def inject_style(mode):
     </style>
     """
 
-    # Lógica de selección
     if mode == "login":
         st.markdown(base_css + login_css, unsafe_allow_html=True)
     elif mode == "dashboard":
