@@ -32,8 +32,9 @@ st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout=
 # --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
 # --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
 # --- 2. GESTIÓN DE ESTILOS (V64 - Títulos Grandes + Botón Azul) ---
+# --- 2. GESTIÓN DE ESTILOS (V64.3 - Color Oryon Real) ---
 def inject_style(mode):
-    # Variables de Texto CSS para evitar errores de impresión
+    # Variables de texto separadas para limpieza absoluta
     
     base_css = """
     <style>
@@ -46,40 +47,59 @@ def inject_style(mode):
     
     login_css = """
     <style>
-        .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
+        .stApp {background-color: #FFFFFF !important;}
         
-        /* TÍTULOS GIGANTES Y EN NEGRITA */
+        /* TÍTULO GIGANTE (H1) */
         h1 {
             color: #0E1117 !important; 
             font-family: 'Helvetica Neue', sans-serif;
-            font-size: 4rem !important; /* 400% más grande */
-            font-weight: 900 !important; /* Negrita extra fuerte */
+            font-size: 5rem !important; /* 500% más grande */
+            font-weight: 900 !important;
             text-align: center;
+            line-height: 1.1 !important;
+            margin-bottom: 10px !important;
         }
         
+        /* SUBTÍTULO (Párrafo HTML) */
         div[data-testid="stMarkdownContainer"] p { 
-            color: #0E1117 !important; 
-            font-size: 1.5rem !important;
+            color: #555555 !important; 
+            font-size: 1.8rem !important; /* Subtítulo grande */
             font-weight: 600 !important;
             text-align: center;
         }
 
-        .stTextInput input {border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000;}
-        
-        /* BOTÓN AZUL ORYON CON TEXTO BLANCO */
-        .stButton button {
-            background-color: #007BFF !important; /* AZUL CORPORATIVO */
-            color: #FFFFFF !important; /* TEXTO BLANCO */
+        /* RENGLÓN DE CLAVE (INPUT) - BLANCO */
+        .stTextInput input {
+            background-color: #FFFFFF !important; /* Fondo Blanco */
+            color: #000000 !important; /* Texto Negro */
+            border: 2px solid #0F2489 !important; /* Borde Azul Oryon Fino */
             border-radius: 8px; 
-            padding: 15px; 
+            padding: 15px;
+        }
+        
+        /* ETIQUETAS DE TEXTO (Labels) */
+        .stTextInput label, .stTextInput div {
+            color: #000000 !important;
+            font-size: 1.2rem !important;
+            font-weight: bold !important;
+        }
+        
+        /* BOTÓN AZUL ORYON (#0F2489) */
+        .stButton button {
+            background-color: #0F2489 !important; /* TU COLOR EXACTO */
+            color: #FFFFFF !important; /* Letra Blanca */
+            border-radius: 8px; 
+            padding: 20px; /* Botón más alto */
             width: 100%; 
             border: none;
-            font-weight: bold;
-            font-size: 1.2rem;
+            font-weight: 800; /* Letra gorda */
+            font-size: 1.5rem !important; /* Letra grande */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
         .stButton button:hover {
-            background-color: #0056b3 !important; /* Azul más oscuro al pasar el ratón */
+            background-color: #0a1860 !important; /* Un poco más oscuro al pasar el ratón */
             color: #FFFFFF !important;
+            transform: scale(1.02);
         }
     </style>
     """
@@ -107,6 +127,7 @@ def inject_style(mode):
     </style>
     """
 
+    # Aplicación de Estilos
     if mode == "login":
         st.markdown(base_css + login_css, unsafe_allow_html=True)
     elif mode == "dashboard":
