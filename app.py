@@ -27,100 +27,97 @@ except ImportError:
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V64.5 - LIMPIEZA TOTAL) ---
+# --- 2. GESTIÓN DE ESTILOS (V64.6 - Base v50.8 + Colores Oryon) ---
 def inject_style(mode):
-    # Definimos el estilo base en una variable de texto limpia
-    css = ""
-    
-    # 1. ESTILO BASE (Quitar cabeceras y pies de página molestos)
-    css += """
-        header, [data-testid="stHeader"] {display: none !important;}
-        footer {display: none !important;}
-        .block-container {padding-top: 1rem !important; padding-bottom: 2rem !important;}
+    # Base CSS (Idéntico a v50.8 + contenedor logo)
+    base_css = """
+    <style>
+        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
+        div[data-testid="stDecoration"] { display: none !important; }
+        footer { display: none !important; }
+        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
         .oryon-logo-container {display: flex; justify-content: center; margin-bottom: 20px;}
+    </style>
     """
-
-    # 2. ESTILO SEGÚN EL MODO
-    if mode == "login":
-        css += """
-            /* FONDO BLANCO */
-            .stApp {background-color: #FFFFFF !important;}
-            
-            /* TÍTULO PRINCIPAL (H1) - Color #050A1F */
-            h1 {
-                color: #050A1F !important;
-                font-family: 'Helvetica Neue', sans-serif !important;
-                font-size: 3.5rem !important; /* AUMENTADO */
-                font-weight: 900 !important;
-                text-align: center !important;
-                margin-bottom: 0px !important;
-            }
-            
-            /* SUBTÍTULO (Párrafos) - Color #666666 */
-            div[data-testid="stMarkdownContainer"] p {
-                color: #666666 !important;
-                font-size: 1.2rem !important;
-                text-align: center !important;
-                font-weight: 400 !important;
-            }
-
-            /* INPUT (CAJA DE TEXTO) - Blanco con borde Azul */
-            .stTextInput input {
-                background-color: #FFFFFF !important;
-                color: #000000 !important;
-                border: 2px solid #0F2489 !important;
-                border-radius: 8px !important;
-                padding: 15px !important;
-            }
-            /* ETIQUETA DEL INPUT */
-            .stTextInput label {
-                color: #050A1F !important;
-                font-weight: bold !important;
-            }
-
-            /* BOTÓN - Azul Oryon #0F2489 */
-            .stButton button {
-                background-color: #0F2489 !important;
-                color: #FFFFFF !important;
-                border: none !important;
-                border-radius: 8px !important;
-                padding: 16px !important;
-                font-size: 1.2rem !important;
-                font-weight: 800 !important;
-                width: 100% !important;
-                transition: all 0.3s ease !important;
-            }
-            .stButton button:hover {
-                background-color: #0a1860 !important; /* Azul más oscuro */
-                color: #FFFFFF !important;
-                transform: scale(1.02) !important;
-            }
-        """
     
-    elif mode == "dashboard":
-        css += """
-            /* MODO OSCURO PARA ORYON DASHBOARD */
-            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
-            .stDataFrame {border: 1px solid #333; border-radius: 5px;}
-            h1, h2, h3, p, label {color: #FAFAFA !important;}
+    if mode == "login":
+        # TEMA ORYON: Estructura v50.8 pero con tus colores y tamaño
+        theme_css = """
+        <style>
+            .stApp { background-color: #FFFFFF !important; }
+            
+            /* TÍTULO GIGANTE (#050A1F) */
+            h1 { 
+                color: #050A1F !important; 
+                font-family: 'Helvetica Neue', sans-serif;
+                font-size: 4rem !important; /* Aquí aplicamos el aumento de tamaño */
+                font-weight: 800 !important;
+                text-align: center;
+            }
+            
+            /* SUBTÍTULOS (#666666) */
+            div[data-testid="stMarkdownContainer"] p { 
+                color: #666666 !important; 
+                font-family: 'Helvetica Neue', sans-serif;
+                font-size: 1.2rem !important;
+                text-align: center;
+            }
+            
+            /* INPUT BLANCO CON BORDE AZUL */
+            .stTextInput input { 
+                border: 2px solid #0F2489 !important; 
+                border-radius: 8px; 
+                padding: 12px; 
+                color: #000000 !important;
+                background-color: #FFFFFF !important;
+            }
+            
+            /* ETIQUETAS */
+            .stTextInput label { color: #050A1F !important; font-weight: bold; }
+            
+            /* BOTÓN AZUL ORYON (#0F2489) */
+            .stButton button { 
+                background-color: #0F2489 !important; 
+                color: #FFFFFF !important; 
+                border-radius: 8px; 
+                padding: 16px 24px; 
+                font-weight: 800; 
+                border: none; 
+                width: 100%;
+                font-size: 1.3rem !important;
+            }
+            .stButton button:hover { background-color: #0a1860 !important; color: white; }
+        </style>
         """
         
-    else: # MODO TEST (V50.8)
-        css += """
-            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
-            h1, h2, h3, h4, p {color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif;}
-            .stButton button {
-                background-color: #262730; color: white; border: 1px solid #41444C;
+    elif mode == "dashboard":
+        # TEMA DASHBOARD (Oscuro)
+        theme_css = """
+        <style>
+            .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
+            h1, h2, h3, h4, p, label { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
+            .stDataFrame { border: 1px solid #333; border-radius: 5px; }
+        </style>
+        """
+        
+    else:
+        # TEMA TEST (Copia exacta v50.8 para no romper)
+        theme_css = """
+        <style>
+            .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
+            h1, h2, h3, h4, p, label { color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif; }
+            .stButton button { 
+                background-color: #262730; color: white; border: 1px solid #41444C; 
                 border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
             }
-            .stButton button:hover {
-                border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+            .stButton button:hover { 
+                border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); 
             }
-            .metric-card {background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center;}
+            .metric-card { background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center; }
+        </style>
         """
 
-    # INYECCIÓN FINAL - UNA SOLA LÍNEA SEGURA
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    st.markdown(base_css + theme_css, unsafe_allow_html=True)
 
 # --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
