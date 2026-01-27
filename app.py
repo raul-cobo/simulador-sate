@@ -47,15 +47,16 @@ def inject_style(mode):
             .stTabs [data-baseweb="tab"] {
                 height: 50px; background-color: #F0F2F6; border-radius: 5px; color: #000000; font-weight: bold; padding: 0 20px; border: 1px solid #ddd;
             }
-            .stTabs [aria-selected="true"] { background-color: #0F2489 !important; color: #FFFFFF !important; border: 1px solid #0F2489; }
+            /* Pestaña seleccionada: Negra con texto blanco */
+            .stTabs [aria-selected="true"] { background-color: #000000 !important; color: #FFFFFF !important; border: 1px solid #000000; }
 
-            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
+            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #000000 !important; }
             
-            /* BOTONES AZULES (ORYON) */
+            /* BOTONES DE LOGIN: BLANCOS CON LETRA NEGRA */
             .stButton > button {
-                background-color: #0F2489 !important; /* AZUL ORYON */
-                color: #FFFFFF !important; 
-                border: none !important;
+                background-color: #FFFFFF !important;
+                color: #000000 !important;
+                border: 2px solid #000000 !important;
                 border-radius: 8px !important; 
                 font-weight: 800 !important; 
                 width: 100%; 
@@ -64,11 +65,13 @@ def inject_style(mode):
                 transition: all 0.3s ease;
             }
             .stButton > button:hover { 
-                background-color: #0a1860 !important; /* AZUL MÁS OSCURO AL PASAR EL RATÓN */
-                transform: scale(1.02);
+                background-color: #F0F0F0 !important;
+                color: #000000 !important;
+                border-color: #000000 !important;
+                transform: scale(1.01);
             }
             
-            .login-title { color: #050A1F !important; font-size: 2.5rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
+            .login-title { color: #000000 !important; font-size: 3rem !important; font-weight: 900 !important; text-align: center; margin: 0 !important; }
             .login-subtitle { color: #666666 !important; font-size: 1.2rem !important; text-align: center; margin-bottom: 2rem !important; }
             .login-card { padding: 2rem; text-align: center; border: 1px solid #eee; border-radius: 10px; margin-top: 10px; }
         """
@@ -77,8 +80,19 @@ def inject_style(mode):
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label { color: #FFFFFF !important; }
             .stDataFrame { border: 1px solid #5D5FEF; border-radius: 5px; }
+            
+            /* BOTÓN DE CERRAR SESIÓN EN EL DASHBOARD: BLANCO CON LETRA NEGRA */
+            .stButton > button {
+                background-color: #FFFFFF !important;
+                color: #000000 !important;
+                border: none !important;
+                font-weight: bold !important;
+            }
+            .stButton > button:hover {
+                background-color: #DDDDDD !important;
+            }
         """
-    else: # APP MODE
+    else: # APP MODE (TEST)
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
@@ -210,7 +224,19 @@ def radar_chart():
     cat += [cat[0]]
     val += [val[0]]
     fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, showticklabels=False), bgcolor='rgba(0,0,0,0)', tickfont=dict(color='white')), paper_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), showlegend=False, margin=dict(l=40, r=40, t=20, b=20), dragmode=False)
+    # CORREGIDO: Eliminado 'tickfont' de 'polar' y movido a configuración global o ejes si necesario.
+    # Se usa 'font' global en layout para el color del texto.
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, showticklabels=False),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=20, b=20),
+        dragmode=False
+    )
     return fig
 
 def draw_pdf_header(p, w, h):
@@ -256,7 +282,7 @@ def render_oryon_dashboard():
         'Friccion': np.random.randint(5, 75, n_candidatos)
     })
 
-    # KPI'S - MODIFICADO: Solo 3 columnas, eliminado Capital Asignable
+    # KPI'S
     k1, k2, k3 = st.columns(3)
     k1.metric("Candidatos", f"{n_candidatos}")
     k2.metric("IRE Promedio", f"{int(df['IRE'].mean())}/100")
@@ -274,7 +300,7 @@ def render_oryon_dashboard():
     with c2:
         st.subheader("Radar Promedio")
         fig_r = go.Figure(data=go.Scatterpolar(r=[75, 60, 85, 50, 70, 65, 55, 60], theta=['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.'], fill='toself'))
-        # GRÁFICO CORREGIDO (V59)
+        # GRÁFICO CORREGIDO
         fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False)), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=350)
         st.plotly_chart(fig_r, use_container_width=True)
 
@@ -397,7 +423,12 @@ else:
     # CABECERA LOGIN
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
-        if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+        if os.path.exists("logo_original.png"): 
+            st.image("logo_original.png", use_container_width=True)
+        else:
+            # SI NO HAY LOGO, PONEMOS UN TÍTULO GRANDE PARA QUE NO SE VEA VACÍO
+            st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #000000;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+
         st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
         
