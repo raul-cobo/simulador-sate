@@ -8,12 +8,24 @@ import textwrap
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.utils import ImageReader
+
+# --- NUEVAS LIBRERÍAS PARA EL DASHBOARD DE ORYON ---
+import pandas as pd
+import numpy as np
+import plotly.express as px
+# ---------------------------------------------------
+
+# --- GESTIÓN DE DEPENDENCIAS (PDF) ---
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 # --- 1. CONFIGURACIÓN INICIAL ---
-st.set_page_config(page_title="Audeo | Simulador S.A.P.E.", page_icon="🧬", layout="wide")
+st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
 # --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
 def inject_style(mode):
