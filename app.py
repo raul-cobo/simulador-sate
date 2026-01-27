@@ -66,7 +66,6 @@ SECTOR_MAP = {
 }
 
 # --- 4. FUNCIONES DE LÓGICA DEL TEST (V50.8) ---
-# (Nota: Usamos la lógica de cálculo v50.8 para no romper nada visualmente hoy)
 
 def safe_rerun():
     try: st.rerun()
@@ -84,10 +83,9 @@ def load_questions():
         except: continue
     return []
 
-# Parser simple de v50.8 (Sin la lógica matemática nueva para no romper la demo visual)
+# Parser simple de v50.8
 def parse_logic(logic_str):
     if not logic_str or not isinstance(logic_str, str): return
-    # Diccionario simple de mapeo para evitar errores básicos
     KEY_MAP = {"risk": "risk_propensity", "innovation": "innovativeness", "locus": "locus_control", 
                "ambiguity": "ambiguity_tolerance", "stability": "emotional_stability"}
     
@@ -98,25 +96,21 @@ def parse_logic(logic_str):
             if len(tokens) < 2: continue
             key = tokens[0].lower().strip()
             val = int(tokens[1])
-            final_key = KEY_MAP.get(key, key) # Mapeo básico
+            final_key = KEY_MAP.get(key, key)
             
-            # Sumar directamente (Lógica v50.8 original)
             if final_key in st.session_state.traits: st.session_state.traits[final_key] += val
             elif final_key in st.session_state.flags: st.session_state.flags[final_key] += val
         except: continue
 
 def calculate_results():
-    # Lógica Visual v50.8
-    # Normalización simple para que el gráfico no explote
     total = sum(st.session_state.traits.values())
     factor = 500/total if total > 500 else 1
     
     traits_norm = {k: v*factor for k,v in st.session_state.traits.items()}
     avg = sum(traits_norm.values())/8
     
-    # Fricción
     fric = sum(st.session_state.flags.values())
-    friction = min(100, (fric/50)*100) # Escalado visual
+    friction = min(100, (fric/50)*100)
     
     ire = avg * (1 - friction/200)
     
@@ -144,7 +138,6 @@ def render_oryon_dashboard():
         if uploaded_logo:
             st.image(uploaded_logo, width=100)
         else:
-            # Placeholder si no hay logo
             st.markdown("## 🏢") 
     with c_title:
         st.title("Talent Command Center")
@@ -152,9 +145,8 @@ def render_oryon_dashboard():
 
     st.divider()
 
-    # GENERACIÓN DE DATOS SIMULADOS (Para que siempre se vea bonito)
-    # Generamos 25 candidatos aleatorios
-    np.random.seed(42) # Semilla para que los datos "aleatorios" sean estables en la demo
+    # GENERACIÓN DE DATOS SIMULADOS
+    np.random.seed(42)
     n_candidatos = 25
     data = {
         'ID': [f'CND-{i:03d}' for i in range(1, n_candidatos + 1)],
@@ -182,7 +174,6 @@ def render_oryon_dashboard():
         st.subheader("Matriz de Decisión (Potencial vs Riesgo)")
         fig = px.scatter(df, x="Potencial", y="Friccion", color="Sector", size="IRE", hover_data=["ID"],
                          color_discrete_sequence=px.colors.qualitative.Pastel)
-        # Zonas de fondo para dar contexto
         fig.add_hrect(y0=60, y1=100, line_width=0, fillcolor="red", opacity=0.1, annotation_text="Zona de Peligro")
         fig.add_hrect(y0=0, y1=40, line_width=0, fillcolor="green", opacity=0.1, annotation_text="Zona de Inversión")
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=400)
@@ -190,7 +181,6 @@ def render_oryon_dashboard():
     
     with c2:
         st.subheader("ADN de la Cohorte")
-        # Datos simulados del radar promedio
         categories = ['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.']
         values = [75, 60, 85, 50, 70, 65, 55, 60]
         fig_r = go.Figure(data=go.Scatterpolar(r=values, theta=categories, fill='toself', name='Media'))
@@ -220,14 +210,19 @@ if 'sector_data' not in st.session_state: st.session_state.sector_data = []
 if 'history' not in st.session_state: st.session_state.history = []
 
 # SIDEBAR DE NAVEGACIÓN
-st.sidebar.image("logo.png", width=50) if os.path.exists("logo.png") else st.sidebar.markdown("# 🧬")
+# --- AQUI ESTABA EL ERROR: USAMOS IF/ELSE NORMAL ---
+if os.path.exists("logo.png"):
+    st.sidebar.image("logo.png", width=50)
+else:
+    st.sidebar.markdown("# 🧬")
+
 modo = st.sidebar.radio("Navegación", ["Evaluación (Candidato)", "Acceso Corporativo (Oryon)"])
 
 if modo == "Acceso Corporativo (Oryon)":
     render_oryon_dashboard()
 
 else:
-    # === AQUÍ PEGAMOS LA LÓGICA V50.8 TAL CUAL ===
+    # === LÓGICA V50.8 PARA EL TEST ===
     
     if st.session_state.current_step == 0:
         inject_style("login")
@@ -243,13 +238,12 @@ else:
 
     elif st.session_state.current_step == 1:
         inject_style("dark")
-        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
-        
         st.markdown("### Selecciona el Sector del Proyecto")
+        
         def go_sector(sec_name):
             code = SECTOR_MAP.get(sec_name)
             raw = load_questions()
@@ -277,12 +271,10 @@ else:
 
     elif st.session_state.current_step == 2:
         inject_style("dark")
-        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
-        
         q_idx = len(st.session_state.history)
         if q_idx >= len(st.session_state.sector_data):
             st.session_state.current_step = 3
@@ -309,12 +301,10 @@ else:
 
     elif st.session_state.current_step == 3:
         inject_style("dark")
-        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
-        
         ire, avg, friction, triggers, _, _ = calculate_results()
         
         st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
@@ -324,10 +314,9 @@ else:
         k3.metric("Fricción", f"{int(friction)}/100", delta_color="inverse")
         
         vals = [v for v in st.session_state.traits.values()]
-        # Normalizar para visualización si es necesario
         vals_plot = [min(10, v/10) for v in vals] if max(vals) > 20 else vals
-        
         labels = [k.replace('_', ' ').title() for k in st.session_state.traits.keys()]
+        
         fig = go.Figure(data=go.Scatterpolar(r=vals_plot, theta=labels, fill='toself', name='Perfil'))
         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
         
