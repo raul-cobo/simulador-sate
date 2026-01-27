@@ -28,27 +28,21 @@ except ImportError:
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
 # --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
-# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON STYLE) ---
+# --- 2. GESTIÓN DE ESTILOS (CORREGIDO) ---
 def inject_style(mode):
-    # CSS Base para limpiar la interfaz (común a todo)
+    # 1. CSS Base (Común a todas las pantallas)
     base_css = """
     <style>
         header, [data-testid="stHeader"] {display: none !important;}
         footer {display: none !important;}
         .block-container {padding-top: 1rem !important; padding-bottom: 2rem !important;}
-        
-        /* Clases para el Dashboard de Oryon */
-        .oryon-logo-container {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
+        .oryon-logo-container {display: flex; justify-content: center; margin-bottom: 20px;}
     </style>
     """
     
-    # Seleccionamos el tema según el modo
+    # 2. CSS según el Modo (Login, Dashboard o Test)
     if mode == "login":
-        # TEMA BLANCO (Para Login inicial y Contraseña Oryon)
+        # IMPORTANTE: Asegúrate de copiar esta línea 'theme_css ='
         theme_css = """
         <style>
             .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
@@ -61,7 +55,6 @@ def inject_style(mode):
         </style>
         """
     elif mode == "dashboard":
-        # TEMA ORYON (Oscuro Profesional para Gráficos)
         theme_css = """
         <style>
             .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
@@ -70,7 +63,7 @@ def inject_style(mode):
         </style>
         """
     else: 
-        # TEMA TEST (Oscuro Estándar v50.8 - INTACTO)
+        # TEMA ORIGINAL v50.8 (TEST)
         theme_css = """
         <style>
             .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
@@ -86,6 +79,7 @@ def inject_style(mode):
         </style>
         """
     
+    # 3. Inyección Final (Esto aplica el estilo sin imprimirlo)
     st.markdown(base_css + theme_css, unsafe_allow_html=True)
 
 # --- 3. LÓGICA Y VARIABLES ---
