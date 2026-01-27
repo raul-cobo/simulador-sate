@@ -27,9 +27,9 @@ except ImportError:
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V64.6 - Base v50.8 + Colores Oryon) ---
+# --- 2. GESTIÓN DE ESTILOS (V64.7 - CSS DEFINITIVO ORYON) ---
 def inject_style(mode):
-    # Base CSS (Idéntico a v50.8 + contenedor logo)
+    # Base CSS (Idéntico a v50.8)
     base_css = """
     <style>
         header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
@@ -41,7 +41,7 @@ def inject_style(mode):
     """
     
     if mode == "login":
-        # TEMA ORYON: Estructura v50.8 pero con tus colores y tamaño
+        # TEMA ORYON (TU CSS EXACTO)
         theme_css = """
         <style>
             .stApp { background-color: #FFFFFF !important; }
@@ -50,7 +50,7 @@ def inject_style(mode):
             h1 { 
                 color: #050A1F !important; 
                 font-family: 'Helvetica Neue', sans-serif;
-                font-size: 4rem !important; /* Aquí aplicamos el aumento de tamaño */
+                font-size: 4rem !important; 
                 font-weight: 800 !important;
                 text-align: center;
             }
@@ -91,7 +91,7 @@ def inject_style(mode):
         """
         
     elif mode == "dashboard":
-        # TEMA DASHBOARD (Oscuro)
+        # TEMA DASHBOARD (Oscuro Profesional)
         theme_css = """
         <style>
             .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
@@ -101,7 +101,7 @@ def inject_style(mode):
         """
         
     else:
-        # TEMA TEST (Copia exacta v50.8 para no romper)
+        # TEMA TEST (El original v50.8 intacto)
         theme_css = """
         <style>
             .stApp { background-color: #0E1117 !important; color: #FAFAFA !important; }
