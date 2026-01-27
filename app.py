@@ -273,7 +273,8 @@ def render_oryon_dashboard():
     with c2:
         st.subheader("Radar Promedio")
         fig_r = go.Figure(data=go.Scatterpolar(r=[75, 60, 85, 50, 70, 65, 55, 60], theta=['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.'], fill='toself'))
-        fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100]), showticklabels=False), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=350)
+        # CORRECCIÓN V59 (ESTA LÍNEA ESTÁ ARREGLADA)
+        fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False)), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=350)
         st.plotly_chart(fig_r, use_container_width=True)
 
     st.subheader("Expedientes Detallados")
@@ -321,7 +322,6 @@ elif st.session_state.get('auth', False):
         st.markdown("<br>", unsafe_allow_html=True)
         consent = st.checkbox("He leído y acepto la Política de Privacidad.")
         
-        # LÓGICA CORREGIDA AQUÍ
         if st.button("VALIDAR DATOS Y CONTINUAR"):
             if name and age and consent:
                 st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
