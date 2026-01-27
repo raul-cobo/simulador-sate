@@ -41,19 +41,32 @@ def inject_style(mode):
             h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
                 color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
             }
-            /* ESTILO DE LAS PESTAÑAS (TABS) */
+            
+            /* PESTAÑAS (TABS) */
             .stTabs [data-baseweb="tab-list"] { gap: 10px; justify-content: center; margin-bottom: 20px; }
             .stTabs [data-baseweb="tab"] {
                 height: 50px; background-color: #F0F2F6; border-radius: 5px; color: #000000; font-weight: bold; padding: 0 20px; border: 1px solid #ddd;
             }
-            .stTabs [aria-selected="true"] { background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F; }
+            .stTabs [aria-selected="true"] { background-color: #0F2489 !important; color: #FFFFFF !important; border: 1px solid #0F2489; }
 
             .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
+            
+            /* BOTONES AZULES (ORYON) */
             .stButton > button {
-                background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F !important;
-                border-radius: 8px !important; font-weight: bold !important; width: 100%; padding: 0.5rem 1rem;
+                background-color: #0F2489 !important; /* AZUL ORYON */
+                color: #FFFFFF !important; 
+                border: none !important;
+                border-radius: 8px !important; 
+                font-weight: 800 !important; 
+                width: 100%; 
+                padding: 16px;
+                font-size: 1.1rem !important;
+                transition: all 0.3s ease;
             }
-            .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
+            .stButton > button:hover { 
+                background-color: #0a1860 !important; /* AZUL MÁS OSCURO AL PASAR EL RATÓN */
+                transform: scale(1.02);
+            }
             
             .login-title { color: #050A1F !important; font-size: 2.5rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
             .login-subtitle { color: #666666 !important; font-size: 1.2rem !important; text-align: center; margin-bottom: 2rem !important; }
@@ -65,7 +78,7 @@ def inject_style(mode):
             h1, h2, h3, h4, p, label { color: #FFFFFF !important; }
             .stDataFrame { border: 1px solid #5D5FEF; border-radius: 5px; }
         """
-    else: # APP MODE (TEST)
+    else: # APP MODE
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
@@ -308,7 +321,7 @@ elif st.session_state.get('auth', False):
         st.markdown("<br>", unsafe_allow_html=True)
         consent = st.checkbox("He leído y acepto la Política de Privacidad.")
         
-        # AQUÍ ESTABA EL ERROR DE SINTAXIS EN LA V56 - CORREGIDO
+        # LÓGICA CORREGIDA AQUÍ
         if st.button("VALIDAR DATOS Y CONTINUAR"):
             if name and age and consent:
                 st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
@@ -394,11 +407,11 @@ else:
             st.markdown('<div class="login-card">', unsafe_allow_html=True)
             pwd = st.text_input("Clave de Candidato", type="password", key="pwd_cand")
             if st.button("ACCESO EMPRENDEDOR", use_container_width=True):
-                # CLAVE POR DEFECTO PARA EMERGENCIA: "admin"
+                # INTENTA ACCEDER A SECRETS, SI FALLA USA UNA CLAVE POR DEFECTO PARA NO ROMPER LA DEMO
                 try:
                     true_pwd = st.secrets["general"]["password"]
                 except:
-                    true_pwd = "admin" 
+                    true_pwd = "admin" # Clave de emergencia por si no tienes secrets.toml
                 
                 if pwd == true_pwd: 
                     st.session_state.auth = True; st.rerun()
