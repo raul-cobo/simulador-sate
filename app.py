@@ -27,12 +27,7 @@ except ImportError:
 # --- 1. CONFIGURACIÓN INICIAL ---
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
-# --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
-# --- 2. GESTIÓN DE ESTILOS (CORREGIDO) ---
-# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
-# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
-# --- 2. GESTIÓN DE ESTILOS (V64 - Títulos Grandes + Botón Azul) ---
-# --- 2. GESTIÓN DE ESTILOS (V64.3 - Color Oryon Real) ---
+# --- 2. GESTIÓN DE ESTILOS (V64.4 - Colores Corporativos Oryon) ---
 def inject_style(mode):
     # Variables de texto separadas para limpieza absoluta
     
@@ -49,55 +44,53 @@ def inject_style(mode):
     <style>
         .stApp {background-color: #FFFFFF !important;}
         
-        /* TÍTULO GIGANTE (H1) */
+        /* TÍTULO (Estilo basado en tu snippet) */
         h1 {
-            color: #0E1117 !important; 
+            color: #050A1F !important; /* Azul Oscuro Corporativo */
             font-family: 'Helvetica Neue', sans-serif;
-            font-size: 5rem !important; /* 500% más grande */
-            font-weight: 900 !important;
+            font-size: 4rem !important; /* Tamaño Grande para presentación */
+            font-weight: 800 !important; /* Grosor Extra */
             text-align: center;
             line-height: 1.1 !important;
             margin-bottom: 10px !important;
         }
         
-        /* SUBTÍTULO (Párrafo HTML) */
+        /* SUBTÍTULO */
         div[data-testid="stMarkdownContainer"] p { 
-            color: #555555 !important; 
-            font-size: 1.8rem !important; /* Subtítulo grande */
-            font-weight: 600 !important;
+            color: #666666 !important; /* Gris elegante */
+            font-size: 1.5rem !important;
             text-align: center;
+            margin-bottom: 2rem !important;
         }
 
         /* RENGLÓN DE CLAVE (INPUT) - BLANCO */
         .stTextInput input {
-            background-color: #FFFFFF !important; /* Fondo Blanco */
-            color: #000000 !important; /* Texto Negro */
-            border: 2px solid #0F2489 !important; /* Borde Azul Oryon Fino */
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border: 2px solid #0F2489 !important; /* Borde Azul Oryon */
             border-radius: 8px; 
             padding: 15px;
         }
         
-        /* ETIQUETAS DE TEXTO (Labels) */
-        .stTextInput label, .stTextInput div {
-            color: #000000 !important;
-            font-size: 1.2rem !important;
+        .stTextInput label {
+            color: #050A1F !important;
             font-weight: bold !important;
         }
         
         /* BOTÓN AZUL ORYON (#0F2489) */
         .stButton button {
-            background-color: #0F2489 !important; /* TU COLOR EXACTO */
-            color: #FFFFFF !important; /* Letra Blanca */
+            background-color: #0F2489 !important;
+            color: #FFFFFF !important;
             border-radius: 8px; 
-            padding: 20px; /* Botón más alto */
+            padding: 20px;
             width: 100%; 
             border: none;
-            font-weight: 800; /* Letra gorda */
-            font-size: 1.5rem !important; /* Letra grande */
+            font-weight: 800;
+            font-size: 1.5rem !important;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
         .stButton button:hover {
-            background-color: #0a1860 !important; /* Un poco más oscuro al pasar el ratón */
+            background-color: #0a1860 !important;
             color: #FFFFFF !important;
             transform: scale(1.02);
         }
