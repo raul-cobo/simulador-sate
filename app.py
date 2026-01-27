@@ -42,7 +42,7 @@ def inject_style(mode):
                 color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
             }
             
-            /* ESTILO DE LAS PESTAÑAS (TABS) */
+            /* ESTILO DE LAS PESTAÑAS (TABS) PARA QUE SE VEAN BIEN */
             .stTabs [data-baseweb="tab-list"] { gap: 10px; justify-content: center; margin-bottom: 20px; }
             .stTabs [data-baseweb="tab"] {
                 height: 50px; background-color: #F0F2F6; border-radius: 5px; color: #000000; font-weight: bold; padding: 0 20px; border: 1px solid #ddd;
@@ -66,7 +66,7 @@ def inject_style(mode):
             h1, h2, h3, h4, p, label { color: #FFFFFF !important; }
             .stDataFrame { border: 1px solid #5D5FEF; border-radius: 5px; }
         """
-    else: # APP MODE (TEST)
+    else: # APP MODE
         theme_css = """
             .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
             h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
@@ -283,14 +283,14 @@ def render_header():
     with c2: st.markdown("""<div style="margin-top: 10px;"><p class="header-title-text">Simulador S.A.P.E.</p><p class="header-sub-text">Sistema de Análisis de la Personalidad Emprendedora</p></div>""", unsafe_allow_html=True)
     st.markdown("---")
 
-# --- 4. EJECUCIÓN PRINCIPAL (LÓGICA FINAL) ---
+# --- 4. EJECUCIÓN PRINCIPAL ---
 init_session()
 
-# 1. SI YA HAY SESIÓN DE ORYON -> PANEL
+# SI YA ESTAMOS LOGUEADOS EN ORYON -> PANEL
 if st.session_state.get('oryon_auth', False):
     render_oryon_dashboard()
 
-# 2. SI YA HAY SESIÓN DE CANDIDATO -> TEST
+# SI YA ESTAMOS LOGUEADOS COMO CANDIDATO -> TEST
 elif st.session_state.get('auth', False):
     inject_style("app") 
     
@@ -369,7 +369,7 @@ elif st.session_state.get('auth', False):
         st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
         if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
 
-# 3. SI NO HAY SESIÓN -> PANTALLA DE LOGIN UNIFICADA
+# SI NO ESTAMOS LOGUEADOS EN NINGUNO -> PANTALLA UNIFICADA DE LOGIN
 else:
     inject_style("login")
     
@@ -380,7 +380,7 @@ else:
         st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
         st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
         
-        # --- SOLUCIÓN: PESTAÑAS (TABS) ---
+        # --- AQUÍ ESTÁ LA SOLUCIÓN: PESTAÑAS ---
         tab1, tab2 = st.tabs(["👤 Login Emprendedor/a", "🏢 Login Entidad"])
         
         with tab1:
@@ -391,7 +391,7 @@ else:
                 try:
                     true_pwd = st.secrets["general"]["password"]
                 except:
-                    true_pwd = "admin" # CLAVE DE EMERGENCIA
+                    true_pwd = "admin" # Clave de emergencia por si no tienes secrets.toml
                 
                 if pwd == true_pwd: 
                     st.session_state.auth = True; st.rerun()
