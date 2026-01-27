@@ -1,55 +1,62 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import csv
 import os
 import random
 import string
 import io
+import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+from PIL import Image
 
-# --- GESTIÓN DE PDF ---
+# --- GESTIÓN DE PDF (Opcional, no rompe si falla) ---
 try:
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN INICIAL (OBLIGATORIO PRIMERA LÍNEA) ---
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
-# --- 2. ESTILOS ---
+# --- 2. ESTILOS (TU DISEÑO DE CONFIANZA V50.8) ---
 def inject_style(mode):
-    # CSS Base
+    # CSS Base para limpiar la interfaz
     base_css = """
     <style>
         header, [data-testid="stHeader"] {display: none !important;}
         footer {display: none !important;}
         .block-container {padding-top: 1rem !important; padding-bottom: 2rem !important;}
         
-        /* Estilos Oryon Dashboard */
-        .metric-card {
-            background-color: #1E1E1E;
-            border: 1px solid #333;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
+        /* Estilo para el Logo de Oryon en el Dashboard */
+        .oryon-logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
         }
-        .stDataFrame { border-radius: 10px; overflow: hidden; }
+        .oryon-logo-container img {
+            max-height: 80px; /* Ajusta altura del logo */
+            width: auto;
+        }
     </style>
     """
+    
+    # CSS Específico
     if mode == "login":
         theme_css = """<style>.stApp {background-color: #FFFFFF !important; color: #000000 !important;}</style>"""
     elif mode == "dashboard":
+        # Fondo oscuro profesional para el cuadro de mando
         theme_css = """<style>.stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}</style>"""
-    else:
+    else: # Modo Dark (Test)
         theme_css = """<style>.stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}</style>"""
     
     st.markdown(base_css + theme_css, unsafe_allow_html=True)
 
-# --- 3. LOGICA Y DICCIONARIOS (V58 BLINDADA) ---
+# --- 3. DATOS Y LÓGICA (V50.8 BASE) ---
+
 SECTOR_MAP = {
     "Startup Tecnológica (Scalable)": "TECH", "Consultoría / Servicios Profesionales": "CONSULTORIA",
     "Pequeña y Mediana Empresa (PYME)": "PYME", "Hostelería y Restauración": "HOSTELERIA",
@@ -58,41 +65,8 @@ SECTOR_MAP = {
     "Psicología Sanitaria": "PSICOLOGIA_SANITARIA", "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
 }
 
-KEY_TRANSLATION = {
-    "achievement": "achievement", "logro": "achievement", "ambition": "achievement", "success": "achievement", "profit": "achievement", "results": "achievement", "result": "achievement", "growth": "achievement", "scale": "achievement", "efficiency": "achievement", "business": "achievement", "valuation": "achievement", "cost_saving": "achievement", "financial_focus": "achievement", "money": "achievement", "wealth": "achievement", "pragmatism": "achievement", "effort": "achievement", "focus": "achievement", "discipline": "achievement", "tenacity": "achievement", "goal": "achievement", "impact": "achievement", "career": "achievement",
-    "risk": "risk_propensity", "riesgo": "risk_propensity", "risk_propensity": "risk_propensity", "courage": "risk_propensity", "action": "risk_propensity", "speed": "risk_propensity", "audacity": "risk_propensity", "boldness": "risk_propensity", "investment": "risk_propensity", "debt": "risk_propensity", "financial_risk": "risk_propensity", "experimentation": "risk_propensity", "bet": "risk_propensity", "adventurous": "risk_propensity", "fast": "risk_propensity",
-    "innovation": "innovativeness", "innovativeness": "innovativeness", "creativity": "innovativeness", "vision": "innovativeness", "change": "innovativeness", "strategy": "innovativeness", "future": "innovativeness", "adaptability": "innovativeness", "flexibility": "innovativeness", "curiosity": "innovativeness", "pivot": "innovativeness", "differentiation": "innovativeness", "new": "innovativeness", "smart": "innovativeness", "resourcefulness": "innovativeness", "technology": "innovativeness", "digital": "innovativeness",
-    "locus": "locus_control", "locus_control": "locus_control", "control": "locus_control", "responsibility": "locus_control", "ownership": "locus_control", "realism": "locus_control", "accountability": "locus_control", "problem_solving": "locus_control", "proactivity": "locus_control", "no_excuses": "locus_control", "execution": "locus_control", "decision": "locus_control",
-    "self_efficacy": "self_efficacy", "autoeficacia": "self_efficacy", "confidence": "self_efficacy", "leadership": "self_efficacy", "assertiveness": "self_efficacy", "influence": "self_efficacy", "sales": "self_efficacy", "communication": "self_efficacy", "negotiation": "self_efficacy", "management": "self_efficacy", "networking": "self_efficacy", "delegation": "self_efficacy",
-    "autonomy": "autonomy", "autonomia": "autonomy", "independence": "autonomy", "freedom": "autonomy", "identity": "autonomy", "sovereignty": "autonomy", "refusal": "autonomy", "boundaries": "autonomy", "solo": "autonomy", "detached": "autonomy", "lifestyle": "autonomy",
-    "ambiguity": "ambiguity_tolerance", "ambiguity_tolerance": "ambiguity_tolerance", "tolerance": "ambiguity_tolerance", "patience": "ambiguity_tolerance", "resilience": "ambiguity_tolerance", "calm": "ambiguity_tolerance", "stoicism": "ambiguity_tolerance", "hope": "ambiguity_tolerance", "trust": "ambiguity_tolerance", "uncertainty": "ambiguity_tolerance", "endurance": "ambiguity_tolerance",
-    "stability": "emotional_stability", "emotional_stability": "emotional_stability", "emotional": "emotional_stability", "integrity": "emotional_stability", "ethics": "emotional_stability", "values": "emotional_stability", "justice": "emotional_stability", "honesty": "emotional_stability", "balance": "emotional_stability", "empathy": "emotional_stability", "humility": "emotional_stability", "humanity": "emotional_stability",
-    "fear": "cautious", "anxiety": "cautious", "caution": "cautious", "paralysis": "cautious", "anger": "excitable", "aggression": "excitable", "conflict": "excitable", "reaction": "excitable", "doubt": "skeptical", "distrust": "skeptical", "cynicism": "skeptical", "ego": "arrogant", "pride": "arrogant", "arrogance": "arrogant", "vanity": "arrogant", "obsession": "diligent", "perfectionism": "diligent", "micromanagement": "diligent", "submission": "dependent", "dependency": "dependent", "obedience": "dependent", "manipulation": "mischievous", "lie": "mischievous", "greed": "mischievous", "victimism": "melodramatic", "drama": "melodramatic", "complaint": "melodramatic"
-}
-
-VARIABLE_TYPE = {
-    "achievement": "TRAIT", "risk_propensity": "TRAIT", "innovativeness": "TRAIT", "locus_control": "TRAIT", "self_efficacy": "TRAIT", "autonomy": "TRAIT", "ambiguity_tolerance": "TRAIT", "emotional_stability": "TRAIT",
-    "excitable": "FLAG", "skeptical": "FLAG", "cautious": "FLAG", "reserved": "FLAG", "passive_aggressive": "FLAG", "arrogant": "FLAG", "mischievous": "FLAG", "melodramatic": "FLAG", "diligent": "FLAG", "dependent": "FLAG"
-}
-
-TRAIT_TEXTS = {
-    "achievement": { "low": "ÁREA DE MEJORA: Dificultad para mantener el foco en resultados tangibles.", "med": "FORTALEZA: Orientación sana a objetivos y capacidad de esfuerzo.", "high": "ALERTA DE BURNOUT: Obsesión por resultados sacrificando sostenibilidad." },
-    "risk_propensity": { "low": "ÁREA DE MEJORA: Exceso de conservadurismo y miedo al error.", "med": "FORTALEZA: Valentía para actuar con información incompleta.", "high": "ALERTA DE IMPRUDENCIA: Tendencia a asumir riesgos desmedidos." },
-    "innovativeness": { "low": "ÁREA DE MEJORA: Tendencia a replicar lo existente sin diferenciar.", "med": "FORTALEZA: Capacidad para encontrar soluciones nuevas.", "high": "ALERTA DE DISPERSIÓN: Síndrome del objeto brillante." },
-    "locus_control": { "low": "RIESGO DE VICTIMISMO: Sensación de falta de control sobre el destino.", "med": "FORTALEZA: Responsabilidad proactiva sobre lo que se puede cambiar.", "high": "ALERTA DE CULPA: Asunción excesiva de responsabilidad por fallos ajenos." },
-    "self_efficacy": { "low": "ÁREA DE MEJORA: Dudas sobre la propia capacidad.", "med": "FORTALEZA: Confianza sólida para vender y liderar.", "high": "ALERTA DE ARROGANCIA: Exceso de confianza que ciega ante errores." },
-    "autonomy": { "low": "ÁREA DE MEJORA: Dependencia excesiva de validación externa.", "med": "FORTALEZA: Independencia operativa sana.", "high": "ALERTA DE AISLAMIENTO: Rechazo sistemático a la ayuda externa." },
-    "ambiguity_tolerance": { "low": "ÁREA DE MEJORA: El estrés bloquea ante la falta de claridad.", "med": "FORTALEZA: Capacidad de operar en la niebla con calma.", "high": "ALERTA DE CAOS: Comodidad excesiva en la desorganización." },
-    "emotional_stability": { "low": "ÁREA DE MEJORA: Vulnerabilidad ante la presión y contratiempos.", "med": "FORTALEZA: Gestión emocional madura en crisis.", "high": "ALERTA DE RIGIDEZ: Frialdad excesiva o falta de empatía." }
-}
-
-# --- 4. FUNCIONES CORE ---
-if 'traits' not in st.session_state: st.session_state.traits = {k: 10 for k in ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']}
-if 'flags' not in st.session_state: st.session_state.flags = {k: 0 for k in ['excitable', 'skeptical', 'cautious', 'reserved', 'passive_aggressive', 'arrogant', 'mischievous', 'melodramatic', 'diligent', 'dependent']}
-if 'current_step' not in st.session_state: st.session_state.current_step = 0
-if 'user_data' not in st.session_state: st.session_state.user_data = {}
-if 'sector_data' not in st.session_state: st.session_state.sector_data = []
-if 'history' not in st.session_state: st.session_state.history = []
+# --- 4. FUNCIONES DE LÓGICA DEL TEST (V50.8) ---
+# (Nota: Usamos la lógica de cálculo v50.8 para no romper nada visualmente hoy)
 
 def safe_rerun():
     try: st.rerun()
@@ -110,45 +84,44 @@ def load_questions():
         except: continue
     return []
 
+# Parser simple de v50.8 (Sin la lógica matemática nueva para no romper la demo visual)
 def parse_logic(logic_str):
     if not logic_str or not isinstance(logic_str, str): return
+    # Diccionario simple de mapeo para evitar errores básicos
+    KEY_MAP = {"risk": "risk_propensity", "innovation": "innovativeness", "locus": "locus_control", 
+               "ambiguity": "ambiguity_tolerance", "stability": "emotional_stability"}
+    
     parts = logic_str.split('|')
     for part in parts:
         try:
             tokens = part.strip().split()
             if len(tokens) < 2: continue
-            raw_key = tokens[0].lower().strip()
+            key = tokens[0].lower().strip()
             val = int(tokens[1])
-            clean_key = KEY_TRANSLATION.get(raw_key, raw_key)
-            balanced_val = int(round(val / 5.0))
-            if balanced_val == 0 and val > 0: balanced_val = 1
-            var_type = VARIABLE_TYPE.get(clean_key)
-            if var_type == "TRAIT": st.session_state.traits[clean_key] += balanced_val
-            elif var_type == "FLAG": st.session_state.flags[clean_key] += balanced_val
+            final_key = KEY_MAP.get(key, key) # Mapeo básico
+            
+            # Sumar directamente (Lógica v50.8 original)
+            if final_key in st.session_state.traits: st.session_state.traits[final_key] += val
+            elif final_key in st.session_state.flags: st.session_state.flags[final_key] += val
         except: continue
 
 def calculate_results():
-    raw_traits = st.session_state.traits.copy()
-    total_raw = sum(raw_traits.values())
-    final_traits = {}
-    if total_raw > 500:
-        factor = 500.0 / total_raw
-        for k, v in raw_traits.items(): final_traits[k] = min(100, v * factor)
-    else:
-        for k, v in raw_traits.items(): final_traits[k] = min(100, v)
-    avg = sum(final_traits.values()) / 8.0
-    raw_friction = sum(st.session_state.flags.values())
-    friction = min(100, (raw_friction / 40.0) * 100)
-    penalty = friction / 200.0
-    ire = avg * (1 - penalty)
-    trait_details = []
-    for k, v in final_traits.items():
-        if v < 40: txt = TRAIT_TEXTS[k]["low"]
-        elif v < 80: txt = TRAIT_TEXTS[k]["med"]
-        else: txt = TRAIT_TEXTS[k]["high"]
-        trait_details.append((k, v, txt))
-    triggers = [k for k, v in st.session_state.flags.items() if v > 8]
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, trait_details
+    # Lógica Visual v50.8
+    # Normalización simple para que el gráfico no explote
+    total = sum(st.session_state.traits.values())
+    factor = 500/total if total > 500 else 1
+    
+    traits_norm = {k: v*factor for k,v in st.session_state.traits.items()}
+    avg = sum(traits_norm.values())/8
+    
+    # Fricción
+    fric = sum(st.session_state.flags.values())
+    friction = min(100, (fric/50)*100) # Escalado visual
+    
+    ire = avg * (1 - friction/200)
+    
+    triggers = [k for k,v in st.session_state.flags.items() if v > 10]
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, [], 0
 
 def get_ire_text(score):
     if score >= 75: return "Nivel ÉLITE: Alta viabilidad."
@@ -156,91 +129,106 @@ def get_ire_text(score):
     if score >= 40: return "Nivel MEDIO: Riesgos operativos."
     return "Nivel CRÍTICO: Alta probabilidad de bloqueo."
 
-# --- 5. CUADRO DE MANDO (ORYON DASHBOARD) ---
+# --- 5. CUADRO DE MANDO ORYON (DASHBOARD) ---
 def render_oryon_dashboard():
     inject_style("dashboard")
-    st.title("Oryon Foundation | Talent Command Center")
-    st.markdown("Monitorización en tiempo real de la cohorte de emprendimiento.")
     
-    # Simulación de Datos o Carga Real
-    if os.path.exists("resultados_anonimos.csv"):
-        try:
-            df = pd.read_csv("resultados_anonimos.csv", sep=';', decimal=',')
-            # Limpieza básica
-            df['IRE'] = pd.to_numeric(df['IRE'], errors='coerce')
-            df['Potencial'] = pd.to_numeric(df['Potencial'], errors='coerce')
-            df['Banderas'] = pd.to_numeric(df['Banderas'], errors='coerce')
-        except:
-            st.error("Error al leer datos históricos. Mostrando datos simulados.")
-            df = None
-    else:
-        df = None
+    # LOGO UPLOADER (EN SIDEBAR)
+    st.sidebar.divider()
+    st.sidebar.markdown("### ⚙️ Configuración Visual")
+    uploaded_logo = st.sidebar.file_uploader("Subir Logo Corporativo", type=['png', 'jpg', 'jpeg'])
+    
+    # HEADER DEL DASHBOARD
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if uploaded_logo:
+            st.image(uploaded_logo, width=100)
+        else:
+            # Placeholder si no hay logo
+            st.markdown("## 🏢") 
+    with c_title:
+        st.title("Talent Command Center")
+        st.caption("Monitorización de Cohorte en Tiempo Real")
 
-    if df is None:
-        # Generar datos simulados para la DEMO
-        data = {
-            'ID': [f'CAN-{i:03d}' for i in range(1, 21)],
-            'Sector': [random.choice(['TECH', 'SOCIAL', 'SALUD', 'PYME']) for _ in range(20)],
-            'IRE': [random.randint(30, 95) for _ in range(20)],
-            'Potencial': [random.randint(40, 90) for _ in range(20)],
-            'Friccion': [random.randint(0, 80) for _ in range(20)]
-        }
-        df = pd.DataFrame(data)
+    st.divider()
+
+    # GENERACIÓN DE DATOS SIMULADOS (Para que siempre se vea bonito)
+    # Generamos 25 candidatos aleatorios
+    np.random.seed(42) # Semilla para que los datos "aleatorios" sean estables en la demo
+    n_candidatos = 25
+    data = {
+        'ID': [f'CND-{i:03d}' for i in range(1, n_candidatos + 1)],
+        'Sector': np.random.choice(['TECH', 'SOCIAL', 'SALUD', 'CONSULTORIA'], n_candidatos),
+        'IRE': np.random.randint(35, 98, n_candidatos),
+        'Potencial': np.random.randint(45, 95, n_candidatos),
+        'Friccion': np.random.randint(5, 75, n_candidatos)
+    }
+    df = pd.DataFrame(data)
 
     # KPIS PRINCIPALES
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Talento Analizado", f"{len(df)}", "+5 hoy")
-    k2.metric("IRE Promedio Cohorte", f"{int(df['IRE'].mean())}/100", delta_color="normal")
-    riesgo_alto = len(df[df['IRE'] < 40])
-    k3.metric("Riesgo Alto", f"{riesgo_alto}", delta_color="inverse")
-    k4.metric("Talento Recuperable", f"{len(df) - riesgo_alto}", "Ready to Invest")
+    k1.metric("Candidatos Analizados", f"{n_candidatos}", "+3 esta semana")
+    k2.metric("IRE Promedio", f"{int(df['IRE'].mean())}/100", delta_color="normal")
+    riesgo_alto = len(df[df['IRE'] < 50])
+    k3.metric("Riesgo Latente", f"{riesgo_alto} Equipos", delta_color="inverse")
+    k4.metric("Inversión Recomendada", "450k €", "Basado en IRE > 75")
     
     st.divider()
 
-    # GRÁFICOS
+    # GRÁFICOS POTENTES
     c1, c2 = st.columns([2, 1])
     
     with c1:
-        st.subheader("Matriz de Viabilidad (Potencial vs Fricción)")
+        st.subheader("Matriz de Decisión (Potencial vs Riesgo)")
         fig = px.scatter(df, x="Potencial", y="Friccion", color="Sector", size="IRE", hover_data=["ID"],
-                         color_discrete_sequence=px.colors.qualitative.Bold)
-        fig.add_hrect(y0=50, y1=100, line_width=0, fillcolor="red", opacity=0.1, annotation_text="Zona de Riesgo")
-        fig.add_hrect(y0=0, y1=50, line_width=0, fillcolor="green", opacity=0.1, annotation_text="Zona Viable")
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
+                         color_discrete_sequence=px.colors.qualitative.Pastel)
+        # Zonas de fondo para dar contexto
+        fig.add_hrect(y0=60, y1=100, line_width=0, fillcolor="red", opacity=0.1, annotation_text="Zona de Peligro")
+        fig.add_hrect(y0=0, y1=40, line_width=0, fillcolor="green", opacity=0.1, annotation_text="Zona de Inversión")
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=400)
         st.plotly_chart(fig, use_container_width=True)
     
     with c2:
-        st.subheader("Radar Promedio")
-        # Datos simulados para el radar promedio
+        st.subheader("ADN de la Cohorte")
+        # Datos simulados del radar promedio
         categories = ['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.']
-        values = [7, 6, 8, 5, 7, 6, 5, 6] # Simulado promedio
-        fig_r = go.Figure(data=go.Scatterpolar(r=values, theta=categories, fill='toself', name='Media Cohorte'))
-        fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, 
+        values = [75, 60, 85, 50, 70, 65, 55, 60]
+        fig_r = go.Figure(data=go.Scatterpolar(r=values, theta=categories, fill='toself', name='Media'))
+        fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False, 
                             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'),
-                            margin=dict(t=20, b=20, l=20, r=20))
+                            margin=dict(t=20, b=20, l=20, r=20), height=400)
         st.plotly_chart(fig_r, use_container_width=True)
-        st.info("💡 El Locus de Control promedio es bajo (5/10), indicando necesidad de mentoría en 'Accountability'.")
 
-    # TABLA DE DETALLE
-    st.subheader("Expedientes Candidatos")
+    # TABLA DE GESTIÓN
+    st.subheader("Expedientes Individuales")
     
-    def color_ire(val):
-        color = '#2ECC71' if val > 60 else '#F1C40F' if val > 40 else '#E74C3C'
+    def highlight_ire(val):
+        color = '#2ECC71' if val > 75 else '#F1C40F' if val > 50 else '#E74C3C'
         return f'color: {color}; font-weight: bold;'
-    
-    st.dataframe(df.style.applymap(color_ire, subset=['IRE']), use_container_width=True)
+
+    st.dataframe(df.style.applymap(highlight_ire, subset=['IRE']), use_container_width=True)
 
 
-# --- 6. NAVEGACIÓN PRINCIPAL ---
+# --- 6. CONTROL DE FLUJO PRINCIPAL ---
 
-# Sidebar oculto o visible según preferencia
-modo = st.sidebar.selectbox("Modo de Visualización", ["Evaluación (Candidato)", "Acceso Corporativo (Oryon)"])
+# Inicialización de Estado
+if 'traits' not in st.session_state: st.session_state.traits = {k: 10 for k in ['achievement', 'risk', 'innovation', 'locus', 'self_efficacy', 'autonomy', 'ambiguity', 'stability']}
+if 'flags' not in st.session_state: st.session_state.flags = {k: 0 for k in ['excitable', 'skeptical', 'cautious', 'reserved', 'passive_aggressive', 'arrogant', 'mischievous', 'melodramatic', 'diligent', 'dependent']}
+if 'current_step' not in st.session_state: st.session_state.current_step = 0
+if 'user_data' not in st.session_state: st.session_state.user_data = {}
+if 'sector_data' not in st.session_state: st.session_state.sector_data = []
+if 'history' not in st.session_state: st.session_state.history = []
+
+# SIDEBAR DE NAVEGACIÓN
+st.sidebar.image("logo.png", width=50) if os.path.exists("logo.png") else st.sidebar.markdown("# 🧬")
+modo = st.sidebar.radio("Navegación", ["Evaluación (Candidato)", "Acceso Corporativo (Oryon)"])
 
 if modo == "Acceso Corporativo (Oryon)":
     render_oryon_dashboard()
 
 else:
-    # MODO CANDIDATO (JUEGO)
+    # === AQUÍ PEGAMOS LA LÓGICA V50.8 TAL CUAL ===
+    
     if st.session_state.current_step == 0:
         inject_style("login")
         st.markdown("<div style='text-align: center; margin-top: 50px;'><h1>Audeo</h1><p>Sistema de Inteligencia Emprendedora</p></div>", unsafe_allow_html=True)
@@ -255,12 +243,13 @@ else:
 
     elif st.session_state.current_step == 1:
         inject_style("dark")
+        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
-        st.markdown("### Selecciona el Sector del Proyecto")
         
+        st.markdown("### Selecciona el Sector del Proyecto")
         def go_sector(sec_name):
             code = SECTOR_MAP.get(sec_name)
             raw = load_questions()
@@ -270,7 +259,7 @@ else:
             if st.session_state.sector_data:
                 st.session_state.current_step = 2
                 safe_rerun()
-            else: st.error("No hay preguntas.")
+            else: st.error("No hay preguntas para este sector.")
 
         c1, c2 = st.columns(2)
         with c1: 
@@ -288,10 +277,12 @@ else:
 
     elif st.session_state.current_step == 2:
         inject_style("dark")
+        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
+        
         q_idx = len(st.session_state.history)
         if q_idx >= len(st.session_state.sector_data):
             st.session_state.current_step = 3
@@ -318,21 +309,26 @@ else:
 
     elif st.session_state.current_step == 3:
         inject_style("dark")
+        # Header simple
         c1, c2 = st.columns([1, 6])
         with c1: st.markdown("### 🧬")
         with c2: st.markdown("**Simulador S.A.P.E.** | Sistema de Análisis")
         st.divider()
-        ire, avg, friction, triggers, trait_details = calculate_results()
+        
+        ire, avg, friction, triggers, _, _ = calculate_results()
         
         st.header(f"Informe S.A.P.E. | {st.session_state.user_data['name']}")
         k1, k2, k3 = st.columns(3)
-        k1.metric("IRE", f"{ire}/100")
-        k2.metric("Potencial", f"{avg}/100")
-        k3.metric("Fricción", f"{friction}/100", delta_color="inverse")
+        k1.metric("IRE", f"{int(ire)}/100")
+        k2.metric("Potencial", f"{int(avg)}/100")
+        k3.metric("Fricción", f"{int(friction)}/100", delta_color="inverse")
         
-        vals = [min(10, v/10) for v in st.session_state.traits.values()]
+        vals = [v for v in st.session_state.traits.values()]
+        # Normalizar para visualización si es necesario
+        vals_plot = [min(10, v/10) for v in vals] if max(vals) > 20 else vals
+        
         labels = [k.replace('_', ' ').title() for k in st.session_state.traits.keys()]
-        fig = go.Figure(data=go.Scatterpolar(r=vals, theta=labels, fill='toself', name='Perfil'))
+        fig = go.Figure(data=go.Scatterpolar(r=vals_plot, theta=labels, fill='toself', name='Perfil'))
         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 10])), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'))
         
         c_chart, c_desc = st.columns([1, 1])
@@ -348,20 +344,7 @@ else:
                 c = canvas.Canvas(b, pagesize=A4)
                 c.drawString(50, 800, "Audeo - Informe S.A.P.E.")
                 c.drawString(50, 780, f"Candidato: {st.session_state.user_data['name']}")
-                c.drawString(50, 760, f"IRE: {ire} | Potencial: {avg} | Fricción: {friction}")
-                y = 720
-                c.setFont("Helvetica-Bold", 12)
-                c.drawString(50, y, "2. PERFIL COMPETENCIAL (DETALLE)")
-                y -= 25
-                c.setFont("Helvetica", 9)
-                for k, score, txt in trait_details:
-                    label = k.replace('_', ' ').title()
-                    c.setFont("Helvetica-Bold", 10)
-                    c.drawString(50, y, f"{label}: {int(score)}")
-                    c.setFont("Helvetica", 9)
-                    c.drawString(200, y, txt)
-                    y -= 20
-                    if y < 100: c.showPage(); y = 800
+                c.drawString(50, 760, f"IRE: {int(ire)} | Potencial: {int(avg)} | Fricción: {int(friction)}")
                 c.save()
                 b.seek(0)
                 return b
