@@ -28,60 +28,65 @@ except ImportError:
 st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout="wide")
 
 # --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
+# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON STYLE) ---
 def inject_style(mode):
+    # CSS Base para limpiar la interfaz (común a todo)
     base_css = """
-        header, [data-testid="stHeader"], .stAppHeader { display: none !important; }
-        div[data-testid="stDecoration"] { display: none !important; }
-        footer { display: none !important; }
-        .main .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; max-width: 95% !important; }
+    <style>
+        header, [data-testid="stHeader"] {display: none !important;}
+        footer {display: none !important;}
+        .block-container {padding-top: 1rem !important; padding-bottom: 2rem !important;}
+        
+        /* Clases para el Dashboard de Oryon */
+        .oryon-logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+    </style>
     """
     
+    # Seleccionamos el tema según el modo
     if mode == "login":
+        # TEMA BLANCO (Para Login inicial y Contraseña Oryon)
         theme_css = """
-            .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
-            h1, h2, h3, h4, p, label, div[data-testid="stMarkdownContainer"] p { 
-                color: #0E1117 !important; font-family: 'Helvetica', sans-serif;
+        <style>
+            .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
+            h1, h2, h3, p, label, div[data-testid="stMarkdownContainer"] p { 
+                color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
             }
-            .stTextInput input { background-color: #F8F9FA !important; color: #000000 !important; border: 1px solid #E0E0E0 !important; }
-            .stButton > button {
-                background-color: #050A1F !important; color: #FFFFFF !important; border: 1px solid #050A1F !important;
-                border-radius: 8px !important; font-weight: bold !important; width: 100%; padding: 0.5rem 1rem;
-            }
-            .stButton > button:hover { background-color: #5D5FEF !important; border-color: #5D5FEF !important; }
-            .stButton > button p { color: #FFFFFF !important; }
-            .login-title { color: #050A1F !important; font-size: 2rem !important; font-weight: 800 !important; text-align: center; margin: 0 !important; }
-            .login-subtitle { color: #666666 !important; font-size: 1rem !important; text-align: center; margin-bottom: 2rem !important; }
-            .login-card { padding: 1rem; text-align: center; }
+            .stTextInput input {border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000;}
+            .stButton button {background-color: #000000; color: #FFFFFF; border-radius: 8px; padding: 12px; width: 100%; border: none;}
+            .stButton button:hover {background-color: #333333; color: #FFFFFF;}
+        </style>
         """
-    else:
+    elif mode == "dashboard":
+        # TEMA ORYON (Oscuro Profesional para Gráficos)
         theme_css = """
-            .stApp { background-color: #050A1F !important; color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, label, span, div[data-testid="stMarkdownContainer"] p { color: #FFFFFF !important; }
-            .stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-                background-color: #0F1629 !important; color: #FFFFFF !important; border: 1px solid #5D5FEF !important;
-            }
-            div[role="listbox"] div { background-color: #0F1629 !important; color: white !important; }
-            .stCheckbox label p { color: white !important; }
-            .stButton > button { background-color: #1A202C !important; color: white !important; border: 1px solid #5D5FEF !important; border-radius: 8px; }
-            .stButton > button:hover { border-color: white !important; background-color: #5D5FEF !important; }
-            
-            div[data-testid="column"] button {
-                 height: 180px !important; min-height: 180px !important;
-                 background-color: #0F1629 !important; border: 2px solid #2D3748 !important;
-                 color: white !important; font-size: 26px !important; font-weight: 700 !important; line-height: 1.3 !important;
-                 border-radius: 16px !important; white-space: pre-wrap !important; 
-                 display: flex !important; align-items: center !important; justify-content: center !important;
-                 margin-bottom: 1rem !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3) !important;
-            }
-            div[data-testid="column"] button:hover { border-color: #5D5FEF !important; background-color: #1a2236 !important; transform: translateY(-2px); }
-            div[data-testid="column"] button:disabled { border-color: #2D3748 !important; opacity: 0.6; cursor: not-allowed; }
-
-            .header-title-text { font-size: 3.5rem !important; font-weight: 800 !important; color: white !important; margin: 0; line-height: 1.1; }
-            .header-sub-text { font-size: 1.5rem !important; color: #5D5FEF !important; margin: 0; font-weight: 500; }
-            .diag-text { background-color: #0F1629; padding: 15px; border-radius: 8px; border-left: 4px solid #5D5FEF; }
-            .stDownloadButton > button { background-color: #5D5FEF !important; color: white !important; border: none !important; font-weight: bold !important; }
+        <style>
+            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
+            .stDataFrame {border: 1px solid #333; border-radius: 5px;}
+            h1, h2, h3, p, label {color: #FAFAFA !important;}
+        </style>
         """
-    st.markdown(f"<style>{base_css}\n{theme_css}</style>", unsafe_allow_html=True)
+    else: 
+        # TEMA TEST (Oscuro Estándar v50.8 - INTACTO)
+        theme_css = """
+        <style>
+            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
+            h1, h2, h3, h4, p {color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif;}
+            .stButton button {
+                background-color: #262730; color: white; border: 1px solid #41444C;
+                border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
+            }
+            .stButton button:hover {
+                border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+            }
+            .metric-card {background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center;}
+        </style>
+        """
+    
+    st.markdown(base_css + theme_css, unsafe_allow_html=True)
 
 # --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
