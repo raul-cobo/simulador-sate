@@ -256,11 +256,12 @@ def render_oryon_dashboard():
         'Friccion': np.random.randint(5, 75, n_candidatos)
     })
 
-    k1, k2, k3, k4 = st.columns(4)
+    # KPI'S - MODIFICADO: Solo 3 columnas, eliminado Capital Asignable
+    k1, k2, k3 = st.columns(3)
     k1.metric("Candidatos", f"{n_candidatos}")
     k2.metric("IRE Promedio", f"{int(df['IRE'].mean())}/100")
     k3.metric("Riesgo Alto", f"{len(df[df['IRE'] < 50])}", delta_color="inverse")
-    k4.metric("Capital Asignable", "450k €")
+    
     st.divider()
 
     c1, c2 = st.columns([2, 1])
@@ -273,7 +274,7 @@ def render_oryon_dashboard():
     with c2:
         st.subheader("Radar Promedio")
         fig_r = go.Figure(data=go.Scatterpolar(r=[75, 60, 85, 50, 70, 65, 55, 60], theta=['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.'], fill='toself'))
-        # CORRECCIÓN V59 (ESTA LÍNEA ESTÁ ARREGLADA)
+        # GRÁFICO CORREGIDO (V59)
         fig_r.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100], showticklabels=False)), showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=350)
         st.plotly_chart(fig_r, use_container_width=True)
 
