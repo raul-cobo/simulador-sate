@@ -30,8 +30,9 @@ st.set_page_config(page_title="Audeo | Oryon Edition", page_icon="🧬", layout=
 # --- 2. GESTIÓN DE ESTILOS (V40 ESTABLE) ---
 # --- 2. GESTIÓN DE ESTILOS (CORREGIDO) ---
 # --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
+# --- 2. GESTIÓN DE ESTILOS (V50.8 + ORYON) ---
 def inject_style(mode):
-    # CSS Base (Limpia la cabecera y el pie de página)
+    # Definimos los bloques de texto por separado para evitar errores de impresión
     base_css = """
     <style>
         header, [data-testid="stHeader"] {display: none !important;}
@@ -41,52 +42,48 @@ def inject_style(mode):
     </style>
     """
     
-    # Inicializamos la variable vacía por seguridad
-    theme_css = ""
-    
-    # Seleccionamos el CSS según el modo
+    login_css = """
+    <style>
+        .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
+        h1, h2, h3, p, label, div[data-testid="stMarkdownContainer"] p { 
+            color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
+        }
+        .stTextInput input {border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000;}
+        .stButton button {background-color: #000000; color: #FFFFFF; border-radius: 8px; padding: 12px; width: 100%; border: none;}
+        .stButton button:hover {background-color: #333333; color: #FFFFFF;}
+    </style>
+    """
+
+    dashboard_css = """
+    <style>
+        .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
+        .stDataFrame {border: 1px solid #333; border-radius: 5px;}
+        h1, h2, h3, p, label {color: #FAFAFA !important;}
+    </style>
+    """
+
+    test_css = """
+    <style>
+        .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
+        h1, h2, h3, h4, p {color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif;}
+        .stButton button {
+            background-color: #262730; color: white; border: 1px solid #41444C;
+            border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
+        }
+        .stButton button:hover {
+            border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+        }
+        .metric-card {background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center;}
+    </style>
+    """
+
+    # Lógica de selección
     if mode == "login":
-        theme_css = """
-        <style>
-            .stApp {background-color: #FFFFFF !important; color: #000000 !important;}
-            h1, h2, h3, p, label, div[data-testid="stMarkdownContainer"] p { 
-                color: #0E1117 !important; font-family: 'Helvetica Neue', sans-serif;
-            }
-            .stTextInput input {border: 1px solid #E0E0E0; border-radius: 8px; padding: 12px; color: #000000;}
-            .stButton button {background-color: #000000; color: #FFFFFF; border-radius: 8px; padding: 12px; width: 100%; border: none;}
-            .stButton button:hover {background-color: #333333; color: #FFFFFF;}
-        </style>
-        """
+        st.markdown(base_css + login_css, unsafe_allow_html=True)
     elif mode == "dashboard":
-        theme_css = """
-        <style>
-            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
-            .stDataFrame {border: 1px solid #333; border-radius: 5px;}
-            h1, h2, h3, p, label {color: #FAFAFA !important;}
-        </style>
-        """
-    else: 
-        # TEMA V50.8 ORIGINAL (Para el test)
-        theme_css = """
-        <style>
-            .stApp {background-color: #0E1117 !important; color: #FAFAFA !important;}
-            h1, h2, h3, h4, p {color: #FAFAFA !important; font-family: 'Helvetica Neue', sans-serif;}
-            .stButton button {
-                background-color: #262730; color: white; border: 1px solid #41444C;
-                border-radius: 8px; padding: 16px 24px; font-size: 16px; transition: all 0.3s ease;
-            }
-            .stButton button:hover {
-                border-color: #FAFAFA; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255,255,255,0.1);
-            }
-            .metric-card {background-color: #1F2937; padding: 20px; border-radius: 12px; border: 1px solid #374151; text-align: center;}
-        </style>
-        """
-    
-    # Inyectamos el estilo final
-    st.markdown(base_css + theme_css, unsafe_allow_html=True)
-    
-    # 3. Inyección Final (Esto aplica el estilo sin imprimirlo)
-    st.markdown(base_css + theme_css, unsafe_allow_html=True)
+        st.markdown(base_css + dashboard_css, unsafe_allow_html=True)
+    else:
+        st.markdown(base_css + test_css, unsafe_allow_html=True)
 
 # --- 3. LÓGICA Y VARIABLES ---
 LABELS_ES = { "achievement": "Necesidad de Logro", "risk_propensity": "Propensión al Riesgo", "innovativeness": "Innovatividad", "locus_control": "Locus de Control Interno", "self_efficacy": "Autoeficacia", "autonomy": "Autonomía", "ambiguity_tolerance": "Tol. Ambigüedad", "emotional_stability": "Estabilidad Emocional" }
