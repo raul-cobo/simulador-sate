@@ -205,16 +205,20 @@ def parse_logic(logic_str):
 
 # --- ALGORITMO DE NORMALIZACIÓN DINÁMICA ---
 def get_sector_max_scores(sector_data):
-    """Calcula el máximo posible sumando los 1, 2 y 3 del Excel"""
+    """Calcula máximos por rasgo Y máximo total del juego"""
     max_scores = {k: 0 for k in LABELS_ES.keys()}
+    total_game_points = 0  # Nuevo acumulador escalar
     
     for row in sector_data:
-        question_max = {k: 0 for k in LABELS_ES.keys()}
+        question_max_per_trait = {k: 0 for k in LABELS_ES.keys()}
+        max_points_in_this_question = 0 # El máximo que se podía sacar en esta pregunta (sea cual sea el rasgo)
         
-        # Revisamos las 4 opciones posibles
         for col in ['OPCION_A_LOGIC', 'OPCION_B_LOGIC', 'OPCION_C_LOGIC', 'OPCION_D_LOGIC']:
             logic = row.get(col)
             if not logic: continue
+            
+            # Calculamos cuántos puntos da esta opción en total
+            option_points = 0
             
             for action in logic.split('|'):
                 parts = action.replace(":", " ").strip().split()
@@ -222,22 +226,29 @@ def get_sector_max_scores(sector_data):
                 
                 trait_key = parts[0].lower().strip()
                 trait = VARIABLE_MAP.get(trait_key)
-                try: val = int(parts[1]) # Leemos sin dividir
+                try: val = int(parts[1])
                 except: continue
                 
-                # Si da puntos positivos, es candidato al "Techo" de esa competencia
-                if trait in question_max and val > 0:
-                    question_max[trait] = max(question_max[trait], val)
-        
-        # Acumulamos al total del sector
-        for k, v in question_max.items():
-            max_scores[k] += v
+                # Si es rasgo positivo, suma al máximo del rasgo
+                if trait in question_max_per_trait and val > 0:
+                    question_max_per_trait[trait] = max(question_max_per_trait[trait], val)
+                
+                # También sumamos para ver cuál es la "mejor opción" de la pregunta
+                if val > 0: option_points += val
             
-    # Evitar división por cero
+            max_points_in_this_question = max(max_points_in_this_question, option_points)
+            
+        # Acumulamos
+        for k, v in question_max_per_trait.items():
+            max_scores[k] += v
+        total_game_points += max_points_in_this_question
+
+    # Evitar div/0
     for k in max_scores:
         if max_scores[k] == 0: max_scores[k] = 1
+    if total_game_points == 0: total_game_points = 1
         
-    return max_scores
+    return max_scores, total_game_points
             
     # Evitar división por cero
     for k in max_scores:
@@ -246,27 +257,30 @@ def get_sector_max_scores(sector_data):
     return max_scores
 
 def calculate_results():
-    # 1. Obtenemos el techo real del examen
-    max_possibles = get_sector_max_scores(st.session_state.data)
+    max_possibles, total_game_points = get_sector_max_scores(st.session_state.data)
     
-    # 2. Normalizamos (Tus Puntos / Techo * 100)
+    # 1. Normalizamos el Octógono (para el dibujo del radar)
     octagon_norm = {}
     for k, raw_val in st.session_state.octagon.items():
         ratio = (raw_val / max_possibles[k]) * 100
         octagon_norm[k] = int(max(0, min(100, ratio)))
     
-    avg = round(np.mean(list(octagon_norm.values())), 2)
+    # 2. POTENCIAL (NUEVA FÓRMULA: EFICIENCIA)
+    # Sumamos todos tus puntos y los comparamos con el máximo posible del juego
+    total_user_points = sum(st.session_state.octagon.values())
+    avg = (total_user_points / total_game_points) * 100
+    avg = round(max(0, min(100, avg)), 2)
     
-    # 3. Fricción Ajustada a Escala Corta
-    # En escala 1-3, sumar 30 puntos de descarriladores es MUY ALTO.
+    # 3. Fricción (Relajada)
+    # Subimos el techo a 60 puntos. (Antes era 30 y por eso salía 100% enseguida)
     raw_friction = sum(st.session_state.flags.values())
-    friction = min(100, (raw_friction / 30.0) * 100) # Usamos 30.0 como divisor
+    friction = min(100, (raw_friction / 60.0) * 100)
     
+    # Cálculo IRE
     penalty_factor = friction / 200.0 
     ire = avg * (1 - penalty_factor)
     ire = min(100, max(0, ire))
     
-    # Triggers: Alerta si un solo descarrilador pasa de 4 puntos
     triggers = [k for k, v in st.session_state.flags.items() if v > 4]
     
     fric_reasons = []
@@ -275,8 +289,7 @@ def calculate_results():
     
     delta = round(avg - ire, 2)
     
-    # Devolvemos octagon_norm para pintar el gráfico lleno
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm, max_possibles
 
 def get_ire_text(s): 
     if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
