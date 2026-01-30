@@ -205,19 +205,19 @@ def parse_logic(logic_str):
 
 # --- ALGORITMO DE NORMALIZACIÓN DINÁMICA ---
 def get_sector_max_scores(sector_data):
-    """Calcula máximos por rasgo Y máximo total del juego"""
+    """Calcula máximos por rasgo Y máximo total del juego (CORREGIDO)"""
     max_scores = {k: 0 for k in LABELS_ES.keys()}
-    total_game_points = 0  # Nuevo acumulador escalar
+    total_game_points = 0 
     
     for row in sector_data:
         question_max_per_trait = {k: 0 for k in LABELS_ES.keys()}
-        max_points_in_this_question = 0 # El máximo que se podía sacar en esta pregunta (sea cual sea el rasgo)
+        max_points_in_this_question = 0 
         
         for col in ['OPCION_A_LOGIC', 'OPCION_B_LOGIC', 'OPCION_C_LOGIC', 'OPCION_D_LOGIC']:
             logic = row.get(col)
             if not logic: continue
             
-            # Calculamos cuántos puntos da esta opción en total
+            # Calculamos cuántos puntos de COMPETENCIA da esta opción
             option_points = 0
             
             for action in logic.split('|'):
@@ -229,13 +229,15 @@ def get_sector_max_scores(sector_data):
                 try: val = int(parts[1])
                 except: continue
                 
-                # Si es rasgo positivo, suma al máximo del rasgo
+                # 1. Si es rasgo del octógono, actualizamos su máximo individual
                 if trait in question_max_per_trait and val > 0:
                     question_max_per_trait[trait] = max(question_max_per_trait[trait], val)
                 
-                # También sumamos para ver cuál es la "mejor opción" de la pregunta
-                if val > 0: option_points += val
+                # 2. CAMBIO CLAVE: Solo sumamos al "bote total" si es una COMPETENCIA (no descarrilador)
+                if val > 0 and trait in LABELS_ES: 
+                    option_points += val
             
+            # El máximo de esta pregunta es la opción que más puntos de competencia daba
             max_points_in_this_question = max(max_points_in_this_question, option_points)
             
         # Acumulamos
