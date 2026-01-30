@@ -764,7 +764,7 @@ elif st.session_state.get('auth', False):
 
     else:
         render_header();
-        ire, avg, friction, triggers, fric_reasons, delta, octagon_norm = calculate_results()
+        ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
         
         st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data['name']}")
         k1, k2, k3 = st.columns(3)
