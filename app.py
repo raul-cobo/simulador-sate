@@ -160,69 +160,80 @@ def init_session():
 
 @st.cache_data
 def load_questions():
+    # CAMBIO: Apuntamos al archivo v2 (Escala Corta)
     filename = 'SATE_v2.csv'  
     if not os.path.exists(filename): return []
-    for enc in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
-        try:
-            with open(filename, encoding=enc, errors='strict') as f:
-                data = list(csv.DictReader(f, delimiter=';'))
-                if data and 'SECTOR' in data[0]: return data
-        except: continue
+    # 1. Intentar formato europeo (punto y coma)
+    try:
+        with open(filename, encoding='utf-8-sig', errors='replace') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            if data and 'SECTOR' in data[0]: return data
+    except: pass
+    # 2. Intentar formato americano (comas)
+    try:
+        with open(filename, encoding='utf-8-sig', errors='replace') as f:
+            data = list(csv.DictReader(f, delimiter=','))
+            if data and 'SECTOR' in data[0]: return data
+    except: pass
     return []
 
-# --- PARSE LOGIC (USANDO VALORES CRUDOS DIVIDIDOS) ---
+# --- PARSE LOGIC (USANDO solidos) ---
 def parse_logic(logic_str):
+    """Actualiza el estado sumando el valor directo (1, 2, 3)"""
     if not logic_str: return
-    # 1. Separamos las instrucciones por la barra vertical
+    
+    # Separamos por barra vertical
     for action in logic_str.split('|'):
-        parts = action.strip().split()
+        # Limpieza: quitamos los dos puntos y espacios extra
+        parts = action.replace(":", " ").strip().split()
         if len(parts) < 2: continue
         
-        # 2. Leemos el nombre del rasgo y el valor DIRECTAMENTE
-        var_code = parts[0].lower().replace(":", "").strip()
+        var_code = parts[0].lower().strip()
         try: 
-            val = int(parts[1]) # ¡SIN DIVIDIR! Leemos el 1, 2 o 3 tal cual.
+            # CAMBIO CRÍTICO: Leemos el entero DIRECTAMENTE. No dividimos.
+            val = int(parts[1])
         except: continue
         
         target = VARIABLE_MAP.get(var_code)
         if target:
-            if target in st.session_state.octagon: 
-                # Sumamos el valor directo
+            if target in st.session_state.octagon:
+                # Sumamos puntos al octógono
                 st.session_state.octagon[target] = max(0, st.session_state.octagon[target] + val)
-            elif target in st.session_state.flags: 
-                # Sumamos el valor directo a los descarriladores
+            elif target in st.session_state.flags:
+                # Sumamos puntos a los descarriladores
                 st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
 # --- ALGORITMO DE NORMALIZACIÓN DINÁMICA ---
 def get_sector_max_scores(sector_data):
-    """Calcula el máximo posible leyendo SATE_v2.csv"""
+    """Calcula el máximo posible sumando los 1, 2 y 3 del Excel"""
     max_scores = {k: 0 for k in LABELS_ES.keys()}
     
     for row in sector_data:
-        # Para cada pregunta, miramos cuál era la mejor opción para cada rasgo
         question_max = {k: 0 for k in LABELS_ES.keys()}
         
+        # Revisamos las 4 opciones posibles
         for col in ['OPCION_A_LOGIC', 'OPCION_B_LOGIC', 'OPCION_C_LOGIC', 'OPCION_D_LOGIC']:
             logic = row.get(col)
             if not logic: continue
             
             for action in logic.split('|'):
-                parts = action.strip().split()
+                parts = action.replace(":", " ").strip().split()
                 if len(parts) < 2: continue
                 
-                trait = VARIABLE_MAP.get(parts[0].lower().replace(":", "").strip())
-                try: val = int(parts[1])
+                trait_key = parts[0].lower().strip()
+                trait = VARIABLE_MAP.get(trait_key)
+                try: val = int(parts[1]) # Leemos sin dividir
                 except: continue
                 
-                # Si el rasgo es del octógono y da puntos positivos, es candidato a máximo
+                # Si da puntos positivos, es candidato al "Techo" de esa competencia
                 if trait in question_max and val > 0:
                     question_max[trait] = max(question_max[trait], val)
         
-        # Acumulamos los máximos
+        # Acumulamos al total del sector
         for k, v in question_max.items():
             max_scores[k] += v
             
-    # Evitamos dividir por cero si un rasgo no aparece
+    # Evitar división por cero
     for k in max_scores:
         if max_scores[k] == 0: max_scores[k] = 1
         
@@ -235,46 +246,36 @@ def get_sector_max_scores(sector_data):
     return max_scores
 
 def calculate_results():
-    # 1. Obtener máximos posibles para el sector actual (ya divididos por 4)
+    # 1. Obtenemos el techo real del examen
     max_possibles = get_sector_max_scores(st.session_state.data)
     
-    # 2. Normalizar Puntuaciones (0-100%)
+    # 2. Normalizamos (Tus Puntos / Techo * 100)
     octagon_norm = {}
     for k, raw_val in st.session_state.octagon.items():
-        # raw_val ya viene dividido por 4. max_possibles también.
-        # Ratio: Puntos obtenidos / Puntos posibles
-        norm_val = (raw_val / max_possibles[k]) * 100
-        octagon_norm[k] = int(max(0, min(100, norm_val)))
+        ratio = (raw_val / max_possibles[k]) * 100
+        octagon_norm[k] = int(max(0, min(100, ratio)))
     
-    # 3. Calcular Métricas Globales
     avg = round(np.mean(list(octagon_norm.values())), 2)
     
-    # Fricción (Descarriladores)
-    # Aquí usamos acumulación absoluta. Umbral de referencia: 200 puntos acumulados = 100% fricción
-    # Ajuste: Dividimos por 12.5 para que la escala tenga sentido con los valores reducidos (/4)
+    # 3. Fricción Ajustada a Escala Corta
+    # En escala 1-3, sumar 30 puntos de descarriladores es MUY ALTO.
     raw_friction = sum(st.session_state.flags.values())
-    # En escala 1-3, acumular 30 puntos de descarriladores ya es muchísimo riesgo.
-    # Usamos 30 como el divisor para normalizar al 100% de fricción.
-    friction = min(100, (raw_friction / 30.0) * 100)
+    friction = min(100, (raw_friction / 30.0) * 100) # Usamos 30.0 como divisor
     
-    # IRE
     penalty_factor = friction / 200.0 
     ire = avg * (1 - penalty_factor)
     ire = min(100, max(0, ire))
     
-    # Triggers (Descarriladores activados) > 3 puntos
-# Antes era > 15. Ahora con > 4 (haber elegido la opción "tóxica" un par de veces) ya es alerta.
+    # Triggers: Alerta si un solo descarrilador pasa de 4 puntos
     triggers = [k for k, v in st.session_state.flags.items() if v > 4]
-        
+    
     fric_reasons = []
     if friction > 25: fric_reasons.append("Se detectan patrones de comportamiento limitantes bajo presión.")
-    if "excitable" in triggers: fric_reasons.append("Riesgo de volatilidad emocional o reactividad.")
-    if "cautious" in triggers: fric_reasons.append("Riesgo de parálisis por análisis o aversión al cambio.")
-    if "skeptical" in triggers: fric_reasons.append("Dificultad para confiar y delegar.")
-    if "arrogant" in triggers: fric_reasons.append("Posible exceso de confianza o subestimación de riesgos.")
-    if "mischievous" in triggers: fric_reasons.append("Tendencia a tomar atajos éticos o riesgos imprudentes.")
+    if triggers: fric_reasons.append(f"Riesgos detectados: {', '.join(triggers)}.")
     
     delta = round(avg - ire, 2)
+    
+    # Devolvemos octagon_norm para pintar el gráfico lleno
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm
 
 def get_ire_text(s): 
