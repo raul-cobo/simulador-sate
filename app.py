@@ -259,38 +259,81 @@ def get_sector_max_scores(sector_data):
     return max_scores
 
 def calculate_results():
+    # 1. Obtenemos máximos y puntos totales
     max_possibles, total_game_points = get_sector_max_scores(st.session_state.data)
     
-    # 1. Normalizamos el Octógono (para el dibujo del radar)
+    # 2. Calculamos los porcentajes (Octógono)
     octagon_norm = {}
     for k, raw_val in st.session_state.octagon.items():
-        ratio = (raw_val / max_possibles[k]) * 100
+        # Evitamos división por cero
+        techo = max_possibles.get(k, 1)
+        if techo == 0: techo = 1
+        
+        ratio = (raw_val / techo) * 100
         octagon_norm[k] = int(max(0, min(100, ratio)))
+
+    # --- 3. NUEVO: INFERENCIA DE DESCARRILADORES ---
+    # Como el Excel está limpio, calculamos la fricción basándonos en los extremos.
+    inferred_flags = {
+        "excitable": 0, "skeptical": 0, "cautious": 0, "reserved": 0,
+        "passive_aggressive": 0, "arrogant": 0, "mischievous": 0,
+        "melodramatic": 0, "diligent": 0, "dependent": 0
+    }
     
-    # 2. POTENCIAL (NUEVA FÓRMULA: EFICIENCIA)
-    # Sumamos todos tus puntos y los comparamos con el máximo posible del juego
+    # REGLAS DE LA SOMBRA (Excesos y Defectos)
+    # Intensidad: Asignamos puntos de fricción según la gravedad del extremo
+    
+    # Logro
+    if octagon_norm["achievement"] > 90: inferred_flags["diligent"] = 8  # Obsesión
+    if octagon_norm["achievement"] < 30: inferred_flags["passive_aggressive"] = 6 # Dejadez
+    
+    # Riesgo
+    if octagon_norm["risk_propensity"] > 90: inferred_flags["mischievous"] = 10 # Peligro alto
+    if octagon_norm["risk_propensity"] < 30: inferred_flags["cautious"] = 8 # Miedo
+    
+    # Innovación
+    if octagon_norm["innovativeness"] > 90: inferred_flags["excitable"] = 6 # Caos
+    if octagon_norm["innovativeness"] < 30: inferred_flags["skeptical"] = 6 # Cierre mental
+    
+    # Autonomía
+    if octagon_norm["autonomy"] > 90: inferred_flags["reserved"] = 6 # Aislamiento
+    if octagon_norm["autonomy"] < 30: inferred_flags["dependent"] = 8 # Dependencia severa
+    
+    # Autoeficacia
+    if octagon_norm["self_efficacy"] > 90: inferred_flags["arrogant"] = 8 # Soberbia
+    
+    # Estabilidad (Si es muy baja, hay drama)
+    if octagon_norm["emotional_stability"] < 30: inferred_flags["melodramatic"] = 8
+    
+    # Guardamos estas banderas generadas en el estado para que el PDF las vea
+    st.session_state.flags = inferred_flags
+
+    # 4. Cálculo de Métricas Finales
+    # Potencial (Eficiencia Global)
     total_user_points = sum(st.session_state.octagon.values())
     avg = (total_user_points / total_game_points) * 100
     avg = round(max(0, min(100, avg)), 2)
     
-    # 3. Fricción (Relajada)
-    # Subimos el techo a 60 puntos. (Antes era 30 y por eso salía 100% enseguida)
-    raw_friction = sum(st.session_state.flags.values())
-    friction = min(100, (raw_friction / 60.0) * 100)
+    # Fricción Total (Suma de los riesgos detectados)
+    # El techo de fricción lo ponemos en 40 puntos (si acumulas 40 pts de riesgos, es 100% fricción)
+    raw_friction = sum(inferred_flags.values())
+    friction = min(100, (raw_friction / 40.0) * 100)
     
-    # Cálculo IRE
+    # IRE
     penalty_factor = friction / 200.0 
     ire = avg * (1 - penalty_factor)
     ire = min(100, max(0, ire))
     
-    triggers = [k for k, v in st.session_state.flags.items() if v > 4]
+    # Textos para el informe
+    triggers = [k for k, v in inferred_flags.items() if v > 0]
     
     fric_reasons = []
-    if friction > 25: fric_reasons.append("Se detectan patrones de comportamiento limitantes bajo presión.")
-    if triggers: fric_reasons.append(f"Riesgos detectados: {', '.join(triggers)}.")
+    if friction > 20: fric_reasons.append("Se detectan descompensaciones por exceso o defecto en competencias clave.")
+    if triggers: fric_reasons.append(f"Riesgos Inferred: {', '.join(triggers)}.")
     
     delta = round(avg - ire, 2)
     
+    # Devolvemos 8 valores
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm, max_possibles
 
 def get_ire_text(s): 
