@@ -259,63 +259,115 @@ def get_sector_max_scores(sector_data):
     return max_scores
 
 def calculate_results():
-    # 1. Obtenemos máximos y puntos totales
+    # 1. Obtener datos y normalizar
     max_possibles, total_game_points = get_sector_max_scores(st.session_state.data)
     
-    # 2. Calculamos los porcentajes (Octógono)
     octagon_norm = {}
     for k, raw_val in st.session_state.octagon.items():
-        # Evitamos división por cero
         techo = max_possibles.get(k, 1)
         if techo == 0: techo = 1
-        
         ratio = (raw_val / techo) * 100
         octagon_norm[k] = int(max(0, min(100, ratio)))
 
-    # --- 3. NUEVO: INFERENCIA DE DESCARRILADORES ---
-    # Como el Excel está limpio, calculamos la fricción basándonos en los extremos.
+    scores = octagon_norm 
+    
+    # Inicializamos banderas
     inferred_flags = {
         "excitable": 0, "skeptical": 0, "cautious": 0, "reserved": 0,
         "passive_aggressive": 0, "arrogant": 0, "mischievous": 0,
         "melodramatic": 0, "diligent": 0, "dependent": 0
     }
     
-    # REGLAS DE LA SOMBRA (Excesos y Defectos)
-    # Intensidad: Asignamos puntos de fricción según la gravedad del extremo
+    special_observations = [] # Cambiamos nombre de variable interna también
+
+    # ---------------------------------------------------------
+    # A) REGLA ESTÁNDAR (Semáforo Verde hasta 90%)
+    # Solo marca si > 90 (Exceso) o < 30 (Defecto)
+    # ---------------------------------------------------------
     
     # Logro
-    if octagon_norm["achievement"] > 90: inferred_flags["diligent"] = 8  # Obsesión
-    if octagon_norm["achievement"] < 30: inferred_flags["passive_aggressive"] = 6 # Dejadez
+    if scores["achievement"] >= 90: inferred_flags["diligent"] = 8
+    if scores["achievement"] <= 30: inferred_flags["passive_aggressive"] = 6
     
     # Riesgo
-    if octagon_norm["risk_propensity"] > 90: inferred_flags["mischievous"] = 10 # Peligro alto
-    if octagon_norm["risk_propensity"] < 30: inferred_flags["cautious"] = 8 # Miedo
+    if scores["risk_propensity"] >= 90: inferred_flags["mischievous"] = 8
+    if scores["risk_propensity"] <= 30: inferred_flags["cautious"] = 8
     
     # Innovación
-    if octagon_norm["innovativeness"] > 90: inferred_flags["excitable"] = 6 # Caos
-    if octagon_norm["innovativeness"] < 30: inferred_flags["skeptical"] = 6 # Cierre mental
+    if scores["innovativeness"] >= 90: inferred_flags["excitable"] = 8
+    if scores["innovativeness"] <= 30: inferred_flags["skeptical"] = 6
     
     # Autonomía
-    if octagon_norm["autonomy"] > 90: inferred_flags["reserved"] = 6 # Aislamiento
-    if octagon_norm["autonomy"] < 30: inferred_flags["dependent"] = 8 # Dependencia severa
+    if scores["autonomy"] >= 90: inferred_flags["reserved"] = 8
+    if scores["autonomy"] <= 30: inferred_flags["dependent"] = 8
     
     # Autoeficacia
-    if octagon_norm["self_efficacy"] > 90: inferred_flags["arrogant"] = 8 # Soberbia
+    if scores["self_efficacy"] >= 90: inferred_flags["arrogant"] = 8
     
-    # Estabilidad (Si es muy baja, hay drama)
-    if octagon_norm["emotional_stability"] < 30: inferred_flags["melodramatic"] = 8
-    
-    # Guardamos estas banderas generadas en el estado para que el PDF las vea
+    # Estabilidad
+    if scores["emotional_stability"] <= 30: inferred_flags["melodramatic"] = 8
+
+    # ---------------------------------------------------------
+    # B) COMBINATORIAS EXTREMAS (Umbral especial 75/30)
+    # Detecta perfiles complejos antes de llegar al 90
+    # ---------------------------------------------------------
+
+    # 1. LIDERAZGO TÓXICO
+    if (scores["achievement"] >= 75 and 
+        scores["emotional_stability"] <= 30 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("LIDERAZGO TÓXICO")
+        inferred_flags["excitable"] = 10 
+        inferred_flags["diligent"] = 10
+
+    # 2. IDEÓLOGO SIN ACCIÓN
+    if (scores["innovativeness"] >= 75 and 
+        scores["self_efficacy"] >= 75 and 
+        scores["achievement"] <= 30):
+        special_observations.append("IDEÓLOGO SIN ACCIÓN")
+        inferred_flags["arrogant"] = 10
+        inferred_flags["mischievous"] = 8
+
+    # 3. MICROMANAGER EXCESIVO
+    if (scores["risk_propensity"] <= 30 and 
+        scores["autonomy"] <= 30 and 
+        scores["achievement"] >= 75):
+        special_observations.append("MICROMANAGER EXCESIVO")
+        inferred_flags["cautious"] = 10
+        inferred_flags["diligent"] = 10
+
+    # 4. EXCESIVAMENTE ARRIESGADO
+    if (scores["risk_propensity"] >= 75 and 
+        scores["self_efficacy"] >= 75 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("EXCESIVAMENTE ARRIESGADO")
+        inferred_flags["mischievous"] = 10
+
+    # 5. EJECUCIÓN MECÁNICA
+    # (Usamos Estabilidad como proxy de tolerancia al estrés/presión positiva aquí)
+    if (scores["innovativeness"] <= 30 and 
+        scores["autonomy"] <= 30 and 
+        scores["emotional_stability"] >= 75):
+        special_observations.append("EJECUCIÓN MECÁNICA")
+        inferred_flags["dependent"] = 10
+        inferred_flags["skeptical"] = 8
+
+    # 6. RESISTENCIA PASIVA
+    if (scores["achievement"] <= 30 and 
+        scores["autonomy"] >= 75 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("RESISTENCIA PASIVA")
+        inferred_flags["passive_aggressive"] = 10
+
+    # Guardamos banderas
     st.session_state.flags = inferred_flags
 
-    # 4. Cálculo de Métricas Finales
-    # Potencial (Eficiencia Global)
+    # --- CÁLCULO FINAL DE MÉTRICAS ---
     total_user_points = sum(st.session_state.octagon.values())
     avg = (total_user_points / total_game_points) * 100
     avg = round(max(0, min(100, avg)), 2)
     
-    # Fricción Total (Suma de los riesgos detectados)
-    # El techo de fricción lo ponemos en 40 puntos (si acumulas 40 pts de riesgos, es 100% fricción)
+    # Fricción
     raw_friction = sum(inferred_flags.values())
     friction = min(100, (raw_friction / 40.0) * 100)
     
@@ -328,12 +380,17 @@ def calculate_results():
     triggers = [k for k, v in inferred_flags.items() if v > 0]
     
     fric_reasons = []
-    if friction > 20: fric_reasons.append("Se detectan descompensaciones por exceso o defecto en competencias clave.")
-    if triggers: fric_reasons.append(f"Riesgos Inferred: {', '.join(triggers)}.")
     
+    # --- AQUÍ ESTÁ EL CAMBIO DE TONO ---
+    if special_observations:
+        # Usamos un tono azul informativo (ℹ️) en lugar de alerta roja (⚠️)
+        fric_reasons.append(f"ℹ️ Observación: {', '.join(special_observations)}")
+    
+    elif friction > 20:
+        fric_reasons.append("Se observan áreas de desarrollo por descompensación.")
+        
     delta = round(avg - ire, 2)
     
-    # Devolvemos 8 valores
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm, max_possibles
 
 def get_ire_text(s): 
