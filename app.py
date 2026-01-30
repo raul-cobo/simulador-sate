@@ -296,7 +296,7 @@ def get_ire_text(s):
     if s > 50: return "Nivel de Viabilidad: MEDIO (Requiere Ajustes)"
     return "Nivel de Viabilidad: BAJO (Riesgo Operativo)"
 
-ddef radar_chart():
+def radar_chart():
     if st.session_state.finished:
         # AQUÍ ESTABA EL ERROR:
         # Antes: _, _, _, _, _, _, octagon_data = calculate_results()
