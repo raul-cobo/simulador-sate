@@ -296,10 +296,13 @@ def get_ire_text(s):
     if s > 50: return "Nivel de Viabilidad: MEDIO (Requiere Ajustes)"
     return "Nivel de Viabilidad: BAJO (Riesgo Operativo)"
 
-def radar_chart():
-    # Usamos los datos normalizados
+ddef radar_chart():
     if st.session_state.finished:
-        _, _, _, _, _, _, octagon_data = calculate_results()
+        # AQUÍ ESTABA EL ERROR:
+        # Antes: _, _, _, _, _, _, octagon_data = calculate_results()
+        # Ahora: Recogemos todo en una variable 'res' y sacamos lo que queremos por índice
+        results = calculate_results()
+        octagon_data = results[6] # El índice 6 es 'octagon_norm'
     else:
         octagon_data = {k:0 for k in LABELS_ES.keys()}
         
