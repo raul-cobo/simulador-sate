@@ -584,17 +584,18 @@ def draw_radar_on_pdf(p, data, x, y, r):
     path.close()
     p.drawPath(path, fill=1, stroke=1)
 
-def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats):
+# --- FUNCIÓN PDF RESTAURADA Y COMPLETA ---
+def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats, diagnostico=None):
     if not PDF_AVAILABLE: return None
     
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
     w, h = A4
     
-    # 1. PÁGINA 1
+    # --- PÁGINA 1 ---
     draw_page_header(p, w, h)
     
-    # DATOS
+    # DATOS CABECERA
     y = h - 130
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10)
@@ -603,20 +604,77 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawString(40, y-30, f"Sector: {user.get('sector', 'N/A')}")
     p.drawRightString(w-40, y, f"Candidato: {user.get('name', 'N/A')}")
     
-    # SECCIÓN 1: MÉTRICAS
-    y -= 70
+    # -------------------------------------------------------
+    # BLOQUE NUEVO: CAJA DE DIAGNÓSTICO (Solo si existe)
+    # -------------------------------------------------------
+    y -= 50
+    if diagnostico:
+        # Preparar datos
+        titulo = diagnostico.get('name', 'Diagnóstico')
+        
+        # Recuperar riesgo
+        if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
+        elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
+        else: nivel = "ALERTA"
+            
+        desc = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary') or ""
+        
+        # Color según riesgo
+        if "CRÍTICO" in nivel: r,g,b = 0.9, 0.3, 0.23 # Rojo
+        elif "ALTO" in nivel or "ALERTA" in nivel: r,g,b = 0.94, 0.76, 0.06 # Amarillo
+        else: r,g,b = 0.18, 0.8, 0.44 # Verde
+        
+        # Dibujar Caja (Fondo y Borde)
+        box_height = 80 # Altura base
+        p.setStrokeColorRGB(r,g,b)
+        p.setFillColorRGB(r,g,b, 0.1) 
+        p.roundRect(40, y-box_height, w-80, box_height+10, 4, fill=1, stroke=1)
+        
+        # Barra lateral
+        p.setFillColorRGB(r,g,b)
+        p.rect(40, y-box_height, 5, box_height+10, fill=1, stroke=0)
+        
+        # Textos dentro de la caja
+        p.setFillColorRGB(r,g,b)
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(55, y-15, titulo)
+        
+        p.setFillColorRGB(0,0,0)
+        p.setFont("Helvetica-Bold", 10)
+        p.drawString(55, y-30, f"Nivel: {nivel}")
+        
+        p.setFont("Helvetica", 9)
+        p.setFillColorRGB(0.3, 0.3, 0.3)
+        
+        # Ajuste de texto largo de la descripción
+        text_obj = p.beginText(55, y - 45)
+        lines = textwrap.wrap(desc, width=95)
+        for line in lines[:3]: # Permitimos hasta 3 líneas
+            text_obj.textLine(line)
+        p.drawText(text_obj)
+        
+        y -= (box_height + 30) # Bajamos el cursor para lo siguiente
+
+    # -------------------------------------------------------
+    # SECCIÓN 1: MÉTRICAS PRINCIPALES
+    # -------------------------------------------------------
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    
+    p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "1. Métricas Principales")
     y -= 25
     
+    # Potencial
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"POTENCIAL ({avg}/100):")
     p.setFont("Helvetica", 9); 
     desc_pot = "Nivel Alto." if avg > 70 else "Nivel Medio." if avg > 50 else "Nivel Bajo."
     p.drawString(160, y, desc_pot)
     y -= 12
     p.setFillColorRGB(0.3, 0.3, 0.3)
-    p.drawString(40, y, "Recursos cognitivos y actitudinales basales para afrontar la complejidad operativa.")
+    p.drawString(40, y, "Recursos cognitivos basales.")
     
-    y -= 30
+    # Fricción
+    y -= 25
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"FRICCIÓN ({friction}/100):")
     p.setFont("Helvetica", 9);
@@ -624,117 +682,144 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawString(160, y, desc_fric)
     y -= 12
     p.setFillColorRGB(0.3, 0.3, 0.3)
-    p.drawString(40, y, "Presencia de conductas de comprobación, validación externa o cautela que ralentizan.")
+    p.drawString(40, y, "Conductas que ralentizan la ejecución.")
 
-    y -= 30
-    p.setFillColorRGB(0,0,0)
-    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"DELTA (Diferencial) ({delta}):")
-    p.setFont("Helvetica", 9); p.drawString(200, y, "Pérdida de eficiencia.")
-    y -= 12
-    p.setFillColorRGB(0.3, 0.3, 0.3)
-    p.drawString(40, y, f"Discrepancia entre el Potencial ({avg}) y el IRE ({ire}). Coste operativo autoimpuesto.")
-
-    y -= 30
+    # IRE
+    y -= 25
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"IRE FINAL ({ire}/100):")
     p.setFont("Helvetica", 9);
-    desc_ire = "Viabilidad técnica confirmada." if ire > 50 else "Nivel comprometido. Riesgos de continuidad."
+    desc_ire = "Viabilidad técnica confirmada." if ire > 50 else "Riesgos de continuidad."
     p.drawString(160, y, desc_ire)
 
     y -= 20
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8)
     p.line(40, y, w-40, y)
 
-    # SECCIÓN 2: ANÁLISIS DIMENSIONAL
+    # -------------------------------------------------------
+    # SECCIÓN 2: ANÁLISIS DIMENSIONAL (BARRAS)
+    # -------------------------------------------------------
     y -= 30
-    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. Análisis Dimensional (Perfil Competencial)")
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. Análisis Dimensional")
     y -= 25
 
-    # 2.1 BARRAS GRÁFICAS (AJUSTADAS V67)
-    bar_x = 260
-    bar_w = 250
-    bar_h = 10
+    bar_x = 260; bar_w = 250; bar_h = 10
     seg1 = bar_w * 0.25; seg2 = bar_w * 0.35; seg3 = bar_w * 0.30; seg4 = bar_w * 0.10
     
     for k, score in stats.items():
-        if y < 100: 
+        if y < 60: # Salto de página si no cabe la barra
             p.showPage(); draw_page_header(p, w, h); y = h - 130
         
         lbl = LABELS_ES.get(k, k)
         p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 9); p.drawString(40, y, lbl)
         p.drawRightString(bar_x - 10, y, f"{score}")
         
+        # Fondo barra gris
         p.setStrokeColorRGB(0.9,0.9,0.9); p.setFillColorRGB(0.95, 0.95, 0.95)
         p.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=1)
         
+        # Colores barra
         cur_x = bar_x
         w1 = min(score, 25) / 25 * seg1
-        if w1 > 0:
-            p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(cur_x, y, w1, bar_h, fill=1, stroke=0)
-            cur_x += w1
+        if w1 > 0: p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(cur_x, y, w1, bar_h, fill=1, stroke=0); cur_x += w1
         if score > 25:
-            rem_score2 = score - 25
-            w2 = min(rem_score2, 35) / 35 * seg2
-            p.setFillColorRGB(0.94, 0.76, 0.06); p.rect(bar_x + seg1, y, w2, bar_h, fill=1, stroke=0)
+            w2 = min(score-25, 35)/35*seg2; p.setFillColorRGB(0.94, 0.76, 0.06); p.rect(bar_x+seg1, y, w2, bar_h, fill=1, stroke=0)
         if score > 60:
-            rem_score3 = score - 60
-            w3 = min(rem_score3, 30) / 30 * seg3
-            p.setFillColorRGB(0.18, 0.8, 0.44); p.rect(bar_x + seg1 + seg2, y, w3, bar_h, fill=1, stroke=0)
+            w3 = min(score-60, 30)/30*seg3; p.setFillColorRGB(0.18, 0.8, 0.44); p.rect(bar_x+seg1+seg2, y, w3, bar_h, fill=1, stroke=0)
         if score > 90:
-            rem_score4 = score - 90
-            w4 = min(rem_score4, 10) / 10 * seg4
-            p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(bar_x + seg1 + seg2 + seg3, y, w4, bar_h, fill=1, stroke=0)
+            w4 = min(score-90, 10)/10*seg4; p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(bar_x+seg1+seg2+seg3, y, w4, bar_h, fill=1, stroke=0)
         y -= 15
 
     y -= 15
-    # 2.2 FORTALEZAS
-    fortalezas = {k:v for k,v in stats.items() if v >= 60}
-    mejoras = {k:v for k,v in stats.items() if v < 60}
-    
-    if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
-    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Fortalezas Consolidadas")
-    y -= 15
-    p.setFont("Helvetica", 9)
-    for k, v in fortalezas.items():
-        lbl = LABELS_ES.get(k, k)
-        desc = get_competency_desc(k, v)
-        p.setFont("Helvetica-Bold", 9); p.drawString(40, y, f"• {lbl} ({v}/100):")
-        text_obj = p.beginText(40, y - 10); text_obj.setFont("Helvetica", 8); text_obj.setFillColorRGB(0.3,0.3,0.3)
-        lines = textwrap.wrap(desc, width=90)
-        for line in lines: text_obj.textLine(line)
-        p.drawText(text_obj)
-        y -= (12 + (len(lines)*10))
-        if y < 80: p.showPage(); draw_page_header(p, w, h); y = h - 130
-
-    y -= 10
-    # 2.3 ÁREAS DE DESARROLLO
-    if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
-    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(40, y, "Áreas de Desarrollo")
-    y -= 15
-    p.setFont("Helvetica", 9)
-    for k, v in mejoras.items():
-        lbl = LABELS_ES.get(k, k)
-        desc = get_competency_desc(k, v)
-        p.setFont("Helvetica-Bold", 9); p.drawString(40, y, f"• {lbl} ({v}/100):")
-        text_obj = p.beginText(40, y - 10); text_obj.setFont("Helvetica", 8); text_obj.setFillColorRGB(0.3,0.3,0.3)
-        lines = textwrap.wrap(desc, width=90)
-        for line in lines: text_obj.textLine(line)
-        p.drawText(text_obj)
-        y -= (12 + (len(lines)*10))
-        if y < 80: p.showPage(); draw_page_header(p, w, h); y = h - 130
-
-    y -= 10
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8)
     p.line(40, y, w-40, y)
 
-    # 3. FRICCIÓN
+    # -------------------------------------------------------
+    # SECCIÓN 2.2: FORTALEZAS (COMPLETO)
+    # -------------------------------------------------------
+    fortalezas = {k:v for k,v in stats.items() if v >= 60}
+    
+    y -= 30
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.2 Fortalezas Consolidadas")
+    y -= 20
+
+    if not fortalezas:
+        p.setFont("Helvetica-Oblique", 9); p.drawString(40, y, "No se detectan fortalezas destacadas (>60).")
+        y -= 20
+    else:
+        for k, v in fortalezas.items():
+            # Descripción larga
+            lbl = LABELS_ES.get(k, k)
+            desc = get_competency_desc(k, v) # Función auxiliar que ya tienes
+            
+            # Verificar espacio para el bloque entero
+            lines = textwrap.wrap(desc, width=90)
+            altura_necesaria = 15 + (len(lines)*10)
+            if y < altura_necesaria + 40: 
+                p.showPage(); draw_page_header(p, w, h); y = h - 130
+            
+            # Título fortaleza
+            p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
+            p.drawString(40, y, f"• {lbl} ({v}/100)")
+            y -= 12
+            
+            # Texto descripción
+            text_obj = p.beginText(40, y)
+            text_obj.setFont("Helvetica", 9); text_obj.setFillColorRGB(0.3,0.3,0.3)
+            for line in lines: text_obj.textLine(line)
+            p.drawText(text_obj)
+            y -= (len(lines)*10 + 10)
+
+    # -------------------------------------------------------
+    # SECCIÓN 2.3: ÁREAS DE DESARROLLO (COMPLETO)
+    # -------------------------------------------------------
+    mejoras = {k:v for k,v in stats.items() if v < 60}
+    
+    y -= 20
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.3 Áreas de Desarrollo")
+    y -= 20
+
+    if not mejoras:
+        p.setFont("Helvetica-Oblique", 9); p.drawString(40, y, "Perfil muy equilibrado sin áreas críticas.")
+        y -= 20
+    else:
+        for k, v in mejoras.items():
+            lbl = LABELS_ES.get(k, k)
+            desc = get_competency_desc(k, v)
+            
+            lines = textwrap.wrap(desc, width=90)
+            altura_necesaria = 15 + (len(lines)*10)
+            if y < altura_necesaria + 40: 
+                p.showPage(); draw_page_header(p, w, h); y = h - 130
+            
+            p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
+            p.drawString(40, y, f"• {lbl} ({v}/100)")
+            y -= 12
+            
+            text_obj = p.beginText(40, y)
+            text_obj.setFont("Helvetica", 9); text_obj.setFillColorRGB(0.3,0.3,0.3)
+            for line in lines: text_obj.textLine(line)
+            p.drawText(text_obj)
+            y -= (len(lines)*10 + 10)
+
+    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8)
+    p.line(40, y, w-40, y)
+
+    # -------------------------------------------------------
+    # SECCIÓN 3: FRICCIÓN (COMPLETO)
+    # -------------------------------------------------------
     y -= 30
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Análisis de la Fricción")
     y -= 20
+    
     if friction_reasons:
         p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
         for reason in friction_reasons:
+            if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
             p.drawString(40, y, f"• {reason}")
             y -= 15
     else:
@@ -746,13 +831,15 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8)
     p.line(40, y, w-40, y)
 
-    # 4. CONCLUSIÓN
+    # -------------------------------------------------------
+    # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (COMPLETO)
+    # -------------------------------------------------------
     y -= 30
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión y Recomendación")
     y -= 20
     
-    p.setFont("Helvetica", 9)
+    # Texto dinámico de conclusión
     conc = f"El perfil presenta un IRE de {ire}/100. "
     if ire > 50:
         conc += "El perfil es técnicamente viable. "
@@ -760,19 +847,24 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     else:
         conc += "Se recomienda reevaluar el encaje del perfil o establecer medidas correctivas urgentes."
     
-    text_obj = p.beginText(40, y)
-    text_obj.setFont("Helvetica", 9)
+    p.setFont("Helvetica", 9)
     lines_conc = textwrap.wrap(conc, width=100)
-    for line in lines_conc: text_obj.textLine(line)
-    p.drawText(text_obj)
-    y -= (len(lines_conc)*12 + 10)
-
+    for line in lines_conc:
+        if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
+        p.drawString(40, y, line)
+        y -= 12
+    
+    y -= 10
     p.setFont("Helvetica-Bold", 9)
-    p.drawString(40, y, "Recomendación: " + ("Trabajar en la reducción de tiempos de deliberación y aumentar velocidad." if friction > 30 else "Mantener el equilibrio actual."))
-    y -= 30
+    recomendacion = "Recomendación: " + ("Trabajar en la reducción de tiempos de deliberación y aumentar velocidad." if friction > 30 else "Mantener el equilibrio actual.")
+    p.drawString(40, y, recomendacion)
+    y -= 40
 
-    # RADAR FINAL
-    if y < 180: 
+    # -------------------------------------------------------
+    # GRÁFICO RADAR (AL FINAL)
+    # -------------------------------------------------------
+    # Si no cabe el radar (necesita unos 160px de alto), nueva página
+    if y < 160: 
         p.showPage(); draw_page_header(p, w, h); y = h - 130
     
     draw_radar_on_pdf(p, stats, w/2, y - 80, 70)
