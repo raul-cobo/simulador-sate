@@ -951,24 +951,51 @@ elif st.session_state.get('auth', False):
             st.success(f"✅ JSON cargado correctamente. Diagnóstico generado: {diagnostico.get('name') if diagnostico else 'Ninguno'}")
         # -------------------------------------
 
+        # --- BLOQUE DE DIAGNÓSTICO INTELIGENTE SAPE (CORREGIDO) ---
+        cerebro = cargar_cerebro_sape()
+        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+
         if diagnostico:
-            # Definir color según nivel de riesgo
-            nivel_riesgo = diagnostico.get('risk_level', 'BAJO')
+            # A. NORMALIZACIÓN DE DATOS (Para que funcione con Vectores, Descarriladores y Verde)
+            
+            # 1. Título
+            titulo = diagnostico.get('name', 'Diagnóstico SAPE')
+            
+            # 2. Nivel de Riesgo (Busca en varios sitios)
+            if 'risk_level' in diagnostico:
+                nivel_riesgo = diagnostico['risk_level']
+            elif 'verdict' in diagnostico:
+                nivel_riesgo = diagnostico['verdict']
+            else:
+                nivel_riesgo = "ALERTA DE COMPORTAMIENTO" # Default para descarriladores
+
+            # 3. Descripción (Busca description, risk_summary o summary)
+            descripcion = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary')
+
+            # 4. Impacto (Busca business_impact, business_risk o assets)
+            raw_impact = diagnostico.get('business_impact') or diagnostico.get('business_risk') or diagnostico.get('assets')
+            # Si es una lista, cogemos el primer punto. Si es texto, lo dejamos tal cual.
+            if isinstance(raw_impact, list):
+                impacto = raw_impact[0]
+            else:
+                impacto = raw_impact
+
+            # B. DECIDIR COLOR
             if "CRÍTICO" in nivel_riesgo:
                 color_caja = "#E74C3C"  # Rojo
-            elif "ALTO" in nivel_riesgo:
+            elif "ALTO" in nivel_riesgo or "ALERTA" in nivel_riesgo:
                 color_caja = "#F1C40F"  # Amarillo
             else:
                 color_caja = "#2ECC71"  # Verde
             
-            # Pintar la tarjeta HTML
+            # C. PINTAR LA CAJA
             st.markdown(f"""
-            <div style="padding: 20px; border-radius: 10px; border-left: 6px solid {color_caja}; background-color: #1A202C; margin-bottom: 25px; margin-top: 20px;">
-                <h3 style="color: {color_caja}; margin:0; font-size: 24px;">{diagnostico.get('name')}</h3>
-                <p style="color: white; font-weight: bold; margin-top: 5px; font-size: 16px;">Riesgo: {nivel_riesgo}</p>
-                <p style="color: #DDDDDD; font-size: 15px; line-height: 1.5;">{diagnostico.get('description')}</p>
+            <div style="padding: 20px; border-radius: 10px; border-left: 6px solid {color_caja}; background-color: #1A202C; margin-bottom: 25px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <h3 style="color: {color_caja}; margin:0; font-family: sans-serif;">{titulo}</h3>
+                <p style="color: white; font-weight: bold; margin-top: 8px;">{nivel_riesgo}</p>
+                <p style="color: #DDDDDD; font-size: 15px; margin-top: 10px; line-height: 1.4;">{descripcion}</p>
                 <hr style="border-color: #444; margin: 15px 0;">
-                <p style="color: #AAAAAA; font-size: 14px;"><strong>Impacto Principal:</strong> {diagnostico.get('business_impact', ['Ver detalle abajo'])[0]}</p>
+                <p style="color: #AAAAAA; font-size: 14px;"><strong>Impacto/Clave:</strong> {impacto}</p>
             </div>
             """, unsafe_allow_html=True)
         # ----------------------------------------------
