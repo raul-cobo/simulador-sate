@@ -812,31 +812,54 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIÓN 4: CONCLUSIÓN
+    # -------------------------------------------------------
+    # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (INTELIGENTE)
     # -------------------------------------------------------
     y -= 30
-    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    if y < 120: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión y Recomendación")
-    y -= 20
+    y -= 25
     
-    conc = f"El perfil presenta un IRE de {ire}/100. "
-    if ire > 50:
-        conc += "El perfil es técnicamente viable. "
-        if delta > 30: conc += f"La discrepancia (Delta: {delta}) marca un margen de mejora operativa significativo."
+    # 1. Análisis de Ajustes (Buscamos las 2 competencias más bajas)
+    sorted_mejoras = sorted([(k,v) for k,v in stats.items() if v < 60], key=lambda x: x[1])
+    top_ajustes = [LABELS_ES.get(k[0], k[0]) for k in sorted_mejoras[:2]]
+    
+    # 2. Construcción del Texto Dinámico
+    conc_text = f"El perfil presenta un IRE de {ire}/100. "
+    rec_text = ""
+    
+    if ire > 75:
+        conc_text += "El perfil es sólido y sostenible (Nivel Alto). La estructura de personalidad favorece la escalabilidad del proyecto sin riesgos estructurales."
+        rec_text = "Recomendación: Mantener el equilibrio actual y potenciar las fortalezas detectadas."
+    elif ire > 50:
+        conc_text += "El perfil es técnicamente viable (Nivel Medio), pero requiere ajustes específicos para garantizar la consistencia operativa. "
+        if top_ajustes:
+            conc_text += f"Es crítico trabajar el desarrollo de: {', '.join(top_ajustes)}."
+        else:
+            conc_text += "Se recomienda reforzar la consistencia entre visión y ejecución."
+            
+        rec_text = "Recomendación: Priorizar el plan de desarrollo competencial en las áreas señaladas."
     else:
-        conc += "Se recomienda reevaluar el encaje del perfil o establecer medidas correctivas urgentes."
-    
+        conc_text += "El nivel de viabilidad está comprometido (Nivel Bajo). Existen riesgos operativos derivados de la configuración actual que pueden afectar la continuidad."
+        rec_text = "Recomendación: Reevaluar el encaje del rol o activar un plan de choque urgente en las áreas críticas."
+
+    # 3. Pintar Texto Conclusión
     p.setFont("Helvetica", 9)
-    lines_conc = textwrap.wrap(conc, width=100)
+    lines_conc = textwrap.wrap(conc_text, width=100)
     for line in lines_conc:
         if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
         p.drawString(40, y, line)
         y -= 12
     
     y -= 10
+    
+    # 4. Pintar Recomendación (En Negrita)
     p.setFont("Helvetica-Bold", 9)
-    recomendacion = "Recomendación: " + ("Trabajar en la reducción de tiempos de deliberación." if friction > 30 else "Mantener el equilibrio actual.")
-    p.drawString(40, y, recomendacion)
+    # Si hay mucha fricción, añadimos nota sobre velocidad
+    if friction > 30: 
+        rec_text += " (Foco adicional: Reducción de tiempos de deliberación)."
+        
+    p.drawString(40, y, rec_text)
     y -= 40
 
     # -------------------------------------------------------
