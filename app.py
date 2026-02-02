@@ -1024,78 +1024,51 @@ elif st.session_state.get('auth', False):
                     st.rerun()
 
     else:
-        render_header();
+        render_header()
+        # 1. Calculamos resultados numéricos
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
         
-        # --- BLOQUE DE DIAGNÓSTICO INTELIGENTE SAPE ---
-        cerebro = cargar_cerebro_sape()
-        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
-        # --- DEBUG TEMPORAL (Borrar luego) ---
-        if cerebro is None:
-            st.error("🚨 ERROR CRÍTICO: No encuentro el archivo 'sape_diccionario_riesgos.json'.")
-            st.warning(f"Estoy buscando en la carpeta: {os.getcwd()}")
-            try:
-                st.info(f"Archivos encontrados aquí: {os.listdir()}")
-            except:
-                pass
-            st.stop()
-        else:
-            st.success(f"✅ JSON cargado correctamente. Diagnóstico generado: {diagnostico.get('name') if diagnostico else 'Ninguno'}")
-        # -------------------------------------
-
-        # --- BLOQUE DE DIAGNÓSTICO INTELIGENTE SAPE (CORREGIDO) ---
+        # ---------------------------------------------------------
+        # 2. DIAGNÓSTICO INTELIGENTE (Cerebro SAPE)
+        # ---------------------------------------------------------
         cerebro = cargar_cerebro_sape()
         diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
 
+        # Pintamos la Caja de Diagnóstico si hay resultado
         if diagnostico:
-            # A. NORMALIZACIÓN DE DATOS (Para que funcione con Vectores, Descarriladores y Verde)
+            # A. Normalizar datos
+            titulo = diagnostico.get('name', 'Diagnóstico')
+            if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
+            elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
+            else: nivel = "ALERTA"
             
-            # 1. Título
-            titulo = diagnostico.get('name', 'Diagnóstico SAPE')
-            
-            # 2. Nivel de Riesgo (Busca en varios sitios)
-            if 'risk_level' in diagnostico:
-                nivel_riesgo = diagnostico['risk_level']
-            elif 'verdict' in diagnostico:
-                nivel_riesgo = diagnostico['verdict']
-            else:
-                nivel_riesgo = "ALERTA DE COMPORTAMIENTO" # Default para descarriladores
-
-            # 3. Descripción (Busca description, risk_summary o summary)
-            descripcion = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary')
-
-            # 4. Impacto (Busca business_impact, business_risk o assets)
+            desc = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary')
             raw_impact = diagnostico.get('business_impact') or diagnostico.get('business_risk') or diagnostico.get('assets')
-            # Si es una lista, cogemos el primer punto. Si es texto, lo dejamos tal cual.
-            if isinstance(raw_impact, list):
-                impacto = raw_impact[0]
-            else:
-                impacto = raw_impact
+            impacto = raw_impact[0] if isinstance(raw_impact, list) else raw_impact
 
-            # B. DECIDIR COLOR
-            if "CRÍTICO" in nivel_riesgo:
-                color_caja = "#E74C3C"  # Rojo
-            elif "ALTO" in nivel_riesgo or "ALERTA" in nivel_riesgo:
-                color_caja = "#F1C40F"  # Amarillo
-            else:
-                color_caja = "#2ECC71"  # Verde
+            # B. Color
+            if "CRÍTICO" in nivel: color_caja = "#E74C3C" # Rojo
+            elif "ALTO" in nivel or "ALERTA" in nivel: color_caja = "#F1C40F" # Amarillo
+            else: color_caja = "#2ECC71" # Verde
             
-            # C. PINTAR LA CAJA
+            # C. Render HTML
             st.markdown(f"""
             <div style="padding: 20px; border-radius: 10px; border-left: 6px solid {color_caja}; background-color: #1A202C; margin-bottom: 25px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                 <h3 style="color: {color_caja}; margin:0; font-family: sans-serif;">{titulo}</h3>
-                <p style="color: white; font-weight: bold; margin-top: 8px;">{nivel_riesgo}</p>
-                <p style="color: #DDDDDD; font-size: 15px; margin-top: 10px; line-height: 1.4;">{descripcion}</p>
+                <p style="color: white; font-weight: bold; margin-top: 8px;">{nivel}</p>
+                <p style="color: #DDDDDD; font-size: 15px; margin-top: 10px; line-height: 1.4;">{desc}</p>
                 <hr style="border-color: #444; margin: 15px 0;">
                 <p style="color: #AAAAAA; font-size: 14px;"><strong>Impacto/Clave:</strong> {impacto}</p>
             </div>
             """, unsafe_allow_html=True)
-        # ----------------------------------------------
+        # ---------------------------------------------------------
+
+        # 3. Resto del Informe Web
         st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data['name']}")
         k1, k2, k3 = st.columns(3)
         k1.metric("Índice IRE (Viabilidad)", f"{ire}/100", help="Índice de Rendimiento Emprendedor Global")
         k2.metric("Potencial Competencial", f"{avg}/100", help="Puntuación media de las 8 competencias clave")
-        k3.metric("Nivel de Fricción", f"{friction}%", "-Bajo es mejor", delta_color="inverse", help="Porcentaje de patrones de comportamiento limitantes detectados")
+        k3.metric("Nivel de Fricción", f"{friction}%", "-Bajo es mejor", delta_color="inverse", help="Porcentaje de patrones limitantes")
         
         st.divider()
         c_chart, c_desc = st.columns([1.2, 1])
@@ -1116,11 +1089,22 @@ elif st.session_state.get('auth', False):
             else:
                 st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
 
-        ppdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
-        st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
-        if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
+        # 4. GENERACIÓN DEL PDF (Aquí estaba el error, ahora está asegurado)
+        # Pasamos 'diagnostico' explícitamente
+        pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
+        
+        # 5. BOTÓN DE DESCARGA
+        if pdf:
+            st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
+        else:
+            st.error("Error al generar el PDF. Verifica la librería reportlab.")
+
+        if st.button("Reiniciar"): 
+            st.session_state.clear()
+            st.rerun()
 
 else:
+    # --- BLOQUE DE LOGIN (NO TOCAR) ---
     inject_style("login")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
