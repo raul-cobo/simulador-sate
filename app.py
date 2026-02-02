@@ -815,27 +815,35 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIÓN 3: FRICCIÓN (COMPLETO)
-    # -------------------------------------------------------
-    y -= 30
-    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
-    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "3. Análisis de la Fricción")
-    y -= 20
-    
-    if friction_reasons:
-        p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
-        for reason in friction_reasons:
-            if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
-            p.drawString(40, y, f"• {reason}")
-            y -= 15
-    else:
-        p.setFont("Helvetica-Oblique", 9); p.setFillColorRGB(0.5,0.5,0.5)
-        p.drawString(40, y, "No se han detectado bloqueos operativos significativos.")
-        y -= 20
+    # ... (código anterior de Potencial) ...
 
-    y -= 10
-    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8)
-    p.line(40, y, w-40, y)
+    # FRICCIÓN (MODIFICADO)
+    y -= 25
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"FRICCIÓN ({friction}/100):")
+    p.setFont("Helvetica", 9);
+    desc_fric = "Nivel crítico." if friction > 50 else "Nivel moderado." if friction > 20 else "Nivel bajo."
+    p.drawString(160, y, desc_fric)
+    y -= 12
+    p.setFillColorRGB(0.3, 0.3, 0.3)
+    # Cambiamos la definición por una lista si hay espacio
+    if friction_reasons:
+        p.drawString(40, y, "Principales bloqueos detectados (Detalle en Sec. 3):")
+        y -= 10
+        p.setFont("Helvetica", 8)
+        p.setFillColorRGB(0.5, 0.1, 0.1) # Rojo oscuro para destacar
+        for reason in friction_reasons[:2]: # Ponemos solo las 2 primeras para no romper el diseño
+            p.drawString(50, y, f"• {reason}")
+            y -= 10
+    else:
+        p.drawString(40, y, "Conductas que ralentizan la ejecución (Ver Sección 3).")
+
+    # IRE
+    y -= 20 # Ajustamos el espacio para la siguiente métrica
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"IRE FINAL ({ire}/100):")
+    
+    # ... (resto del código igual) ...
 
     # -------------------------------------------------------
     # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (COMPLETO)
