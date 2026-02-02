@@ -812,8 +812,7 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # -------------------------------------------------------
-    # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (INTELIGENTE)
+    # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (INTELIGENTE V2)
     # -------------------------------------------------------
     y -= 30
     if y < 120: p.showPage(); draw_page_header(p, w, h); y = h - 130
@@ -834,12 +833,14 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     elif ire > 50:
         conc_text += "El perfil es técnicamente viable (Nivel Medio), pero requiere ajustes específicos para garantizar la consistencia operativa. "
         if top_ajustes:
-            conc_text += f"Es crítico trabajar el desarrollo de: {', '.join(top_ajustes)}."
+            # CAMBIO AQUÍ: "Es necesario" en vez de "Es crítico"
+            conc_text += f"Es necesario trabajar el desarrollo de: {', '.join(top_ajustes)}."
         else:
             conc_text += "Se recomienda reforzar la consistencia entre visión y ejecución."
             
         rec_text = "Recomendación: Priorizar el plan de desarrollo competencial en las áreas señaladas."
     else:
+        # Aquí sí mantenemos el tono de alerta
         conc_text += "El nivel de viabilidad está comprometido (Nivel Bajo). Existen riesgos operativos derivados de la configuración actual que pueden afectar la continuidad."
         rec_text = "Recomendación: Reevaluar el encaje del rol o activar un plan de choque urgente en las áreas críticas."
 
@@ -861,7 +862,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         
     p.drawString(40, y, rec_text)
     y -= 40
-
     # -------------------------------------------------------
     # GRÁFICO RADAR
     # -------------------------------------------------------
