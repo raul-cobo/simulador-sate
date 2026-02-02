@@ -6,6 +6,7 @@ import string
 import io
 import math
 import textwrap
+import json
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
@@ -176,6 +177,69 @@ def load_questions():
             if data and 'SECTOR' in data[0]: return data
     except: pass
     return []
+
+    # --- NUEVAS FUNCIONES SAPE (Cerebro + Diagnóstico) ---
+
+@st.cache_data
+def cargar_cerebro_sape():
+    """Carga el diccionario de textos desde el JSON"""
+    try:
+        # Busca en la carpeta data, o en la raíz si no existe
+        paths = ['data/sape_diccionario_riesgos.json', 'sape_diccionario_riesgos.json']
+        for p in paths:
+            if os.path.exists(p):
+                with open(p, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        return None
+    except Exception as e:
+        st.error(f"Error cargando cerebro SAPE: {e}")
+        return None
+
+def diagnosticar_usuario_python(octagon, cerebro):
+    """
+    Recibe las puntuaciones (octagon) y el JSON (cerebro).
+    Devuelve el bloque de texto correspondiente (Vector, Descarrilador o Verde).
+    """
+    if not cerebro: return None
+
+    # Mapeamos tus nombres de variables (octagon) a los nombres del JSON
+    # Tu código usa: 'achievement', 'risk_propensity', etc.
+    logro = octagon.get('achievement', 0)
+    riesgo = octagon.get('risk_propensity', 0)
+    innov = octagon.get('innovativeness', 0)
+    locus = octagon.get('locus_control', 0)
+    autoeficacia = octagon.get('self_efficacy', 0)
+    autonomia = octagon.get('autonomy', 0)
+    estabilidad = octagon.get('emotional_stability', 0)
+    
+    vec = cerebro.get('vectors', {})
+    der = cerebro.get('derailers', {})
+    
+    # --- FASE 1: VECTORES (Prioridad Alta) ---
+    if logro > 90 and estabilidad < 30 and locus < 30: return vec.get('toxic_leadership')
+    if logro < 30 and autonomia > 90 and locus < 30: return vec.get('passive_resistance')
+    if innov > 90 and autoeficacia > 90 and logro < 30: return vec.get('false_prophet')
+    if logro > 90 and riesgo < 30 and autonomia < 30: return vec.get('bottleneck')
+    if innov < 30 and autonomia < 30 and estabilidad > 90: return vec.get('bureaucrat')
+    if riesgo > 90 and autoeficacia > 90 and locus < 30: return vec.get('gambler')
+
+    # --- FASE 2: DESCARRILADORES (Prioridad Media) ---
+    # Si detectamos uno, devolvemos ese. Si hay varios, el sistema podría devolver una lista,
+    # pero para simplificar el informe, devolvemos el más crítico o el primero que encuentre.
+    
+    if estabilidad < 30: return der.get('volatile')
+    if innov < 30: return der.get('skeptical')
+    if riesgo < 30: return der.get('cautious')
+    if autonomia > 90: return der.get('reserved')
+    if logro < 30: return der.get('passive_aggressive')
+    if autoeficacia > 90: return der.get('arrogant')
+    if riesgo > 90: return der.get('mischievous')
+    if estabilidad < 30: return der.get('melodramatic') # Simplificado
+    if logro > 90: return der.get('diligent')
+    if autonomia < 30: return der.get('dependent')
+
+    # --- FASE 3: PERFIL VERDE (Defecto) ---
+    return cerebro.get('balanced_profile')
 
 # --- PARSE LOGIC (USANDO solidos) ---
 def parse_logic(logic_str):
