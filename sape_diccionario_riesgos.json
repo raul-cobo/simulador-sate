@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "project": "SAPE B2B",
+    "version": "2.0_MASTER",
+    "description": "Diccionario maestro de riesgos y perfiles para generación automática de informes."
+  },
+  "logic_hierarchy": {
+    "1_critical": "vectors (stop process if found)",
+    "2_warning": "derailers (list all matches if no vector)",
+    "3_success": "balanced_profile (default if no risk found)"
+  },
+  "vectors": {
+    "toxic_leadership": {
+      "id": "vector_01",
+      "name": "Liderazgo Tóxico (The Tyrant)",
+      "formula": "High Achievement + Low Stability + Low Locus",
+      "risk_level": "CRÍTICO",
+      "description": "Configuración de alta peligrosidad. Combina ambición desmedida, incapacidad de gestión emocional y externalización de culpas. Genera un liderazgo tiránico que exige resultados imposibles y humilla ante el fallo.",
+      "business_impact": [
+        "Implosión del Equipo (Burn & Churn): Rotación masiva de talento clave.",
+        "Cultura del Miedo: Silencio organizacional ante problemas críticos.",
+        "Riesgo Legal: Alta probabilidad de demandas laborales."
+      ],
+      "mitigation": "Relegación a Presidente Ejecutivo (No CEO), contratación de COO escudo y canal de denuncias externo.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con perfiles Dependientes (abuso) o Volátiles (guerra total)."
+    },
+    "passive_resistance": {
+      "id": "vector_02",
+      "name": "Resistencia Pasiva (The Ungovernable)",
+      "formula": "Low Achievement + High Autonomy + Low Locus",
+      "risk_level": "CRÍTICO",
+      "description": "Perfil de 'Líder Ingovernable'. Ni hace, ni deja hacer, ni asume responsabilidad. Defiende su inacción con victimismo sofisticado y rechaza la autoridad del Consejo.",
+      "business_impact": [
+        "Coste de Oportunidad: Proyectos zombies que consumen recursos sin avanzar.",
+        "Bloqueo Ejecutivo: Inmunidad a las directrices estratégicas.",
+        "Degradación Cultural: Mensaje de impunidad ante la falta de rendimiento."
+      ],
+      "mitigation": "Vesting condicionado estrictamente a hitos operativos (no tiempo) y subordinación forzosa a un CEO externo.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con Tiranos (explosión) o Cautelosos (muerte por inacción)."
+    },
+    "false_prophet": {
+      "id": "vector_03",
+      "name": "Visionario No Ejecutor (The False Prophet)",
+      "formula": "High Innovation + High Self-Efficacy + Low Achievement",
+      "risk_level": "ALTO",
+      "description": "Creatividad estéril. Capacidad de ideación disruptiva y confianza ciega, pero sin motor de ejecución. Ciclo perpetuo de reinvención estratégica sin cierre.",
+      "business_impact": [
+        "Trampa de Valor (Pivot Hell): Cambios constantes que impiden el Product-Market Fit.",
+        "Desconexión Comercial: Priorización de la elegancia conceptual sobre la facturación.",
+        "Desmotivación Técnica: Desgaste por trabajo descartado recurrentemente."
+      ],
+      "mitigation": "Prohibición de rol CEO. Relegación a 'Chief Visionary Officer' sin control de caja. Binomio obligatorio con CEO Ejecutor.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con Dependientes (precipicio) o Escépticos (parálisis)."
+    },
+    "bottleneck": {
+      "id": "vector_04",
+      "name": "Micromanagement Paralizante (The Bottleneck)",
+      "formula": "High Achievement + Low Risk + Low Autonomy",
+      "risk_level": "ALTO",
+      "description": "Perfeccionismo inseguro. Fiscaliza cada detalle por ansiedad y miedo al error, no por estrategia. Incapaz de confiar en la ejecución ajena.",
+      "business_impact": [
+        "Techo de Escalabilidad: La facturación se limita a la capacidad horaria del fundador.",
+        "Infantilización del Equipo: Fuga de talento senior y dependencia de juniors.",
+        "Lentitud de Reacción: Parálisis por necesidad de asegurar todas las variables."
+      ],
+      "mitigation": "Degradación a rol de COO/Calidad. Establecimiento de un 'Presupuesto de Errores Permitidos' para forzar la delegación.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con Traviesos (choque térmico) o Cautelosos (burocracia total)."
+    },
+    "bureaucrat": {
+      "id": "vector_05",
+      "name": "Ejecución Mecánica (The Bureaucrat)",
+      "formula": "Low Innovation + Low Autonomy + High Stability",
+      "risk_level": "MEDIO-ALTO",
+      "description": "Rigidez operativa. Sigue órdenes y procesos conocidos sin cuestionar. Rechazo total a la improvisación o al cambio de rumbo.",
+      "business_impact": [
+        "Obsolescencia Acelerada: Incapacidad para pivotar ante cambios del mercado.",
+        "Muerte por Burocracia: Creación de normas irrelevantes en lugar de soluciones.",
+        "Comoditización: Productos genéricos ('Me-too') sin ventaja competitiva."
+      ],
+      "mitigation": "Ubicación exclusiva en CFO/Legal. Nombramiento de un Nº2 disruptivo con poder de decisión real.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con Traviesos (fricción) o Cautelosos (estancamiento)."
+    },
+    "gambler": {
+      "id": "vector_06",
+      "name": "Jugador Compulsivo (The Gambler)",
+      "formula": "High Risk + High Self-Efficacy + Low Locus",
+      "risk_level": "CRÍTICO",
+      "description": "Optimismo temerario. Dobla la apuesta ante las pérdidas ('Double Down') creyéndose infalible y negando la realidad estadística.",
+      "business_impact": [
+        "Mortalidad Súbita: Riesgo de quiebra por maniobras 'todo o nada'.",
+        "Ceguera ante el Peligro: Desprecio por la gestión de riesgos y advertencias legales.",
+        "Falsificación de la Realidad: Distorsión de datos para justificar apuestas suicidas."
+      ],
+      "mitigation": "Retirada de firma financiera única (mancomunada). Cláusulas de destitución automática por ratio de caja.",
+      "team_alert": "⚠️ CRÍTICA: Incompatible con Dependientes (suicidio colectivo) o Arrogantes (cámara de eco)."
+    }
+  },
+  "derailers": {
+    "volatile": {
+      "id": "derailer_01",
+      "name": "Volátil (Excitable)",
+      "trigger": "Low Stability (<30%)",
+      "risk_summary": "Inestabilidad emocional cíclica.",
+      "business_risk": "Inconsistencia Estratégica y erosión del equipo.",
+      "mitigation": "Incorporación de COO estable y periodos de reflexión obligatorios (48h).",
+      "alert": "Riesgo alto con socios Pasivo-Agresivos."
+    },
+    "skeptical": {
+      "id": "derailer_02",
+      "name": "Escéptico (Skeptical)",
+      "trigger": "Low Innovation (<30%)",
+      "risk_summary": "Desconfianza sistémica y cinismo defensivo.",
+      "business_risk": "Bloqueo de la innovación y creación de silos políticos.",
+      "mitigation": "Transparencia Radical (Open Book) y decisiones basadas en datos.",
+      "alert": "Riesgo alto con socios Traviesos."
+    },
+    "cautious": {
+      "id": "derailer_03",
+      "name": "Cauteloso (Cautious)",
+      "trigger": "Low Risk (<30%)",
+      "risk_summary": "Aversión sistémica al error (Parálisis por Análisis).",
+      "business_risk": "Coste de oportunidad y pérdida de ventanas de mercado.",
+      "mitigation": "Gobernanza por Deadlines duros e incorporación de socio 'Challenger'.",
+      "alert": "Riesgo alto con socios Escépticos."
+    },
+    "reserved": {
+      "id": "derailer_04",
+      "name": "Reservado (Reserved)",
+      "trigger": "High Autonomy (Isolated) (>90%)",
+      "risk_summary": "Hermetismo y aislamiento bajo presión.",
+      "business_risk": "Desalineamiento estratégico y opacidad ante inversores.",
+      "mitigation": "Instauración de 'Proxy' comunicativo y reuniones obligatorias.",
+      "alert": "Riesgo alto con socios Dependientes."
+    },
+    "passive_aggressive": {
+      "id": "derailer_05",
+      "name": "Pasivo-Agresivo",
+      "trigger": "Low Achievement (<30%)",
+      "risk_summary": "Cooperación superficial y resistencia silenciosa.",
+      "business_risk": "Corrosión de la ejecución y cultura tóxica.",
+      "mitigation": "Gestión por entregables atómicos y actas formales.",
+      "alert": "Riesgo alto con socios Volátiles."
+    },
+    "arrogant": {
+      "id": "derailer_06",
+      "name": "Arrogante (Arrogant)",
+      "trigger": "High Self-Efficacy (>90%)",
+      "risk_summary": "Exceso de confianza e inmunidad al feedback.",
+      "business_risk": "Ceguera estratégica y fuga de talento senior.",
+      "mitigation": "Poder de veto del Consejo y cultura Data-Driven.",
+      "alert": "Riesgo alto con socios Arrogantes o Volátiles."
+    },
+    "mischievous": {
+      "id": "derailer_07",
+      "name": "Travieso (Mischievous)",
+      "trigger": "High Risk (>90%)",
+      "risk_summary": "Audacia desadaptativa y transgresión de límites.",
+      "business_risk": "Riesgo Legal/Compliance y volatilidad financiera.",
+      "mitigation": "Control financiero externo (CFO) y auditoría legal.",
+      "alert": "Riesgo alto con socios Escépticos."
+    },
+    "melodramatic": {
+      "id": "derailer_08",
+      "name": "Melodramático (Melodramatic)",
+      "trigger": "Low Stability (Social Manifestation)",
+      "risk_summary": "Búsqueda compulsiva de atención.",
+      "business_risk": "Distracción operativa y vampirismo atencional.",
+      "mitigation": "Canalización a RRPP y filtrado de comunicaciones.",
+      "alert": "Riesgo alto con socios Reservados."
+    },
+    "diligent": {
+      "id": "derailer_09",
+      "name": "Diligente (Diligent)",
+      "trigger": "High Achievement (>90%)",
+      "risk_summary": "Perfeccionismo obsesivo y micromanagement.",
+      "business_risk": "Cuello de botella operativo y parálisis de lanzamientos.",
+      "mitigation": "Metodologías Ágiles y prohibición de micromanagement.",
+      "alert": "Riesgo alto con socios Pasivo-Agresivos."
+    },
+    "dependent": {
+      "id": "derailer_10",
+      "name": "Dependiente (Dependent)",
+      "trigger": "Low Autonomy (<30%)",
+      "risk_summary": "Incapacidad para actuar sin validación externa.",
+      "business_risk": "Vacío de poder y parálisis por consenso.",
+      "mitigation": "Delimitación de autonomía obligatoria y filtro de asesores.",
+      "alert": "Riesgo alto con socios Arrogantes (Secta)."
+    }
+  },
+  "balanced_profile": {
+    "id": "status_green",
+    "name": "Perfil Equilibrado (Investable)",
+    "trigger": "No Vectors found AND No Derailers found",
+    "verdict": "APTO / ALTA VIABILIDAD",
+    "summary": "El candidato presenta una configuración psicológica estable y funcional. No se detectan riesgos estructurales que comprometan el capital. Perfil de baja fricción operativa.",
+    "assets": [
+      "Resiliencia Sostenible: Gestión de crisis sin colapso ni drama.",
+      "Riesgo Calculado: Ambición de crecimiento sin apuestas temerarias.",
+      "Locus de Control Interno: Asunción de responsabilidad y aprendizaje rápido."
+    ],
+    "leadership_style": "Liderazgo predecible que genera seguridad psicológica y toma de decisiones ágil basada en evidencia.",
+    "optimization": "Vigilar que la estabilidad no derive en complacencia. Se sugiere rodear al perfil de talento disruptivo para evitar el crecimiento lineal.",
+    "team_fit": "Adaptador Universal. Funciona como estabilizador para socios más volátiles o como motor para socios más cautelosos."
+  }
+}
