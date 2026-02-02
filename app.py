@@ -1116,7 +1116,7 @@ elif st.session_state.get('auth', False):
             else:
                 st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
 
-        pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm)
+        ppdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
         st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
         if st.button("Reiniciar"): st.session_state.clear(); st.rerun()
 
