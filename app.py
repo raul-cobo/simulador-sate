@@ -935,6 +935,43 @@ elif st.session_state.get('auth', False):
         render_header();
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
         
+        # --- BLOQUE DE DIAGNÓSTICO INTELIGENTE SAPE ---
+        cerebro = cargar_cerebro_sape()
+        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+        # --- DEBUG TEMPORAL (Borrar luego) ---
+        if cerebro is None:
+            st.error("🚨 ERROR CRÍTICO: No encuentro el archivo 'sape_diccionario_riesgos.json'.")
+            st.warning(f"Estoy buscando en la carpeta: {os.getcwd()}")
+            try:
+                st.info(f"Archivos encontrados aquí: {os.listdir()}")
+            except:
+                pass
+            st.stop()
+        else:
+            st.success(f"✅ JSON cargado correctamente. Diagnóstico generado: {diagnostico.get('name') if diagnostico else 'Ninguno'}")
+        # -------------------------------------
+
+        if diagnostico:
+            # Definir color según nivel de riesgo
+            nivel_riesgo = diagnostico.get('risk_level', 'BAJO')
+            if "CRÍTICO" in nivel_riesgo:
+                color_caja = "#E74C3C"  # Rojo
+            elif "ALTO" in nivel_riesgo:
+                color_caja = "#F1C40F"  # Amarillo
+            else:
+                color_caja = "#2ECC71"  # Verde
+            
+            # Pintar la tarjeta HTML
+            st.markdown(f"""
+            <div style="padding: 20px; border-radius: 10px; border-left: 6px solid {color_caja}; background-color: #1A202C; margin-bottom: 25px; margin-top: 20px;">
+                <h3 style="color: {color_caja}; margin:0; font-size: 24px;">{diagnostico.get('name')}</h3>
+                <p style="color: white; font-weight: bold; margin-top: 5px; font-size: 16px;">Riesgo: {nivel_riesgo}</p>
+                <p style="color: #DDDDDD; font-size: 15px; line-height: 1.5;">{diagnostico.get('description')}</p>
+                <hr style="border-color: #444; margin: 15px 0;">
+                <p style="color: #AAAAAA; font-size: 14px;"><strong>Impacto Principal:</strong> {diagnostico.get('business_impact', ['Ver detalle abajo'])[0]}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        # ----------------------------------------------
         st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data['name']}")
         k1, k2, k3 = st.columns(3)
         k1.metric("Índice IRE (Viabilidad)", f"{ire}/100", help="Índice de Rendimiento Emprendedor Global")
