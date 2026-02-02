@@ -585,6 +585,7 @@ def draw_radar_on_pdf(p, data, x, y, r):
     p.drawPath(path, fill=1, stroke=1)
 
 # --- FUNCIÓN PDF RESTAURADA Y COMPLETA ---
+# --- FUNCIÓN PDF CORREGIDA (FIX TRANSPARENCIA) ---
 def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats, diagnostico=None):
     if not PDF_AVAILABLE: return None
     
@@ -605,14 +606,13 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawRightString(w-40, y, f"Candidato: {user.get('name', 'N/A')}")
     
     # -------------------------------------------------------
-    # BLOQUE NUEVO: CAJA DE DIAGNÓSTICO (Solo si existe)
+    # BLOQUE DIAGNÓSTICO (CORREGIDO)
     # -------------------------------------------------------
     y -= 50
     if diagnostico:
         # Preparar datos
         titulo = diagnostico.get('name', 'Diagnóstico')
         
-        # Recuperar riesgo
         if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
         elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
         else: nivel = "ALERTA"
@@ -624,13 +624,24 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         elif "ALTO" in nivel or "ALERTA" in nivel: r,g,b = 0.94, 0.76, 0.06 # Amarillo
         else: r,g,b = 0.18, 0.8, 0.44 # Verde
         
-        # Dibujar Caja (Fondo y Borde)
-        box_height = 80 # Altura base
+        box_height = 80 
+
+        # --- FIX TRANSPARENCIA INICIO ---
+        p.saveState() # Guardamos el estado "Limpio" (Opacidad 100%)
+        
         p.setStrokeColorRGB(r,g,b)
-        p.setFillColorRGB(r,g,b, 0.1) 
+        # Intentamos usar transparencia solo si la librería lo soporta, si no, color sólido suave
+        try:
+            p.setFillColorRGB(r,g,b, 0.1) 
+        except:
+            p.setFillColorRGB(0.95, 0.95, 0.95) # Fallback a gris claro si falla
+
         p.roundRect(40, y-box_height, w-80, box_height+10, 4, fill=1, stroke=1)
         
-        # Barra lateral
+        p.restoreState() # Restauramos el estado "Limpio". ¡AQUÍ SE QUITA EL FILTRO!
+        # --- FIX TRANSPARENCIA FIN ---
+        
+        # Barra lateral (Ahora se dibujará 100% opaca)
         p.setFillColorRGB(r,g,b)
         p.rect(40, y-box_height, 5, box_height+10, fill=1, stroke=0)
         
@@ -646,21 +657,22 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         p.setFont("Helvetica", 9)
         p.setFillColorRGB(0.3, 0.3, 0.3)
         
-        # Ajuste de texto largo de la descripción
         text_obj = p.beginText(55, y - 45)
         lines = textwrap.wrap(desc, width=95)
-        for line in lines[:3]: # Permitimos hasta 3 líneas
+        for line in lines[:3]: 
             text_obj.textLine(line)
         p.drawText(text_obj)
         
-        y -= (box_height + 30) # Bajamos el cursor para lo siguiente
+        y -= (box_height + 30)
 
     # -------------------------------------------------------
     # SECCIÓN 1: MÉTRICAS PRINCIPALES
     # -------------------------------------------------------
+    # Aseguramos color negro sólido por si acaso
+    p.setFillColorRGB(0,0,0) 
+    
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     
-    p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "1. Métricas Principales")
     y -= 25
     
@@ -708,18 +720,16 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     seg1 = bar_w * 0.25; seg2 = bar_w * 0.35; seg3 = bar_w * 0.30; seg4 = bar_w * 0.10
     
     for k, score in stats.items():
-        if y < 60: # Salto de página si no cabe la barra
+        if y < 60: 
             p.showPage(); draw_page_header(p, w, h); y = h - 130
         
         lbl = LABELS_ES.get(k, k)
         p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 9); p.drawString(40, y, lbl)
         p.drawRightString(bar_x - 10, y, f"{score}")
         
-        # Fondo barra gris
         p.setStrokeColorRGB(0.9,0.9,0.9); p.setFillColorRGB(0.95, 0.95, 0.95)
         p.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=1)
         
-        # Colores barra
         cur_x = bar_x
         w1 = min(score, 25) / 25 * seg1
         if w1 > 0: p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(cur_x, y, w1, bar_h, fill=1, stroke=0); cur_x += w1
@@ -750,22 +760,18 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         y -= 20
     else:
         for k, v in fortalezas.items():
-            # Descripción larga
             lbl = LABELS_ES.get(k, k)
-            desc = get_competency_desc(k, v) # Función auxiliar que ya tienes
+            desc = get_competency_desc(k, v) 
             
-            # Verificar espacio para el bloque entero
             lines = textwrap.wrap(desc, width=90)
             altura_necesaria = 15 + (len(lines)*10)
             if y < altura_necesaria + 40: 
                 p.showPage(); draw_page_header(p, w, h); y = h - 130
             
-            # Título fortaleza
             p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10)
             p.drawString(40, y, f"• {lbl} ({v}/100)")
             y -= 12
             
-            # Texto descripción
             text_obj = p.beginText(40, y)
             text_obj.setFont("Helvetica", 9); text_obj.setFillColorRGB(0.3,0.3,0.3)
             for line in lines: text_obj.textLine(line)
@@ -839,7 +845,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión y Recomendación")
     y -= 20
     
-    # Texto dinámico de conclusión
     conc = f"El perfil presenta un IRE de {ire}/100. "
     if ire > 50:
         conc += "El perfil es técnicamente viable. "
@@ -863,7 +868,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     # -------------------------------------------------------
     # GRÁFICO RADAR (AL FINAL)
     # -------------------------------------------------------
-    # Si no cabe el radar (necesita unos 160px de alto), nueva página
     if y < 160: 
         p.showPage(); draw_page_header(p, w, h); y = h - 130
     
