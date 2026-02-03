@@ -487,7 +487,7 @@ def calculate_results():
         
     delta = round(avg - ire, 2)
     
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, scores, max_possibles
 
 def get_ire_text(s): 
     if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
