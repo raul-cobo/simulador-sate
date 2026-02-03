@@ -17,7 +17,22 @@ import numpy as np
 import plotly.express as px
 
 # --- CONFIGURACIÓN DE CALIBRACIÓN ---
-SCORE_MULTIPLIER = 1.4
+SCORE_MULTIPLIER = 1.5  # <--- SUBIDO A 1.5
+
+# Límites matemáticos (Mínimo y Máximo posible) calculados con x1.5
+# Esto permite que el IRE se escale de 0 a 100 real en cada sector.
+SECTOR_LIMITS = {
+    'TECH': {'min': 5.05, 'max': 61.35},
+    'CONSULTORIA': {'min': 4.46, 'max': 63.54},
+    'PYME': {'min': 8.12, 'max': 64.25},
+    'HOSTELERIA': {'min': 5.05, 'max': 68.96},
+    'AUTOEMPLEO': {'min': 9.21, 'max': 68.10},
+    'SOCIAL': {'min': 10.31, 'max': 62.42},
+    'INTRA': {'min': 8.60, 'max': 60.32},
+    'SALUD': {'min': 11.10, 'max': 61.82},
+    'PSICOLOGIA_SANITARIA': {'min': 12.72, 'max': 57.93},
+    'PSICOLOGÍA_NO_SANITARIA': {'min': 11.18, 'max': 62.69}
+}
 
 # --- GESTIÓN DE PDF AVANZADA ---
 try:
@@ -431,36 +446,48 @@ def calculate_results():
     # Guardamos banderas
     st.session_state.flags = inferred_flags
 
-    # --- CÁLCULO FINAL DE MÉTRICAS ---
-    total_user_points = sum(st.session_state.octagon.values())
-    avg = (total_user_points / total_game_points) * 100
-    avg = round(max(0, min(100, avg)), 2)
+    # --- CÁLCULO FINAL DE MÉTRICAS (NORMALIZADO POR SECTOR) ---
     
-    # Fricción
+    # 1. Promedio (Potencial)
+    avg = sum(scores.values()) / 8
+    
+    # 2. Fricción
     raw_friction = sum(inferred_flags.values())
     friction = min(100, (raw_friction / 40.0) * 100)
     
-    # IRE
+    # 3. IRE Base (Bruto)
     penalty_factor = friction / 200.0 
-    ire = avg * (1 - penalty_factor)
-    ire = min(100, max(0, ire))
+    raw_ire = avg * (1 - penalty_factor)
     
-    # Textos para el informe
+    # 4. ESCALADO DINÁMICO (Aquí ocurre la magia 0-100)
+    # Recuperamos el sector del usuario (o default TECH)
+    user_sector = st.session_state.get("sector", "TECH")
+    
+    # Buscamos los límites de ese sector
+    limits = SECTOR_LIMITS.get(user_sector, SECTOR_LIMITS["TECH"])
+    
+    # Fórmula: (Valor - Min) / (Max - Min) * 100
+    range_span = limits['max'] - limits['min']
+    if range_span == 0: range_span = 1 # Evitar división por cero
+    
+    scaled_ire = ((raw_ire - limits['min']) / range_span) * 100
+    
+    # Aseguramos que esté entre 0 y 100 final
+    ire = max(0, min(100, scaled_ire))
+    
+    # --- FIN CÁLCULO ---
+
+    # Preparar textos para el return
     triggers = [k for k, v in inferred_flags.items() if v > 0]
-    
     fric_reasons = []
-    
-    # --- AQUÍ ESTÁ EL CAMBIO DE TONO ---
     if special_observations:
-        # Usamos un tono azul informativo (ℹ️) en lugar de alerta roja (⚠️)
         fric_reasons.append(f"ℹ️ Observación: {', '.join(special_observations)}")
-    
     elif friction > 20:
         fric_reasons.append("Se observan áreas de desarrollo por descompensación.")
         
     delta = round(avg - ire, 2)
     
-    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, octagon_norm, max_possibles
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta
 
 def get_ire_text(s): 
     if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
