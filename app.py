@@ -16,6 +16,9 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+# --- CONFIGURACIÓN DE CALIBRACIÓN ---
+SCORE_MULTIPLIER = 1.4
+
 # --- GESTIÓN DE PDF AVANZADA ---
 try:
     from reportlab.pdfgen import canvas
@@ -330,7 +333,9 @@ def calculate_results():
     for k, raw_val in st.session_state.octagon.items():
         techo = max_possibles.get(k, 1)
         if techo == 0: techo = 1
-        ratio = (raw_val / techo) * 100
+        # Aplicamos factor de calibración x1.4 y limitamos a 100
+        ratio = (raw_val / techo) * 100 * SCORE_MULTIPLIER
+        ratio = min(100, ratio)
         octagon_norm[k] = int(max(0, min(100, ratio)))
 
     scores = octagon_norm 
@@ -584,7 +589,93 @@ def draw_radar_on_pdf(p, data, x, y, r):
     path.close()
     p.drawPath(path, fill=1, stroke=1)
 
-# --- FUNCIÓN PDF DEFINITIVA (Con Fricción Detallada e Implicaciones) ---
+# --- DICCIONARIO MAESTRO DE RIESGOS (INDICE CONDUCTUAL) ---
+# Copiado de tu documento "Índice Maestro de Riesgos Conductuales.docx"
+RISK_MASTER_INDEX = {
+    "EXCITABLE": {
+        "alias": "El Ciclotímico (Volátil)",
+        "desc": "Energía explosiva seguida de abandono.",
+        "risk": "Inconsistencia Estratégica: Cambios de rumbo por estado de ánimo, no por datos."
+    },
+    "SKEPTICAL": {
+        "alias": "El Desconfiado (Escéptico)",
+        "desc": "Ve amenazas y conspiraciones donde hay oportunidades.",
+        "risk": "Bloqueo de Innovación: Rechazo sistemático a nuevas ideas y creación de silos."
+    },
+    "CAUTIOUS": {
+        "alias": "El Temeroso (Cauteloso)",
+        "desc": "Miedo paralizante al error y al mercado.",
+        "risk": "Coste de Oportunidad: Pérdida de ventanas de mercado por parálisis."
+    },
+    "RESERVED": {
+        "alias": "La Caja Negra (Reservado)",
+        "desc": "Se aísla y corta la comunicación bajo presión.",
+        "risk": "Desalineamiento: El equipo y los inversores operan a ciegas ante crisis."
+    },
+    "PASSIVE_AGGRESSIVE": {
+        "alias": "El Saboteador (Pasivo-Agresivo)",
+        "desc": "Falsa cooperación. Dice 'sí' pero ejecuta 'no'.",
+        "risk": "Toxicidad Cultural: Erosión de la autoridad y agendas ocultas."
+    },
+    "ARROGANT": {
+        "alias": "El Dios (Arrogante)",
+        "desc": "Exceso de confianza. Cree que las reglas no aplican a él.",
+        "risk": "Ceguera de Mercado: Ignora el feedback del cliente hasta que es tarde."
+    },
+    "MISCHIEVOUS": {
+        "alias": "El Jugador (Travieso)",
+        "desc": "Toma riesgos irracionales por pura adrenalina.",
+        "risk": "Mortalidad Súbita: Riesgo de quiebra por apuestas 'Todo o Nada'."
+    },
+    "MELODRAMATIC": {
+        "alias": "El Actor (Melodramático)",
+        "desc": "Necesita ser el centro de atención. Crea crisis para resolverlas.",
+        "risk": "Distracción Operativa: La empresa gira en torno al ego del fundador."
+    },
+    "DILIGENT": {
+        "alias": "El Perfeccionista (Diligente)",
+        "desc": "Obsesión por el detalle y el micro-management.",
+        "risk": "Parálisis por Análisis: Incapacidad para delegar o lanzar productos mínimos."
+    },
+    "DEPENDENT": {
+        "alias": "El Seguidor (Dependiente)",
+        "desc": "Incapaz de tomar decisiones sin consenso o aprobación.",
+        "risk": "Cuello de Botella: El fundador se convierte en el freno del crecimiento."
+    },
+    # Patrones Complejos
+    "LIDERAZGO TÓXICO": {
+        "alias": "Patrón: Liderazgo Tóxico",
+        "desc": "Combinación de alta exigencia, baja empatía y culpa externa.",
+        "risk": "Alta Rotación: Destrucción del talento clave en tiempo récord."
+    },
+    "IDEÓLOGO SIN ACCIÓN": {
+        "alias": "Patrón: Ideólogo sin Acción",
+        "desc": "Mucha visión y creatividad, pero nula capacidad de cierre.",
+        "risk": "Burnout de Caja: Se gasta el dinero en ideas que nunca salen al mercado."
+    },
+    "MICROMANAGER EXCESIVO": {
+        "alias": "Patrón: Micromanager",
+        "desc": "Control absoluto por miedo al error ajeno.",
+        "risk": "Techo de Escalabilidad: La empresa no crece más allá de las horas del fundador."
+    },
+    "EXCESIVAMENTE ARRIESGADO": {
+        "alias": "Patrón: Kamikaze",
+        "desc": "Confianza ciega + Riesgo extremo + Cero culpa.",
+        "risk": "Colapso Estructural: Probabilidad de fraude o quiebra por negligencia."
+    },
+    "EJECUCIÓN MECÁNICA": {
+        "alias": "Patrón: El Burócrata",
+        "desc": "Obediencia ciega al proceso. Cero innovación.",
+        "risk": "Obsolescencia: Incapacidad para pivotar ante cambios del mercado."
+    },
+    "PERFIL DELIRANTE": {
+        "alias": "Patrón: Delirante",
+        "desc": "Desconexión total de la realidad operativa.",
+        "risk": "Inviabilidad Absoluta: El proyecto es una fantasía del fundador."
+    }
+}
+
+# --- FUNCIÓN PDF CORREGIDA (V65) ---
 def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats, diagnostico=None):
     if not PDF_AVAILABLE: return None
     
@@ -605,17 +696,16 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawRightString(w-40, y, f"Candidato: {user.get('name', 'N/A')}")
     
     # -------------------------------------------------------
-    # BLOQUE DIAGNÓSTICO (CAJA DE COLOR)
+    # BLOQUE DIAGNÓSTICO
     # -------------------------------------------------------
     y -= 50
     if diagnostico:
         titulo = diagnostico.get('name', 'Diagnóstico')
-        
         if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
         elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
         else: nivel = "ALERTA"
             
-        desc = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary') or ""
+        desc = diagnostico.get('description') or diagnostico.get('risk_summary') or ""
         
         # Color según riesgo
         if "CRÍTICO" in nivel: r,g,b = 0.9, 0.3, 0.23 # Rojo
@@ -623,17 +713,13 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         else: r,g,b = 0.18, 0.8, 0.44 # Verde
         
         box_height = 80 
-
-        # --- FIX TRANSPARENCIA ---
         p.saveState() 
         p.setStrokeColorRGB(r,g,b)
         try: p.setFillColorRGB(r,g,b, 0.1) 
         except: p.setFillColorRGB(0.95, 0.95, 0.95)
         p.roundRect(40, y-box_height, w-80, box_height+10, 4, fill=1, stroke=1)
         p.restoreState()
-        # -------------------------
         
-        # Barra y Textos
         p.setFillColorRGB(r,g,b); p.rect(40, y-box_height, 5, box_height+10, fill=1, stroke=0)
         p.setFont("Helvetica-Bold", 12); p.drawString(55, y-15, titulo)
         p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(55, y-30, f"Nivel: {nivel}")
@@ -646,10 +732,9 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         y -= (box_height + 30)
 
     # -------------------------------------------------------
-    # SECCIÓN 1: MÉTRICAS PRINCIPALES
+    # SECCIÓN 1: MÉTRICAS
     # -------------------------------------------------------
-    p.setFillColorRGB(0, 0, 0) # Asegurar negro
-    
+    p.setFillColorRGB(0, 0, 0)
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     
     p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "1. Métricas Principales")
@@ -658,12 +743,12 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     # Potencial
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"POTENCIAL ({avg}/100):")
     p.setFont("Helvetica", 9); 
-    desc_pot = "Nivel Alto." if avg > 70 else "Nivel Medio." if avg > 50 else "Nivel Bajo."
+    desc_pot = "Nivel Superior." if avg > 70 else "Perfil Generalista / Ejecutor Equilibrado." if avg > 50 else "En Desarrollo."
     p.drawString(160, y, desc_pot)
     y -= 12
     p.setFillColorRGB(0.3, 0.3, 0.3); p.drawString(40, y, "Recursos cognitivos basales.")
     
-    # Fricción (AQUÍ PONEMOS LA REFERENCIA A LA SECCIÓN 3)
+    # Fricción
     y -= 25
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"FRICCIÓN ({friction}/100):")
@@ -672,21 +757,21 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.drawString(160, y, desc_fric)
     y -= 12
     p.setFillColorRGB(0.3, 0.3, 0.3)
-    p.drawString(40, y, "Conductas que ralentizan la ejecución (Ver Detalle en Sección 3).") # <-- CAMBIO AQUÍ
+    p.drawString(40, y, "Conductas que ralentizan la ejecución (Ver Detalle en Sección 3).")
 
     # IRE
     y -= 25
     p.setFillColorRGB(0,0,0)
     p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"IRE FINAL ({ire}/100):")
     p.setFont("Helvetica", 9);
-    desc_ire = "Viabilidad técnica confirmada." if ire > 50 else "Riesgos de continuidad."
+    desc_ire = "Viabilidad Operativa Sólida." if ire > 50 else "Requiere Revisión Estructural."
     p.drawString(160, y, desc_ire)
 
     y -= 20
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIÓN 2: ANÁLISIS DIMENSIONAL (BARRAS)
+    # SECCIÓN 2: ANÁLISIS DIMENSIONAL
     # -------------------------------------------------------
     y -= 30
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
@@ -698,13 +783,10 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     
     for k, score in stats.items():
         if y < 60: p.showPage(); draw_page_header(p, w, h); y = h - 130
-        
         lbl = LABELS_ES.get(k, k)
         p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 9); p.drawString(40, y, lbl)
         p.drawRightString(bar_x - 10, y, f"{score}")
-        
         p.setStrokeColorRGB(0.9,0.9,0.9); p.setFillColorRGB(0.95, 0.95, 0.95); p.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=1)
-        
         cur_x = bar_x
         w1 = min(score, 25) / 25 * seg1
         if w1 > 0: p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(cur_x, y, w1, bar_h, fill=1, stroke=0); cur_x += w1
@@ -720,12 +802,11 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIONES 2.2 y 2.3 (Fortalezas y Mejoras)
+    # SECCIÓN 2.2 / 2.3 (Fortalezas / Mejoras)
     # -------------------------------------------------------
     fortalezas = {k:v for k,v in stats.items() if v >= 60}
     mejoras = {k:v for k,v in stats.items() if v < 60}
 
-    # Fortalezas
     y -= 30
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.2 Fortalezas Consolidadas")
@@ -741,7 +822,6 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
             for line in lines: text_obj.textLine(line)
             p.drawText(text_obj); y -= (len(lines)*10 + 10)
 
-    # Mejoras
     y -= 20
     if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.3 Áreas de Desarrollo")
@@ -760,49 +840,68 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIÓN 3: FRICCIÓN Y CONDUCTAS (MEJORADA)
+    # SECCIÓN 3: FRICCIÓN (CON ÍNDICE MAESTRO) - CORREGIDO
     # -------------------------------------------------------
     y -= 30
-    # Aseguramos que el título no se quede solo al final de la página
     if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
     
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12)
     p.drawString(40, y, "3. Análisis de la Fricción (Bloqueos Operativos)")
     y -= 25
     
-    # Lógica mejorada: Si hay fricción pero no hay razones detalladas, mostramos un aviso
     if friction_reasons:
         p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
         for reason in friction_reasons:
-            if y < 60: p.showPage(); draw_page_header(p, w, h); y = h - 130
+            if y < 80: p.showPage(); draw_page_header(p, w, h); y = h - 130
             
-            # Título de la conducta
+            # Intentamos extraer el KEY del razón (ej: "Conducta EXCITABLE (8/10)")
+            # Buscamos qué key del RISK_MASTER_INDEX está en el string 'reason'
+            risk_info = None
+            for key, info in RISK_MASTER_INDEX.items():
+                if key in reason.upper():
+                    risk_info = info
+                    break
+            
+            # Título (Razón original + Alias bonito si existe)
+            titulo_mostrar = reason
+            if risk_info: titulo_mostrar = f"• {risk_info['alias']} - (Nivel Detectado)"
+            
             p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0.2, 0.2, 0.2)
-            p.drawString(40, y, f"• {reason}")
+            p.drawString(40, y, titulo_mostrar)
             y -= 12
             
-            # GENERADOR DE IMPLICACIONES (Simulado para dar riqueza al informe)
-            # Aquí añadimos el texto "extra" que pides sobre cómo ralentiza
-            implicacion = "Impacto: Ralentización en la toma de decisiones críticas." # Default
-            if "validación" in reason.lower(): implicacion = "Impacto: Cuellos de botella por necesidad de consenso externo."
-            elif "riesgo" in reason.lower() or "cautela" in reason.lower(): implicacion = "Impacto: Parálisis por análisis y pérdida de ventanas de oportunidad."
-            elif "perfeccionismo" in reason.lower(): implicacion = "Impacto: Retrasos en entregables por revisiones excesivas."
-            elif "cambio" in reason.lower(): implicacion = "Impacto: Rigidez operativa ante pivotes de mercado."
-            elif "descompensación" in reason.lower(): implicacion = "Impacto: Incoherencia entre la visión estratégica y la capacidad de ejecución diaria."
-            
-            p.setFont("Helvetica-Oblique", 8); p.setFillColorRGB(0.4, 0.4, 0.4)
-            p.drawString(55, y, implicacion)
-            y -= 15
+            # Descripción y Riesgo (Del Índice Maestro)
+            if risk_info:
+                desc_text = f"Perfil: {risk_info['desc']}"
+                risk_text = f"RIESGO DE NEGOCIO: {risk_info['risk']}"
+                
+                # Pintamos Descripción
+                lines_d = textwrap.wrap(desc_text, width=95)
+                p.setFont("Helvetica", 9); p.setFillColorRGB(0.3, 0.3, 0.3)
+                for line in lines_d:
+                    p.drawString(55, y, line); y -= 12
+                
+                # Pintamos Riesgo (En rojo oscuro o negrita)
+                y -= 2
+                lines_r = textwrap.wrap(risk_text, width=95)
+                p.setFont("Helvetica-BoldOblique", 9); p.setFillColorRGB(0.6, 0.2, 0.2)
+                for line in lines_r:
+                    p.drawString(55, y, line); y -= 12
+            else:
+                # Si no está en el índice maestro, usamos texto genérico
+                p.setFont("Helvetica-Oblique", 8); p.setFillColorRGB(0.4, 0.4, 0.4)
+                p.drawString(55, y, "Impacto: Fricción operativa general.")
+                y -= 12
+                
+            y -= 8 # Espacio entre items
             
     elif friction > 0:
-        # Si hay fricción (15%) pero la lista llegó vacía, explicamos por qué
         p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
         p.drawString(40, y, "• Fricción basal detectada (Nivel Bajo).")
         y -= 12
         p.setFont("Helvetica-Oblique", 8); p.setFillColorRGB(0.4, 0.4, 0.4)
-        p.drawString(55, y, "Impacto: Pequeñas vacilaciones en momentos de alta incertidumbre, sin bloqueo crítico.")
+        p.drawString(55, y, "Impacto: Pequeñas vacilaciones sin bloqueo crítico.")
         y -= 20
-        
     else:
         p.setFont("Helvetica-Oblique", 9); p.setFillColorRGB(0.5,0.5,0.5)
         p.drawString(40, y, "Flujo operativo limpio. No se han detectado conductas limitantes.")
@@ -812,18 +911,16 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
 
     # -------------------------------------------------------
-    # SECCIÓN 4: CONCLUSIÓN Y RECOMENDACIÓN (INTELIGENTE V2)
+    # SECCIÓN 4: CONCLUSIÓN (CORREGIDO OVERFLOW)
     # -------------------------------------------------------
     y -= 30
-    if y < 120: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
     p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión y Recomendación")
     y -= 25
     
-    # 1. Análisis de Ajustes (Buscamos las 2 competencias más bajas)
     sorted_mejoras = sorted([(k,v) for k,v in stats.items() if v < 60], key=lambda x: x[1])
     top_ajustes = [LABELS_ES.get(k[0], k[0]) for k in sorted_mejoras[:2]]
     
-    # 2. Construcción del Texto Dinámico
     conc_text = f"El perfil presenta un IRE de {ire}/100. "
     rec_text = ""
     
@@ -831,20 +928,15 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
         conc_text += "El perfil es sólido y sostenible (Nivel Alto). La estructura de personalidad favorece la escalabilidad del proyecto sin riesgos estructurales."
         rec_text = "Recomendación: Mantener el equilibrio actual y potenciar las fortalezas detectadas."
     elif ire > 50:
-        conc_text += "El perfil es técnicamente viable (Nivel Medio), pero requiere ajustes específicos para garantizar la consistencia operativa. "
-        if top_ajustes:
-            # CAMBIO AQUÍ: "Es necesario" en vez de "Es crítico"
-            conc_text += f"Es necesario trabajar el desarrollo de: {', '.join(top_ajustes)}."
-        else:
-            conc_text += "Se recomienda reforzar la consistencia entre visión y ejecución."
-            
+        conc_text += "El perfil presenta una viabilidad operativa sólida (Nivel Competitivo). Su configuración es funcional para la etapa actual, aunque se beneficiaría de optimizaciones puntuales. "
+        if top_ajustes: conc_text += f"Es necesario trabajar el desarrollo de: {', '.join(top_ajustes)}."
+        else: conc_text += "Se recomienda reforzar la consistencia entre visión y ejecución."
         rec_text = "Recomendación: Priorizar el plan de desarrollo competencial en las áreas señaladas."
     else:
-        # Aquí sí mantenemos el tono de alerta
-        conc_text += "El nivel de viabilidad está comprometido (Nivel Bajo). Existen riesgos operativos derivados de la configuración actual que pueden afectar la continuidad."
+        conc_text += "El nivel de viabilidad requiere atención (Nivel de Alerta). Se detectan fricciones operativas que podrían afectar la velocidad de crecimiento si no se gestionan."
         rec_text = "Recomendación: Reevaluar el encaje del rol o activar un plan de choque urgente en las áreas críticas."
 
-    # 3. Pintar Texto Conclusión
+    # Pintar Conclusión (Wrapped)
     p.setFont("Helvetica", 9)
     lines_conc = textwrap.wrap(conc_text, width=100)
     for line in lines_conc:
@@ -854,14 +946,20 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     
     y -= 10
     
-    # 4. Pintar Recomendación (En Negrita)
+    # Pintar Recomendación (Wrapped - FIX OVERFLOW)
     p.setFont("Helvetica-Bold", 9)
-    # Si hay mucha fricción, añadimos nota sobre velocidad
     if friction > 30: 
         rec_text += " (Foco adicional: Reducción de tiempos de deliberación)."
+    
+    # AQUÍ ESTABA EL ERROR: Usar textwrap también para la recomendación
+    lines_rec = textwrap.wrap(rec_text, width=100)
+    for line in lines_rec:
+        if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
+        p.drawString(40, y, line)
+        y -= 12
         
-    p.drawString(40, y, rec_text)
     y -= 40
+
     # -------------------------------------------------------
     # GRÁFICO RADAR
     # -------------------------------------------------------
@@ -872,6 +970,8 @@ def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, use
     p.save()
     buffer.seek(0)
     return buffer
+
+# --- FUNCIÓN PDF DEFINITIVA (Con Fricción Detallada e Implicaciones) ---
 
 def render_oryon_dashboard():
     inject_style("dashboard")
