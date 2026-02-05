@@ -1262,7 +1262,7 @@ elif st.session_state.get('auth', False):
                 scores=octagon_norm
             )
             st.session_state.data_saved = True
-            
+
         # 4. GENERACIÓN DEL PDF (Aquí estaba el error, ahora está asegurado)
         # Pasamos 'diagnostico' explícitamente
         pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
@@ -1290,6 +1290,28 @@ else:
         st.markdown('### Acceso Evaluación')
         st.info("Introduce el código facilitado por la escuela para acceder.")
         
+       # --- PARCHE DE ESTILO PARA EL BOTÓN (Pegar antes del formulario) ---
+        st.markdown("""
+        <style>
+        /* Fuerza que el botón tenga texto blanco y fondo rojo/visible siempre */
+        div.stButton > button {
+            color: #FFFFFF !important;       /* Texto Blanco */
+            background-color: #FF4B4B !important; /* Fondo Rojo Streamlit (o cámbialo a #333 para gris) */
+            border: 1px solid #FF4B4B !important;
+            font-weight: bold !important;
+        }
+        /* Al pasar el ratón, cambia a fondo blanco con letras rojas */
+        div.stButton > button:hover {
+            color: #FF4B4B !important;
+            background-color: #FFFFFF !important;
+            border: 1px solid #FF4B4B !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        with st.form("login_pilot"):
+            # ... aquí sigue tu código del input ...
+
         with st.form("login_pilot"):
             # ESTE ES EL CAMPO CLAVE PARA LA BBDD
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
