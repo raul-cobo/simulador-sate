@@ -1262,7 +1262,7 @@ elif st.session_state.get('auth', False):
                 scores=octagon_norm
             )
             st.session_state.data_saved = True
-
+            
         # 4. GENERACIÓN DEL PDF (Aquí estaba el error, ahora está asegurado)
         # Pasamos 'diagnostico' explícitamente
         pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
@@ -1278,10 +1278,12 @@ elif st.session_state.get('auth', False):
             st.rerun()
 
 else:
-   # --- BLOQUE 2: LOGIN PILOTO ORYON (NUEVO) ---
+    # --- BLOQUE 2: LOGIN PILOTO ORYON (CORREGIDO) ---
     inject_style("login")
     c1, c2, c3 = st.columns([1, 2, 1])
+    
     with c2:
+        # 1. Logo o Título
         if os.path.exists("logo_original.png"): 
             st.image("logo_original.png", use_container_width=True)
         else:
@@ -1290,17 +1292,15 @@ else:
         st.markdown('### Acceso Evaluación')
         st.info("Introduce el código facilitado por la escuela para acceder.")
         
-       # --- PARCHE DE ESTILO PARA EL BOTÓN (Pegar antes del formulario) ---
+        # 2. PARCHE DE ESTILO (Botón Rojo/Blanco)
         st.markdown("""
         <style>
-        /* Fuerza que el botón tenga texto blanco y fondo rojo/visible siempre */
         div.stButton > button {
-            color: #FFFFFF !important;       /* Texto Blanco */
-            background-color: #FF4B4B !important; /* Fondo Rojo Streamlit (o cámbialo a #333 para gris) */
+            color: #FFFFFF !important;
+            background-color: #FF4B4B !important;
             border: 1px solid #FF4B4B !important;
             font-weight: bold !important;
         }
-        /* Al pasar el ratón, cambia a fondo blanco con letras rojas */
         div.stButton > button:hover {
             color: #FF4B4B !important;
             background-color: #FFFFFF !important;
@@ -1309,13 +1309,11 @@ else:
         </style>
         """, unsafe_allow_html=True)
 
+        # 3. EL FORMULARIO (Todo alineado dentro de c2)
         with st.form("login_pilot"):
-            # ... aquí sigue tu código del input ...
-
-        with st.form("login_pilot"):
-            # ESTE ES EL CAMPO CLAVE PARA LA BBDD
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
             
+            # Botón de enviar
             if st.form_submit_button("COMENZAR 🚀", use_container_width=True):
                 if len(student_code.strip()) > 2:
                     st.session_state.auth = True
