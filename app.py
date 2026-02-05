@@ -1297,16 +1297,16 @@ else:
         <style>
         /* Apuntamos al ID específico del botón de envío de formulario */
         [data-testid="stFormSubmitButton"] button {
-            background-color: #FF4B4B !important; /* Rojo Streamlit */
+            background-color: #0F2283 !important; /* azul audeo */
             color: #FFFFFF !important;            /* Texto Blanco */
-            border: 1px solid #FF4B4B !important;
+            border: 1px solid #0F2283 !important;
             font-weight: bold !important;
         }
         
         /* Efecto al pasar el ratón */
         [data-testid="stFormSubmitButton"] button:hover {
             background-color: #FFFFFF !important; /* Fondo Blanco */
-            color: #FF4B4B !important;            /* Texto Rojo */
+            color: #0F2283 !important;            /* Texto azul audeo */
             border: 1px solid #FF4B4B !important;
         }
         
