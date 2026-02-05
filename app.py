@@ -16,6 +16,39 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+# --- BLOQUE 1: CONEXIÓN SUPABASE (AÑADIR AQUÍ) ---
+from supabase import create_client
+
+@st.cache_resource
+def init_connection():
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        return create_client(url, key)
+    except Exception as e:
+        return None
+
+supabase = init_connection()
+
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores):
+    """Guarda el resultado en la nube de forma silenciosa"""
+    if supabase:
+        try:
+            # Preparamos los datos
+            triggers_list = list(triggers) if isinstance(triggers, set) else triggers
+            data = {
+                "student_id": student_id,
+                "sector": sector,
+                "ire_score": float(ire),
+                "friction_score": float(friction),
+                "triggers": triggers_list,
+                "raw_scores": scores
+            }
+            # Insertamos
+            supabase.table("sape_results").insert(data).execute()
+        except Exception as e:
+            print(f"Error guardando: {e}")
+
 # --- CONFIGURACIÓN DE CALIBRACIÓN ---
 SCORE_MULTIPLIER = 1.5  # <--- SUBIDO A 1.5
 
@@ -1215,6 +1248,21 @@ elif st.session_state.get('auth', False):
             else:
                 st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
 
+        # --- BLOQUE 3: GUARDADO FINAL AUTOMÁTICO ---
+        if 'data_saved' not in st.session_state:
+            # Recuperamos el ID que metieron en el login
+            s_id = st.session_state.get("student_id", "ANONIMO")
+            
+            save_result_to_db(
+                student_id=s_id,
+                sector=st.session_state.get("sector", "GENERICO"),
+                ire=ire,
+                friction=friction,
+                triggers=triggers,
+                scores=octagon_norm
+            )
+            st.session_state.data_saved = True
+            
         # 4. GENERACIÓN DEL PDF (Aquí estaba el error, ahora está asegurado)
         # Pasamos 'diagnostico' explícitamente
         pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
@@ -1230,37 +1278,26 @@ elif st.session_state.get('auth', False):
             st.rerun()
 
 else:
-    # --- BLOQUE DE LOGIN (NO TOCAR) ---
+   # --- BLOQUE 2: LOGIN PILOTO ORYON (NUEVO) ---
     inject_style("login")
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo_original.png"): 
             st.image("logo_original.png", use_container_width=True)
         else:
-            st.markdown("<h1 style='text-align: center; font-size: 4rem; color: #000000; font-weight: 800;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
-        st.markdown('<p class="login-title">Simulador S.A.P.E.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Sistema de Análisis de la Personalidad Emprendedora</p>', unsafe_allow_html=True)
+        st.markdown('### Acceso Evaluación')
+        st.info("Introduce el código facilitado por la escuela para acceder.")
         
-        tab1, tab2 = st.tabs(["👤 Login Emprendedor/a", "🏢 Login Entidad"])
-        
-        with tab1:
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
-            pwd = st.text_input("Clave de Candidato", type="password", key="pwd_cand")
-            if st.button("ACCESO A EMPRENDEDOR/A", use_container_width=True):
-                try: true_pwd = st.secrets["general"]["password"]
-                except: true_pwd = "admin"
-                if pwd == true_pwd: st.session_state.auth = True; st.rerun()
-                else: st.error("Clave incorrecta")
-            st.markdown('</div>', unsafe_allow_html=True)
+        with st.form("login_pilot"):
+            # ESTE ES EL CAMPO CLAVE PARA LA BBDD
+            student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
             
-        with tab2:
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
-            pwd_o = st.text_input("Clave Corporativa", type="password", key="pwd_oryon")
-            if st.button("ACCESO ENTIDAD", use_container_width=True):
-                if pwd_o == "ORYON2026": 
-                    st.session_state.oryon_auth = True
+            if st.form_submit_button("COMENZAR 🚀", use_container_width=True):
+                if len(student_code.strip()) > 2:
+                    st.session_state.auth = True
+                    st.session_state.student_id = student_code.strip().upper()
                     st.rerun()
-                else: 
-                    st.error("Credenciales inválidas")
-            st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.error("⚠️ Código no válido.")

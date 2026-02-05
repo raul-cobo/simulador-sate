@@ -4,3 +4,4 @@ plotly
 Pillow
 requests
 reportlab
+supabase
