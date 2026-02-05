@@ -1278,12 +1278,12 @@ elif st.session_state.get('auth', False):
             st.rerun()
 
 else:
-    # --- BLOQUE 2: LOGIN PILOTO ORYON (CORREGIDO) ---
+    # --- BLOQUE 2: LOGIN PILOTO ORYON (FINAL DEFINITIVO) ---
     inject_style("login")
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
-        # 1. Logo o Título
+        # 1. Logo
         if os.path.exists("logo_original.png"): 
             st.image("logo_original.png", use_container_width=True)
         else:
@@ -1292,24 +1292,32 @@ else:
         st.markdown('### Acceso Evaluación')
         st.info("Introduce el código facilitado por la escuela para acceder.")
         
-        # 2. PARCHE DE ESTILO (Botón Rojo/Blanco)
+        # 2. PARCHE CSS "NUCLEAR" (Específico para botón de formulario)
         st.markdown("""
         <style>
-        div.stButton > button {
-            color: #FFFFFF !important;
-            background-color: #FF4B4B !important;
+        /* Apuntamos al ID específico del botón de envío de formulario */
+        [data-testid="stFormSubmitButton"] button {
+            background-color: #FF4B4B !important; /* Rojo Streamlit */
+            color: #FFFFFF !important;            /* Texto Blanco */
             border: 1px solid #FF4B4B !important;
             font-weight: bold !important;
         }
-        div.stButton > button:hover {
-            color: #FF4B4B !important;
-            background-color: #FFFFFF !important;
+        
+        /* Efecto al pasar el ratón */
+        [data-testid="stFormSubmitButton"] button:hover {
+            background-color: #FFFFFF !important; /* Fondo Blanco */
+            color: #FF4B4B !important;            /* Texto Rojo */
             border: 1px solid #FF4B4B !important;
+        }
+        
+        /* Asegurar que el texto dentro del botón se vea */
+        [data-testid="stFormSubmitButton"] button p {
+            color: inherit !important;
         }
         </style>
         """, unsafe_allow_html=True)
 
-        # 3. EL FORMULARIO (Todo alineado dentro de c2)
+        # 3. EL FORMULARIO
         with st.form("login_pilot"):
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
             
