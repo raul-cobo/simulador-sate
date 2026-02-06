@@ -1309,18 +1309,18 @@ else:
         st.markdown("""
         <style>
         [data-testid="stFormSubmitButton"] button {
-            background-color: #FF4B4B !important;
-            border: 1px solid #FF4B4B !important;
+            background-color: #0E2288 !important;
+            border: 1px solid #0E2288 !important;
         }
         [data-testid="stFormSubmitButton"] button * {
             color: #FFFFFF !important;
         }
         [data-testid="stFormSubmitButton"] button:hover {
             background-color: #FFFFFF !important;
-            border: 1px solid #FF4B4B !important;
+            border: 1px solid #0E2288 !important;
         }
         [data-testid="stFormSubmitButton"] button:hover * {
-            color: #FF4B4B !important;
+            color: #0E2288 !important;
         }
         </style>
         """, unsafe_allow_html=True)
