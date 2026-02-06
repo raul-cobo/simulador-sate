@@ -1292,8 +1292,34 @@ elif st.session_state.get('auth', False):
     st.stop()
 
 else:
-    # --- BLOQUE 2: LOGIN BLINDADO (PIN + ANTI-REPETICIÓN) ---
-    inject_style("login")
+    # --- BLOQUE FINAL: LOGIN CON PIN Y BLOQUEO DE REPETICIÓN ---
+    
+    # 1. INYECCIÓN DE ESTILO (Solo una vez y la versión potente con *)
+    st.markdown("""
+    <style>
+    /* ESTADO NORMAL: Fondo Azul AUDEO, Texto Blanco */
+    [data-testid="stFormSubmitButton"] button {
+        background-color: #0E2283 !important;
+        border: 1px solid #0E2283 !important;
+    }
+    /* El asterisco * obliga a que TODO lo de dentro sea blanco */
+    [data-testid="stFormSubmitButton"] button * {
+        color: #FFFFFF !important;
+    }
+    
+    /* ESTADO HOVER (Ratón encima): Fondo Blanco, Texto Azul AUDEO */
+    [data-testid="stFormSubmitButton"] button:hover {
+        background-color: #FFFFFF !important;
+        border: 1px solid #0E2283 !important;
+    }
+    /* El asterisco * obliga a que TODO lo de dentro sea azul */
+    [data-testid="stFormSubmitButton"] button:hover * {
+        color: #0E2283 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 2. ESTRUCTURA DE LA PÁGINA
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
@@ -1305,26 +1331,7 @@ else:
         st.markdown('### Acceso Evaluación')
         st.info("Introduce tus credenciales.")
         
-        # CSS del botón (el que ya funcionaba)
-        st.markdown("""
-        <style>
-        [data-testid="stFormSubmitButton"] button {
-            background-color: #0E2288 !important;
-            border: 1px solid #0E2288 !important;
-        }
-        [data-testid="stFormSubmitButton"] button * {
-            color: #FFFFFF !important;
-        }
-        [data-testid="stFormSubmitButton"] button:hover {
-            background-color: #FFFFFF !important;
-            border: 1px solid #0E2288 !important;
-        }
-        [data-testid="stFormSubmitButton"] button:hover * {
-            color: #0E2288 !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
+        # 3. FORMULARIO BLINDADO
         with st.form("login_pilot"):
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
             access_pin = st.text_input("PIN DE ACCESO:", type="password")
@@ -1333,17 +1340,17 @@ else:
                 code_clean = student_code.strip().upper()
                 PIN_CORRECTO = "ORYON2025"
                 
-                # 1. Comprobamos PIN
+                # A. Comprobamos PIN
                 if access_pin != PIN_CORRECTO:
                     st.error("🔒 PIN incorrecto.")
-                # 2. Comprobamos formato código
+                # B. Comprobamos formato código
                 elif len(code_clean) < 3:
                     st.error("⚠️ Código no válido.")
-                # 3. COMPROBACIÓN CRÍTICA: ¿Ya lo ha hecho?
+                # C. COMPROBACIÓN CRÍTICA: ¿Ya lo ha hecho?
                 elif check_if_user_finished(code_clean):
                     st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación. No se permiten reintentos.")
                 else:
-                    # Todo OK, pa'dentro
+                    # D. Todo OK, pa'dentro
                     st.session_state.auth = True
                     st.session_state.student_id = code_clean
                     st.rerun()
