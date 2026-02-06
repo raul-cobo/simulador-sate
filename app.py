@@ -1396,11 +1396,11 @@ else:
             st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
         st.markdown('### Acceso Personalizado')
-        st.info("Introduce tu código de alumno y tu contraseña personal.")
+        st.info("Introduce tu usuario y tu contraseña personal.")
         
         with st.form("login_pilot"):
             # AHORA PEDIMOS CONTRASEÑA, NO PIN GENÉRICO
-            student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
+            student_code = st.text_input("Usuario:", placeholder="Ej: ORY-001")
             user_password = st.text_input("CONTRASEÑA:", type="password")
             
             if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
