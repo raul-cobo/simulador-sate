@@ -43,6 +43,39 @@ def check_if_user_finished(student_id):
             print(f"Error comprobando usuario: {e}")
     return False
 
+def check_credentials_from_csv(user_code, user_pass):
+    """Verifica si el usuario y contraseña coinciden con el archivo usuarios.csv"""
+    try:
+        # Leemos el archivo CSV. Asegúrate de guardarlo separado por punto y coma (;)
+        if not os.path.exists("usuarios.csv"):
+            return False, "Error: No se encuentra el archivo de usuarios."
+            
+        df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str)
+        
+        # Limpiamos espacios en blanco por si acaso
+        df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
+        df_users['password'] = df_users['password'].str.strip()
+        
+        user_clean = user_code.strip().upper()
+        pass_clean = user_pass.strip()
+        
+        # Buscamos el usuario
+        user_row = df_users[df_users['usuario'] == user_clean]
+        
+        if user_row.empty:
+            return False, "Usuario no encontrado."
+            
+        # Comprobamos la contraseña
+        correct_pass = user_row.iloc[0]['password']
+        
+        if str(correct_pass) == str(pass_clean):
+            return True, "OK"
+        else:
+            return False, "Contraseña incorrecta."
+            
+    except Exception as e:
+        return False, f"Error de sistema: {e}"
+
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores):
     """Guarda el resultado en la nube de forma silenciosa"""
     if supabase:
