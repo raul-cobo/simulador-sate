@@ -30,6 +30,19 @@ def init_connection():
 
 supabase = init_connection()
 
+def check_if_user_finished(student_id):
+    """Comprueba si este usuario ya tiene resultados en la BBDD"""
+    if supabase:
+        try:
+            # Preguntamos a Supabase si existe este ID
+            response = supabase.table("sape_results").select("student_id").eq("student_id", student_id).execute()
+            # Si la lista 'data' no está vacía, es que ya existe
+            if len(response.data) > 0:
+                return True
+        except Exception as e:
+            print(f"Error comprobando usuario: {e}")
+    return False
+
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores):
     """Guarda el resultado en la nube de forma silenciosa"""
     if supabase:
@@ -1263,69 +1276,74 @@ elif st.session_state.get('auth', False):
             )
             st.session_state.data_saved = True
             
-        # 4. GENERACIÓN DEL PDF (Aquí estaba el error, ahora está asegurado)
-        # Pasamos 'diagnostico' explícitamente
-        pdf = create_pdf_report(ire, avg, friction, triggers, fric_reasons, delta, st.session_state.user_data, octagon_norm, diagnostico)
-        
-        # 5. BOTÓN DE DESCARGA
-        if pdf:
-            st.download_button("📥 DESCARGAR INFORME COMPLETO (PDF)", pdf, file_name=f"Informe_SAPE_{st.session_state.user_id}.pdf", mime="application/pdf", use_container_width=True)
-        else:
-            st.error("Error al generar el PDF. Verifica la librería reportlab.")
-
-        if st.button("Reiniciar"): 
-            st.session_state.clear()
-            st.rerun()
+        # --- FINAL ALTERNATIVO (SIN PDF PARA EL ALUMNO) ---
+    st.divider()
+    st.success("✅ Evaluación completada con éxito.")
+    st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
+    
+    st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+        <h3>¡Gracias por tu participación!</h3>
+        <p>Ya puedes cerrar esta pestaña.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # IMPORTANTE: Detenemos la app aquí para que no salga nada más
+    st.stop()
 
 else:
-    # --- BLOQUE 2: LOGIN PILOTO ORYON (FINAL DEFINITIVO) ---
+    # --- BLOQUE 2: LOGIN BLINDADO (PIN + ANTI-REPETICIÓN) ---
     inject_style("login")
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
-        # 1. Logo
         if os.path.exists("logo_original.png"): 
             st.image("logo_original.png", use_container_width=True)
         else:
             st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
         st.markdown('### Acceso Evaluación')
-        st.info("Introduce el código facilitado por la escuela para acceder.")
+        st.info("Introduce tus credenciales.")
         
-        # 2. PARCHE CSS "NUCLEAR" (Específico para botón de formulario)
+        # CSS del botón (el que ya funcionaba)
         st.markdown("""
         <style>
-        /* Apuntamos al ID específico del botón de envío de formulario */
         [data-testid="stFormSubmitButton"] button {
-            background-color: #0F2283 !important; /* azul audeo */
-            color: #FFFFFF !important;            /* Texto Blanco */
-            border: 1px solid #0F2283 !important;
-            font-weight: bold !important;
-        }
-        
-        /* Efecto al pasar el ratón */
-        [data-testid="stFormSubmitButton"] button:hover {
-            background-color: #FFFFFF !important; /* Fondo Blanco */
-            color: #0F2283 !important;            /* Texto azul audeo */
+            background-color: #FF4B4B !important;
             border: 1px solid #FF4B4B !important;
         }
-        
-        /* Asegurar que el texto dentro del botón se vea */
-        [data-testid="stFormSubmitButton"] button p {
-            color: inherit !important;
+        [data-testid="stFormSubmitButton"] button * {
+            color: #FFFFFF !important;
+        }
+        [data-testid="stFormSubmitButton"] button:hover {
+            background-color: #FFFFFF !important;
+            border: 1px solid #FF4B4B !important;
+        }
+        [data-testid="stFormSubmitButton"] button:hover * {
+            color: #FF4B4B !important;
         }
         </style>
         """, unsafe_allow_html=True)
 
-        # 3. EL FORMULARIO
         with st.form("login_pilot"):
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
+            access_pin = st.text_input("PIN DE ACCESO:", type="password")
             
-            # Botón de enviar
             if st.form_submit_button("COMENZAR 🚀", use_container_width=True):
-                if len(student_code.strip()) > 2:
-                    st.session_state.auth = True
-                    st.session_state.student_id = student_code.strip().upper()
-                    st.rerun()
-                else:
+                code_clean = student_code.strip().upper()
+                PIN_CORRECTO = "ORYON2025"
+                
+                # 1. Comprobamos PIN
+                if access_pin != PIN_CORRECTO:
+                    st.error("🔒 PIN incorrecto.")
+                # 2. Comprobamos formato código
+                elif len(code_clean) < 3:
                     st.error("⚠️ Código no válido.")
+                # 3. COMPROBACIÓN CRÍTICA: ¿Ya lo ha hecho?
+                elif check_if_user_finished(code_clean):
+                    st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación. No se permiten reintentos.")
+                else:
+                    # Todo OK, pa'dentro
+                    st.session_state.auth = True
+                    st.session_state.student_id = code_clean
+                    st.rerun()
