@@ -1365,34 +1365,28 @@ elif st.session_state.get('auth', False):
         st.stop()
 
 else:
-    # --- BLOQUE FINAL: LOGIN CON PIN Y BLOQUEO DE REPETICIÓN ---
+    # --- BLOQUE FINAL: LOGIN VIP (CSV + ANTI-REPETICIÓN) ---
     
-    # 1. INYECCIÓN DE ESTILO (Solo una vez y la versión potente con *)
+    # 1. ESTILOS CSS (Mantenemos tu estilo azul AUDEO)
     st.markdown("""
     <style>
-    /* ESTADO NORMAL: Fondo Azul AUDEO, Texto Blanco */
     [data-testid="stFormSubmitButton"] button {
         background-color: #0E2283 !important;
         border: 1px solid #0E2283 !important;
     }
-    /* El asterisco * obliga a que TODO lo de dentro sea blanco */
     [data-testid="stFormSubmitButton"] button * {
         color: #FFFFFF !important;
     }
-    
-    /* ESTADO HOVER (Ratón encima): Fondo Blanco, Texto Azul AUDEO */
     [data-testid="stFormSubmitButton"] button:hover {
         background-color: #FFFFFF !important;
         border: 1px solid #0E2283 !important;
     }
-    /* El asterisco * obliga a que TODO lo de dentro sea azul */
     [data-testid="stFormSubmitButton"] button:hover * {
         color: #0E2283 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # 2. ESTRUCTURA DE LA PÁGINA
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
@@ -1401,29 +1395,30 @@ else:
         else:
             st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
-        st.markdown('### Acceso Evaluación')
-        st.info("Introduce tus credenciales.")
+        st.markdown('### Acceso Personalizado')
+        st.info("Introduce tu código de alumno y tu contraseña personal.")
         
-        # 3. FORMULARIO BLINDADO
         with st.form("login_pilot"):
+            # AHORA PEDIMOS CONTRASEÑA, NO PIN GENÉRICO
             student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
-            access_pin = st.text_input("PIN DE ACCESO:", type="password")
+            user_password = st.text_input("CONTRASEÑA:", type="password")
             
-            if st.form_submit_button("COMENZAR 🚀", use_container_width=True):
+            if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
                 code_clean = student_code.strip().upper()
-                PIN_CORRECTO = "ORYON2025"
                 
-                # A. Comprobamos PIN
-                if access_pin != PIN_CORRECTO:
-                    st.error("🔒 PIN incorrecto.")
-                # B. Comprobamos formato código
-                elif len(code_clean) < 3:
-                    st.error("⚠️ Código no válido.")
-                # C. COMPROBACIÓN CRÍTICA: ¿Ya lo ha hecho?
+                # 1. VERIFICAMOS CREDENCIALES EN EL CSV
+                # (Llama a la función que debiste pegar arriba)
+                is_valid_user, msg = check_credentials_from_csv(code_clean, user_password)
+                
+                if not is_valid_user:
+                    st.error(f"❌ {msg}") 
+                    
+                # 2. VERIFICAMOS SI YA LO HA HECHO (Anti-Repetición)
                 elif check_if_user_finished(code_clean):
-                    st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación. No se permiten reintentos.")
+                    st.error(f"⛔ El usuario {code_clean} ya ha realizado la evaluación. El acceso es de un solo uso.")
+                    
                 else:
-                    # D. Todo OK, pa'dentro
+                    # TODO CORRECTO: Entramos
                     st.session_state.auth = True
                     st.session_state.student_id = code_clean
                     st.rerun()
