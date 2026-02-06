@@ -1261,22 +1261,14 @@ elif st.session_state.get('auth', False):
             else:
                 st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
 
-        # --- BLOQUE 3: GUARDADO FINAL AUTOMÁTICO ---
-        if 'data_saved' not in st.session_state:
-            # Recuperamos el ID que metieron en el login
-            s_id = st.session_state.get("student_id", "ANONIMO")
-            
-            save_result_to_db(
-                student_id=s_id,
-                sector=st.session_state.get("sector", "GENERICO"),
-                ire=ire,
-                friction=friction,
-                triggers=triggers,
-                scores=octagon_norm
-            )
-            st.session_state.data_saved = True
-            
-        # --- FINAL ALTERNATIVO (SIN PDF PARA EL ALUMNO) ---
+        # ... código anterior ...
+    
+    # 1. BLOQUE DE GUARDADO (Ya lo tenías, asegúrate de que esté así)
+    if 'data_saved' not in st.session_state:
+        save_result_to_db(st.session_state.student_id, sector_choice, ire_score, friction_score, detected_triggers, final_scores)
+        st.session_state.data_saved = True
+
+    # 2. BLOQUE FINAL (El que tú has puesto) -> Fíjate que está ALINEADO con el if de arriba
     st.divider()
     st.success("✅ Evaluación completada con éxito.")
     st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
@@ -1288,7 +1280,7 @@ elif st.session_state.get('auth', False):
     </div>
     """, unsafe_allow_html=True)
     
-    # IMPORTANTE: Detenemos la app aquí para que no salga nada más
+    # IMPORTANTE: El freno de mano. Esto evita que el código siga leyendo hacia abajo.
     st.stop()
 
 else:
