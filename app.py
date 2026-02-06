@@ -1293,7 +1293,7 @@ elif st.session_state.get('auth', False):
         st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
         
         st.markdown("""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+        <div style="background-color: #112387; padding: 20px; border-radius: 10px; text-align: center;">
             <h3>¡Gracias por tu participación!</h3>
             <p>Ya puedes cerrar esta pestaña.</p>
         </div>
