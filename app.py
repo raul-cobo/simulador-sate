@@ -1261,27 +1261,46 @@ elif st.session_state.get('auth', False):
             else:
                 st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
 
-        # ... código anterior ...
-    
-    # 1. BLOQUE DE GUARDADO (Ya lo tenías, asegúrate de que esté así)
-    if 'data_saved' not in st.session_state:
-        save_result_to_db(st.session_state.student_id, sector_choice, ire_score, friction_score, detected_triggers, final_scores)
-        st.session_state.data_saved = True
+       
+       # --- BLOQUE DE CIERRE Y GUARDADO (VERSIÓN SEGURA) ---
+        
+        # 1. Recuperamos variables de forma segura (Evita NameError)
+        safe_student_id = st.session_state.get('student_id', 'UNKNOWN')
+        safe_sector = st.session_state.user_data.get('sector', 'GEN')
+        
+        # Recuperamos las variables calculadas en el bloque anterior
+        # Usamos locals().get() para que no falle si alguna no existe
+        safe_ire = locals().get('ire', 0)
+        safe_friction = locals().get('friction', 0)
+        safe_triggers = locals().get('triggers', [])
+        safe_scores = locals().get('octagon_norm', {})
 
-    # 2. BLOQUE FINAL (El que tú has puesto) -> Fíjate que está ALINEADO con el if de arriba
-    st.divider()
-    st.success("✅ Evaluación completada con éxito.")
-    st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
-    
-    st.markdown("""
-    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
-        <h3>¡Gracias por tu participación!</h3>
-        <p>Ya puedes cerrar esta pestaña.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # IMPORTANTE: El freno de mano. Esto evita que el código siga leyendo hacia abajo.
-    st.stop()
+        # 2. Guardamos en Base de Datos
+        if 'data_saved' not in st.session_state:
+            save_result_to_db(
+                student_id=safe_student_id, 
+                sector=safe_sector, 
+                ire=safe_ire, 
+                friction=safe_friction, 
+                triggers=safe_triggers, 
+                scores=safe_scores
+            )
+            st.session_state.data_saved = True
+
+        # 3. Mensaje Final
+        st.divider()
+        st.success("✅ Evaluación completada con éxito.")
+        st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
+        
+        st.markdown("""
+        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; text-align: center;">
+            <h3>¡Gracias por tu participación!</h3>
+            <p>Ya puedes cerrar esta pestaña.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 4. Freno de mano (Importante: evita que se muestre el Login debajo)
+        st.stop()
 
 else:
     # --- BLOQUE FINAL: LOGIN CON PIN Y BLOQUEO DE REPETICIÓN ---
