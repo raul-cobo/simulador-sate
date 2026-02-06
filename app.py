@@ -1175,23 +1175,52 @@ elif st.session_state.get('auth', False):
         with c_text: st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
         with c_opt:
             st.markdown("#### Tu decisión:")
+            
+            # --- CÓDIGO NUEVO: RESPUESTAS ALEATORIAS ---
             step = st.session_state.current_step
-            if st.button(row.get('OPCION_A_TXT', 'A'), key=f"A_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_A_LOGIC'))
-                st.session_state.current_step += 1
-                st.rerun()
-            if st.button(row.get('OPCION_B_TXT', 'B'), key=f"B_{step}", use_container_width=True):
-                parse_logic(row.get('OPCION_B_LOGIC'))
-                st.session_state.current_step += 1
-                st.rerun()
-            if row.get('OPCION_C_TXT') and str(row.get('OPCION_C_TXT')).lower() != "none":
-                if st.button(row.get('OPCION_C_TXT', 'C'), key=f"C_{step}", use_container_width=True):
-                    parse_logic(row.get('OPCION_C_LOGIC'))
-                    st.session_state.current_step += 1
-                    st.rerun()
-            if row.get('OPCION_D_TXT') and str(row.get('OPCION_D_TXT')).lower() != "none":
-                if st.button(row.get('OPCION_D_TXT', 'D'), key=f"D_{step}", use_container_width=True):
-                    parse_logic(row.get('OPCION_D_LOGIC'))
+            # 1. Empaquetamos Texto + Lógica (Las "Cartas")
+            options = []
+            if pd.notna(row.get('OPCION_A_TXT')) and str(row.get('OPCION_A_TXT')).strip():
+                options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
+            if pd.notna(row.get('OPCION_B_TXT')) and str(row.get('OPCION_B_TXT')).strip():
+                options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
+            if pd.notna(row.get('OPCION_C_TXT')) and str(row.get('OPCION_C_TXT')).strip():
+                options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
+            if pd.notna(row.get('OPCION_D_TXT')) and str(row.get('OPCION_D_TXT')).strip():
+                options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+
+            # 2. BARAJAMOS LAS CARTAS 🎲
+            random.shuffle(options)
+
+            # 3. PINTAMOS LOS BOTONES BARAJADOS
+            # CSS para que los botones se vean bien con texto largo
+            st.markdown("""
+            <style>
+            div.stButton > button {
+                height: auto;
+                min_height: 80px;
+                white-space: normal;
+                text-align: left;
+                padding: 15px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            for opt in options:
+                # Clave única para que Streamlit no se líe
+                btn_key = f"btn_{step}_{opt['id']}"
+                
+                if st.button(opt['txt'], key=btn_key, use_container_width=True):
+                    # AL PULSAR: Leemos la lógica que venía en ESTA carta específica
+                    parse_logic(opt['logic'])
+                    
+                    # Guardamos en el historial qué letra ERA realmente (para tus datos)
+                    st.session_state.history.append({
+                        "mes": row['MES'],
+                        "opcion": opt['id'], # Guardamos 'A' aunque saliera el tercero
+                        "texto": opt['txt']
+                    })
+                    
                     st.session_state.current_step += 1
                     st.rerun()
 
