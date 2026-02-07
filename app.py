@@ -44,37 +44,41 @@ def check_if_user_finished(student_id):
     return False
 
 def check_credentials_from_csv(user_code, user_pass):
-    """Verifica si el usuario y contraseña coinciden con el archivo usuarios.csv"""
+    """Verifica usuario/pass y devuelve también la organización"""
     try:
-        # Leemos el archivo CSV. Asegúrate de guardarlo separado por punto y coma (;)
         if not os.path.exists("usuarios.csv"):
-            return False, "Error: No se encuentra el archivo de usuarios."
+            return False, "Error: No se encuentra usuarios.csv", None
             
+        # Leemos el CSV con las 3 columnas
         df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str)
         
-        # Limpiamos espacios en blanco por si acaso
+        # Limpiamos datos
         df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
         df_users['password'] = df_users['password'].str.strip()
+        # Si no existe la columna organizacion, la rellenamos con 'GENERICO'
+        if 'organizacion' not in df_users.columns:
+            df_users['organizacion'] = 'GENERICO'
         
         user_clean = user_code.strip().upper()
         pass_clean = user_pass.strip()
         
-        # Buscamos el usuario
+        # Buscamos usuario
         user_row = df_users[df_users['usuario'] == user_clean]
         
         if user_row.empty:
-            return False, "Usuario no encontrado."
+            return False, "Usuario no encontrado.", None
             
-        # Comprobamos la contraseña
+        # Comprobamos contraseña
         correct_pass = user_row.iloc[0]['password']
+        user_org = user_row.iloc[0]['organizacion'] # Capturamos la orga
         
         if str(correct_pass) == str(pass_clean):
-            return True, "OK"
+            return True, "OK", user_org
         else:
-            return False, "Contraseña incorrecta."
+            return False, "Contraseña incorrecta.", None
             
     except Exception as e:
-        return False, f"Error de sistema: {e}"
+        return False, f"Error de sistema: {e}", None
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores):
     """Guarda el resultado en la nube de forma silenciosa"""
@@ -1365,9 +1369,9 @@ elif st.session_state.get('auth', False):
         st.stop()
 
 else:
-    # --- BLOQUE FINAL: LOGIN VIP (CSV + ANTI-REPETICIÓN) ---
+    # --- BLOQUE FINAL: LOGIN VIP CON ORGANIZACIÓN ---
     
-    # 1. ESTILOS CSS (Mantenemos tu estilo azul AUDEO)
+    # 1. ESTILOS CSS
     st.markdown("""
     <style>
     [data-testid="stFormSubmitButton"] button {
@@ -1396,29 +1400,32 @@ else:
             st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
         st.markdown('### Acceso Personalizado')
-        st.info("Introduce tu usuario y tu contraseña personal.")
+        st.info("Introduce tu código de alumno y tu contraseña personal.")
         
         with st.form("login_pilot"):
-            # AHORA PEDIMOS CONTRASEÑA, NO PIN GENÉRICO
-            student_code = st.text_input("Usuario:", placeholder="Ej: ORY-001")
+            student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
             user_password = st.text_input("CONTRASEÑA:", type="password")
             
             if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
                 code_clean = student_code.strip().upper()
                 
-                # 1. VERIFICAMOS CREDENCIALES EN EL CSV
-                # (Llama a la función que debiste pegar arriba)
-                is_valid_user, msg = check_credentials_from_csv(code_clean, user_password)
+                # 1. VERIFICAMOS CREDENCIALES (Recibimos 3 cosas ahora)
+                is_valid_user, msg, user_org = check_credentials_from_csv(code_clean, user_password)
                 
                 if not is_valid_user:
-                    st.error(f"❌ {msg}") 
+                    st.error(f"❌ {msg}")
                     
-                # 2. VERIFICAMOS SI YA LO HA HECHO (Anti-Repetición)
+                # 2. ANTI-REPETICIÓN
                 elif check_if_user_finished(code_clean):
-                    st.error(f"⛔ El usuario {code_clean} ya ha realizado la evaluación. El acceso es de un solo uso.")
+                    st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación.")
                     
                 else:
-                    # TODO CORRECTO: Entramos
+                    # 3. ÉXITO: Guardamos datos y organización
                     st.session_state.auth = True
                     st.session_state.student_id = code_clean
+                    # Guardamos la organización en 'user_data' por si la necesitas luego
+                    if 'user_data' not in st.session_state:
+                        st.session_state.user_data = {}
+                    st.session_state.user_data['organization'] = user_org
+                    
                     st.rerun()
