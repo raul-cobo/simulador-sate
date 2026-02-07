@@ -44,22 +44,18 @@ def check_if_user_finished(student_id):
     return False
 
 def check_credentials_from_csv(org_input, user_code, user_pass):
-    """Verifica Organización + Usuario + Contraseña (Soporta tildes y Excel Windows)"""
+    """Verifica Organización + Usuario + Contraseña"""
     try:
         if not os.path.exists("usuarios.csv"):
-            return False, "Error: No se encuentra usuarios.csv", None
+            return False, "Error: No se encuentra usuarios.csv"
             
-        # INTENTO 1: Leer como UTF-8 (Estándar moderno)
-        try:
-            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='utf-8')
-        except UnicodeDecodeError:
-            # INTENTO 2: Leer como Latin-1 (Estándar Excel Windows) si el anterior falla
-            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='latin-1')
+        # Leemos el CSV
+        df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str)
         
-        # Limpiamos los nombres de columnas
+        # Limpiamos los nombres de columnas por si hay espacios
         df_users.columns = [c.strip().lower() for c in df_users.columns]
         
-        # Normalizamos inputs
+        # Normalizamos inputs (Mayúsculas y sin espacios) para evitar errores tontos
         org_clean = org_input.strip().upper()
         user_clean = user_code.strip().upper()
         pass_clean = user_pass.strip()
@@ -67,11 +63,6 @@ def check_credentials_from_csv(org_input, user_code, user_pass):
         # Normalizamos datos del DataFrame
         if 'organizacion' in df_users.columns:
             df_users['organizacion'] = df_users['organizacion'].str.strip().str.upper()
-        
-        # Aseguramos que la columna usuario existe
-        if 'usuario' not in df_users.columns:
-             return False, "El archivo usuarios.csv está mal formado (falta columna 'usuario').", None
-
         df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
         df_users['password'] = df_users['password'].str.strip()
         
@@ -82,18 +73,18 @@ def check_credentials_from_csv(org_input, user_code, user_pass):
         ]
         
         if match.empty:
-            return False, "No se encuentra esa combinación de Organización y Usuario.", None
+            return False, "No se encuentra esa combinación de Organización y Usuario."
             
         # 2. Comprobamos contraseña de esa fila exacta
         correct_pass = match.iloc[0]['password']
         
         if str(correct_pass) == str(pass_clean):
-            return True, "OK", org_clean
+            return True, "OK"
         else:
-            return False, "Contraseña incorrecta.", None
+            return False, "Contraseña incorrecta."
             
     except Exception as e:
-        return False, f"Error de sistema leyendo CSV: {e}", None
+        return False, f"Error de lectura CSV: {e}"
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, organization="GENERICO"):
     """Guarda el resultado en la nube (Incluyendo Organización)"""
@@ -1438,8 +1429,8 @@ else:
                 org_clean = org_input.strip().upper()
                 code_clean = student_code.strip().upper()
                 
-                # 1. VERIFICAMOS CREDENCIALES (Pasamos los 3 datos)
-                is_valid, msg = check_credentials_from_csv(org_input, student_code, user_password)
+                # --- CORRECCIÓN AQUÍ: Recogemos 3 variables (is_valid, msg, real_org) ---
+                is_valid, msg, real_org = check_credentials_from_csv(org_input, student_code, user_password)
                 
                 if not is_valid:
                     st.error(f"❌ {msg}")
@@ -1453,9 +1444,9 @@ else:
                     st.session_state.auth = True
                     st.session_state.student_id = code_clean
                     
-                    # Guardamos la organización para la BBDD
+                    # Guardamos la organización validada
                     if 'user_data' not in st.session_state:
                         st.session_state.user_data = {}
-                    st.session_state.user_data['organization'] = org_clean
+                    st.session_state.user_data['organization'] = real_org
                     
                     st.rerun()
