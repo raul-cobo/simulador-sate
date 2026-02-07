@@ -1270,7 +1270,12 @@ elif st.session_state.get('auth', False):
                     # AL PULSAR: Leemos la lógica que venía en ESTA carta específica
                     parse_logic(opt['logic'])
                     
-                    # Guardamos en el historial qué letra ERA realmente (para tus datos)
+                    # --- RED DE SEGURIDAD (NUEVO) ---
+                    # Si por lo que sea no existe el historial, lo creamos ahora mismo
+                    if 'history' not in st.session_state:
+                        st.session_state.history = []
+                    
+                    # Ahora ya podemos guardar sin miedo
                     st.session_state.history.append({
                         "mes": row['MES'],
                         "opcion": opt['id'], # Guardamos 'A' aunque saliera el tercero
