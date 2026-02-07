@@ -1387,7 +1387,7 @@ elif st.session_state.get('auth', False):
         # 1. Recuperamos el nombre de la organización de la memoria
         org_name = st.session_state.user_data.get('organization', 'tu organización')
         
-        # 2. Lo ponemos bonito (Primera Mayúscula) para que no salga "COLEGIO_MADRID" sino "Colegio_madrid" o tal cual.
+        # 2. Lo ponemos bonito (Primera Mayúscula) para que no salga "COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL" sino "COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL" o tal cual.
         # Si prefieres que salga en MAYÚSCULAS tal cual viene del Excel, quita el .title()
         
         st.success(f"✅ Tus resultados han sido registrados y enviados al equipo de {org_name}.")
@@ -1438,7 +1438,7 @@ else:
         
         with st.form("login_pilot"):
             # AHORA SON 3 CAMPOS
-            org_input = st.text_input("ORGANIZACIÓN:", placeholder="Ej: COLEGIO_MADRID")
+            org_input = st.text_input("ORGANIZACIÓN:", placeholder="Ej: COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL")
             student_code = st.text_input("USUARIO / CÓDIGO:", placeholder="Ej: ORY-001")
             user_password = st.text_input("CONTRASEÑA:", type="password")
             
