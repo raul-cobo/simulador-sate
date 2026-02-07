@@ -43,61 +43,73 @@ def check_if_user_finished(student_id):
             print(f"Error comprobando usuario: {e}")
     return False
 
-def check_credentials_from_csv(user_code, user_pass):
-    """Verifica usuario/pass y devuelve también la organización"""
+def check_credentials_from_csv(org_input, user_code, user_pass):
+    """Verifica Organización + Usuario + Contraseña"""
     try:
         if not os.path.exists("usuarios.csv"):
-            return False, "Error: No se encuentra usuarios.csv", None
+            return False, "Error: No se encuentra usuarios.csv"
             
-        # Leemos el CSV con las 3 columnas
+        # Leemos el CSV
         df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str)
         
-        # Limpiamos datos
-        df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
-        df_users['password'] = df_users['password'].str.strip()
-        # Si no existe la columna organizacion, la rellenamos con 'GENERICO'
-        if 'organizacion' not in df_users.columns:
-            df_users['organizacion'] = 'GENERICO'
+        # Limpiamos los nombres de columnas por si hay espacios
+        df_users.columns = [c.strip().lower() for c in df_users.columns]
         
+        # Normalizamos inputs (Mayúsculas y sin espacios) para evitar errores tontos
+        org_clean = org_input.strip().upper()
         user_clean = user_code.strip().upper()
         pass_clean = user_pass.strip()
         
-        # Buscamos usuario
-        user_row = df_users[df_users['usuario'] == user_clean]
+        # Normalizamos datos del DataFrame
+        if 'organizacion' in df_users.columns:
+            df_users['organizacion'] = df_users['organizacion'].str.strip().str.upper()
+        df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
+        df_users['password'] = df_users['password'].str.strip()
         
-        if user_row.empty:
-            return False, "Usuario no encontrado.", None
+        # 1. Buscamos fila que coincida en ORGANIZACIÓN y USUARIO
+        match = df_users[
+            (df_users['organizacion'] == org_clean) & 
+            (df_users['usuario'] == user_clean)
+        ]
+        
+        if match.empty:
+            return False, "No se encuentra esa combinación de Organización y Usuario."
             
-        # Comprobamos contraseña
-        correct_pass = user_row.iloc[0]['password']
-        user_org = user_row.iloc[0]['organizacion'] # Capturamos la orga
+        # 2. Comprobamos contraseña de esa fila exacta
+        correct_pass = match.iloc[0]['password']
         
         if str(correct_pass) == str(pass_clean):
-            return True, "OK", user_org
+            return True, "OK"
         else:
-            return False, "Contraseña incorrecta.", None
+            return False, "Contraseña incorrecta."
             
     except Exception as e:
-        return False, f"Error de sistema: {e}", None
+        return False, f"Error de lectura CSV: {e}"
 
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores):
-    """Guarda el resultado en la nube de forma silenciosa"""
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores, organization="GENERICO"):
+    """Guarda el resultado en la nube (Incluyendo Organización)"""
     if supabase:
         try:
             # Preparamos los datos
             triggers_list = list(triggers) if isinstance(triggers, set) else triggers
+            
+            # Recuperamos la organización si no nos la pasan directamente pero está en sesión
+            if organization == "GENERICO" and 'user_data' in st.session_state:
+                organization = st.session_state.user_data.get('organization', 'GENERICO')
+
             data = {
                 "student_id": student_id,
                 "sector": sector,
                 "ire_score": float(ire),
                 "friction_score": float(friction),
                 "triggers": triggers_list,
-                "raw_scores": scores
+                "raw_scores": scores,
+                "organization": organization  # <--- CAMPO NUEVO
             }
             # Insertamos
             supabase.table("sape_results").insert(data).execute()
         except Exception as e:
-            print(f"Error guardando: {e}")
+            print(f"Error guardando en Supabase: {e}")
 
 # --- CONFIGURACIÓN DE CALIBRACIÓN ---
 SCORE_MULTIPLIER = 1.5  # <--- SUBIDO A 1.5
@@ -1343,13 +1355,17 @@ elif st.session_state.get('auth', False):
 
         # 2. Guardamos en Base de Datos
         if 'data_saved' not in st.session_state:
+            # Recuperamos la organización de la sesión (o ponemos GENERICO si falla)
+            org_to_save = st.session_state.user_data.get('organization', 'GENERICO')
+            
             save_result_to_db(
                 student_id=safe_student_id, 
                 sector=safe_sector, 
                 ire=safe_ire, 
                 friction=safe_friction, 
                 triggers=safe_triggers, 
-                scores=safe_scores
+                scores=safe_scores,
+                organization=org_to_save  # <--- ¡AQUÍ ESTÁ LA CLAVE!
             )
             st.session_state.data_saved = True
 
@@ -1369,7 +1385,7 @@ elif st.session_state.get('auth', False):
         st.stop()
 
 else:
-    # --- BLOQUE FINAL: LOGIN VIP CON ORGANIZACIÓN ---
+    # --- BLOQUE FINAL: LOGIN CON 3 CAMPOS (ORG, USER, PASS) ---
     
     # 1. ESTILOS CSS
     st.markdown("""
@@ -1399,20 +1415,24 @@ else:
         else:
             st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
 
-        st.markdown('### Acceso Personalizado')
-        st.info("Introduce tu código de alumno y tu contraseña personal.")
+        st.markdown('### Acceso Evaluación')
+        st.info("Introduce los datos de acceso proporcionados por tu organización.")
         
         with st.form("login_pilot"):
-            student_code = st.text_input("CÓDIGO DE ALUMNO:", placeholder="Ej: ORY-001")
+            # AHORA SON 3 CAMPOS
+            org_input = st.text_input("ORGANIZACIÓN:", placeholder="Ej: COLEGIO_MADRID")
+            student_code = st.text_input("USUARIO / CÓDIGO:", placeholder="Ej: ORY-001")
             user_password = st.text_input("CONTRASEÑA:", type="password")
             
             if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
+                # Limpiamos inputs
+                org_clean = org_input.strip().upper()
                 code_clean = student_code.strip().upper()
                 
-                # 1. VERIFICAMOS CREDENCIALES (Recibimos 3 cosas ahora)
-                is_valid_user, msg, user_org = check_credentials_from_csv(code_clean, user_password)
+                # 1. VERIFICAMOS CREDENCIALES (Pasamos los 3 datos)
+                is_valid, msg = check_credentials_from_csv(org_input, student_code, user_password)
                 
-                if not is_valid_user:
+                if not is_valid:
                     st.error(f"❌ {msg}")
                     
                 # 2. ANTI-REPETICIÓN
@@ -1420,12 +1440,13 @@ else:
                     st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación.")
                     
                 else:
-                    # 3. ÉXITO: Guardamos datos y organización
+                    # 3. ÉXITO
                     st.session_state.auth = True
                     st.session_state.student_id = code_clean
-                    # Guardamos la organización en 'user_data' por si la necesitas luego
+                    
+                    # Guardamos la organización para la BBDD
                     if 'user_data' not in st.session_state:
                         st.session_state.user_data = {}
-                    st.session_state.user_data['organization'] = user_org
+                    st.session_state.user_data['organization'] = org_clean
                     
                     st.rerun()
