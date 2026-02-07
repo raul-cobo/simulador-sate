@@ -1439,7 +1439,7 @@ else:
         with st.form("login_pilot"):
             # AHORA SON 3 CAMPOS
             org_input = st.text_input("ORGANIZACIÓN:", placeholder="Ej: COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL")
-            student_code = st.text_input("USUARIO / CÓDIGO:", placeholder="Ej: ORY-001")
+            student_code = st.text_input("USUARIO / CÓDIGO:", placeholder="Ej: COPAO-001")
             user_password = st.text_input("CONTRASEÑA:", type="password")
             
             if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
