@@ -44,25 +44,31 @@ def check_if_user_finished(student_id):
     return False
 
 def check_credentials_from_csv(org_input, user_code, user_pass):
-    """Verifica Organización + Usuario + Contraseña"""
+    """Verifica Organización + Usuario + Contraseña (Devuelve 3 valores)"""
     try:
         if not os.path.exists("usuarios.csv"):
-            return False, "Error: No se encuentra usuarios.csv"
+            return False, "Error: No se encuentra usuarios.csv", None
             
-        # Leemos el CSV
-        df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str)
+        # INTENTO 1: Leer como UTF-8
+        try:
+            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='utf-8')
+        except UnicodeDecodeError:
+            # INTENTO 2: Leer como Latin-1 (Windows)
+            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='latin-1')
         
-        # Limpiamos los nombres de columnas por si hay espacios
+        # Limpieza
         df_users.columns = [c.strip().lower() for c in df_users.columns]
-        
-        # Normalizamos inputs (Mayúsculas y sin espacios) para evitar errores tontos
         org_clean = org_input.strip().upper()
         user_clean = user_code.strip().upper()
         pass_clean = user_pass.strip()
         
-        # Normalizamos datos del DataFrame
+        # Normalizamos la columna organización en el CSV
         if 'organizacion' in df_users.columns:
             df_users['organizacion'] = df_users['organizacion'].str.strip().str.upper()
+        else:
+            # Si no existe la columna en el CSV, creamos una genérica
+            df_users['organizacion'] = 'GENERICO'
+
         df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
         df_users['password'] = df_users['password'].str.strip()
         
@@ -73,18 +79,19 @@ def check_credentials_from_csv(org_input, user_code, user_pass):
         ]
         
         if match.empty:
-            return False, "No se encuentra esa combinación de Organización y Usuario."
+            return False, "No se encuentra esa combinación de Organización y Usuario.", None
             
-        # 2. Comprobamos contraseña de esa fila exacta
+        # 2. Comprobamos contraseña
         correct_pass = match.iloc[0]['password']
         
         if str(correct_pass) == str(pass_clean):
-            return True, "OK"
+            # AQUÍ ESTÁ LA CLAVE: Devolvemos 3 cosas
+            return True, "OK", org_clean 
         else:
-            return False, "Contraseña incorrecta."
+            return False, "Contraseña incorrecta.", None
             
     except Exception as e:
-        return False, f"Error de lectura CSV: {e}"
+        return False, f"Error de sistema: {e}", None
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, organization="GENERICO"):
     """Guarda el resultado en la nube (Incluyendo Organización)"""
