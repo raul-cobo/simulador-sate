@@ -1384,7 +1384,13 @@ elif st.session_state.get('auth', False):
         # 3. Mensaje Final
         st.divider()
         st.success("✅ Evaluación completada con éxito.")
-        st.info("Tus resultados han sido registrados y enviados a la dirección académica de Oryon School.")
+        # 1. Recuperamos el nombre de la organización de la memoria
+        org_name = st.session_state.user_data.get('organization', 'tu organización')
+        
+        # 2. Lo ponemos bonito (Primera Mayúscula) para que no salga "COLEGIO_MADRID" sino "Colegio_madrid" o tal cual.
+        # Si prefieres que salga en MAYÚSCULAS tal cual viene del Excel, quita el .title()
+        
+        st.success(f"✅ Tus resultados han sido registrados y enviados al equipo de {org_name}.")
         
         st.markdown("""
         <div style="background-color: #11268C; padding: 20px; border-radius: 10px; text-align: center;">
