@@ -1488,3 +1488,193 @@ else:
                     st.session_state.user_data['organization'] = real_org
                     
                     st.rerun()
+                    # --- AQUI EMPIEZA LA LÓGICA DEL JUEGO (FUERA DEL LOGIN) ---
+
+# Si el usuario YA está autenticado (st.session_state.auth es True)
+if st.session_state.get('auth', False):
+    
+    # 1. PANTALLA DE INSTRUCCIONES (ONBOARDING)
+    if 'instructions_seen' not in st.session_state:
+        st.session_state.instructions_seen = False
+
+    if not st.session_state.instructions_seen:
+        inject_style("login") 
+        
+        st.markdown("## 📜 Guía de Supervivencia: Simulador S.A.P.E.")
+        st.info("""
+        **Bienvenido/a al simulador.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.
+        Tu objetivo no es "ganar", sino tomar decisiones coherentes con tu forma de ser.
+        """)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### ⚙️ Mecánica")
+            st.markdown("""
+            * Cada mes te enfrentarás a un **desafío crítico**.
+            * Tendrás **4 opciones** de respuesta.
+            * **No hay respuestas correctas o incorrectas**: cada decisión tiene consecuencias.
+            * Elige lo que **realmente harías**, no lo que "queda bien".
+            """)
+        with col2:
+            st.markdown("### ⚠️ Reglas de Oro")
+            st.markdown("""
+            * 🚫 **NO uses el botón 'Atrás'** del navegador.
+            * 🚫 **NO refresques la página** a mitad de la partida.
+            * ⏳ **Sin prisa:** Lee bien el contexto.
+            * 🔄 **Irreversible:** Una vez decides, no hay vuelta atrás.
+            """)
+            
+        st.divider()
+        st.markdown("### 🏁 Finalización")
+        st.caption("Al terminar el mes 40, el sistema guardará tu perfil y lo enviará a la dirección académica. Recibirás feedback inmediato.")
+        
+        st.write("") 
+        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR SIMULACIÓN", use_container_width=True, type="primary"):
+            st.session_state.instructions_seen = True
+            st.rerun()
+
+    # 2. SI YA VIO INSTRUCCIONES -> FLUJO NORMAL
+    else:
+        # Aquí iría el resto de tu código antiguo que borraste sin querer
+        # Como tu archivo actual termina en el login, TE FALTA TODA LA LÓGICA DE ABAJO.
+        # Voy a reconstruirte el bloque completo del juego para que lo pegues aquí.
+        
+        inject_style("app")
+        
+        # --- RECOGIDA DE DATOS ---
+        if not st.session_state.get('data_verified', False):
+            render_header()
+            st.markdown("#### 1. Identificación del/a Candidato/a")
+            col1, col2 = st.columns(2)
+            name = col1.text_input("Nombre Completo", key="name_input")
+            age = col2.number_input("Edad", 18, 99, key="age_input")
+            col3, col4 = st.columns(2)
+            gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
+            country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
+            col5, col6 = st.columns(2)
+            situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
+            experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
+            st.markdown("<br>", unsafe_allow_html=True)
+            consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+            
+            if st.button("VALIDAR DATOS Y CONTINUAR"):
+                if name and age and consent:
+                    if 'user_data' not in st.session_state: st.session_state.user_data = {}
+                    st.session_state.user_data.update({"name": name, "age": age, "gender": gender, "experience": experience})
+                    st.session_state.data_verified = True
+                    st.rerun()
+                else:
+                    st.error("Por favor, completa los campos obligatorios.")
+
+        # --- SELECCIÓN DE SECTOR ---
+        elif not st.session_state.get('started', False):
+            render_header()
+            st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+            def go_sector(sec):
+                all_q = load_questions()
+                # Mapeo de seguridad
+                qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == str(SECTOR_MAP.get(sec, 'TECH')).upper()]
+                if not qs: qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == "TECH"]
+                st.session_state.data = qs
+                st.session_state.user_data["sector"] = sec
+                st.session_state.started = True
+                st.rerun()
+            
+            c1, c2 = st.columns(2)
+            with c1: 
+                if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+                if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+                if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+                if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
+                if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
+            with c2:
+                if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+                if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
+                if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
+                if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
+                if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
+
+        # --- JUEGO (PREGUNTAS) ---
+        elif not st.session_state.get('finished', False):
+            if st.session_state.current_step >= len(st.session_state.data):
+                st.session_state.finished = True
+                st.rerun()
+                
+            render_header()
+            row = st.session_state.data[st.session_state.current_step]
+            st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
+            
+            st.markdown(f"### {row.get('TITULO', 'Desafío')}")
+            c_text, c_opt = st.columns([1.5, 1])
+            with c_text:
+                st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
+            
+            with c_opt:
+                st.markdown("#### Tu decisión:")
+                options = []
+                # Recopilar opciones válidas
+                if pd.notna(row.get('OPCION_A_TXT')): options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
+                if pd.notna(row.get('OPCION_B_TXT')): options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
+                if pd.notna(row.get('OPCION_C_TXT')): options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
+                if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+                
+                random.shuffle(options) # BARAJADOR
+
+                st.markdown("""<style>div.stButton > button {height: auto; min_height: 80px; white-space: normal; text-align: left; padding: 15px;}</style>""", unsafe_allow_html=True)
+
+                step = st.session_state.current_step
+                for opt in options:
+                    if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
+                        # Sumar puntos
+                        parsed = parse_logic(opt['logic'])
+                        if 'octagon' not in st.session_state: st.session_state.octagon = {}
+                        for trait, score in parsed.items():
+                            st.session_state.octagon[trait] = st.session_state.octagon.get(trait, 0) + score
+                        
+                        # Guardar historial
+                        if 'history' not in st.session_state: st.session_state.history = []
+                        st.session_state.history.append({"mes": row.get('MES'), "opcion": opt['id'], "texto": opt['txt']})
+                        
+                        st.session_state.current_step += 1
+                        st.rerun()
+
+        # --- RESULTADOS ---
+        else:
+            render_header()
+            ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
+            
+            # Diagnóstico
+            cerebro = cargar_cerebro_sape()
+            diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+
+            if diagnostico:
+                titulo = diagnostico.get('name', 'Diagnóstico')
+                nivel = diagnostico.get('risk_level', 'ALERTA')
+                desc = diagnostico.get('description', '')
+                if "CRÍTICO" in nivel: color = "#E74C3C" 
+                elif "ALTO" in nivel: color = "#F1C40F" 
+                else: color = "#2ECC71" 
+                st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #1A202C; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
+
+            # Métricas
+            st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Índice IRE", f"{ire}/100")
+            k2.metric("Potencial", f"{avg}/100")
+            k3.metric("Fricción", f"{friction}%", delta_color="inverse")
+            st.plotly_chart(radar_chart(), use_container_width=True)
+
+            # Guardado Seguro
+            if 'data_saved' not in st.session_state:
+                org_to_save = st.session_state.user_data.get('organization', 'GENERICO')
+                save_result_to_db(
+                    student_id=st.session_state.student_id, 
+                    sector=st.session_state.user_data.get('sector', 'GEN'), 
+                    ire=ire, friction=friction, triggers=triggers, 
+                    scores=octagon_norm,   
+                    history=st.session_state.history,  
+                    organization=org_to_save           
+                )
+                st.session_state.data_saved = True
+
+            st.success(f"✅ Resultados enviados a {st.session_state.user_data.get('organization')}.")
