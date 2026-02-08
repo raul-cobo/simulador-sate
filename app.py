@@ -1518,7 +1518,7 @@ if st.session_state.get('auth', False):
         </style>
         """, unsafe_allow_html=True)
         
-        st.markdown("## 📜 Guía de Supervivencia: Simulador S.A.P.E.")
+        st.markdown("## 📜 Guía simulador S.A.P.E.")
         
         st.warning("""
         **Bienvenido/a al simulador.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.
@@ -1539,8 +1539,8 @@ if st.session_state.get('auth', False):
             st.markdown("""
             * 🚫 **NO uses el botón 'Atrás'** del navegador.
             * 🚫 **NO refresques la página** a mitad de la partida.
-            * ⏳ **Sin prisa:** Lee bien el contexto.
-            * 🔄 **Irreversible:** Una vez decides, no hay vuelta atrás.
+            * ⏳ **Sin prisa:** Lee bien el contexto ya que no se contabiliza el tiempo.
+            * 🔄 **Decisión fija:** No hay opción de corrección o rectificación.
             """)
             
         st.divider()
