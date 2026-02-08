@@ -1497,11 +1497,30 @@ if st.session_state.get('auth', False):
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
 
+    # 1. PANTALLA DE INSTRUCCIONES (ONBOARDING)
+    if 'instructions_seen' not in st.session_state:
+        st.session_state.instructions_seen = False
+
     if not st.session_state.instructions_seen:
-        inject_style("login") 
+        # --- ARREGLO FONDO OSCURO ---
+        st.markdown("""
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: #0E1117;
+            color: white;
+        }
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+        }
+        .stMarkdown, .stText, h1, h2, h3 {
+            color: white !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
         st.markdown("## 📜 Guía de Supervivencia: Simulador S.A.P.E.")
-        st.info("""
+        
+        st.warning("""
         **Bienvenido/a al simulador.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.
         Tu objetivo no es "ganar", sino tomar decisiones coherentes con tu forma de ser.
         """)
@@ -1512,7 +1531,7 @@ if st.session_state.get('auth', False):
             st.markdown("""
             * Cada mes te enfrentarás a un **desafío crítico**.
             * Tendrás **4 opciones** de respuesta.
-            * **No hay respuestas correctas o incorrectas**: cada decisión tiene consecuencias.
+            * **No hay respuestas correctas**: cada decisión tiene consecuencias.
             * Elige lo que **realmente harías**, no lo que "queda bien".
             """)
         with col2:
