@@ -93,30 +93,48 @@ def check_credentials_from_csv(org_input, user_code, user_pass):
     except Exception as e:
         return False, f"Error de sistema: {e}", None
 
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores, organization="GENERICO"):
-    """Guarda el resultado en la nube (Incluyendo Organización)"""
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization="GENERICO"):
+    """Guarda TODO: Rasgos individuales y las respuestas crudas para estadística"""
     if supabase:
         try:
-            # Preparamos los datos
+            # Preparamos los triggers
             triggers_list = list(triggers) if isinstance(triggers, set) else triggers
             
-            # Recuperamos la organización si no nos la pasan directamente pero está en sesión
+            # Recuperamos organización
             if organization == "GENERICO" and 'user_data' in st.session_state:
                 organization = st.session_state.user_data.get('organization', 'GENERICO')
 
             data = {
                 "student_id": student_id,
                 "sector": sector,
+                "organization": organization,
+                "created_at": datetime.now().isoformat(),
+
+                # METRICAS GLOBALES
                 "ire_score": float(ire),
                 "friction_score": float(friction),
                 "triggers": triggers_list,
-                "raw_scores": scores,
-                "organization": organization  # <--- CAMPO NUEVO
+                
+                # EL OCTÓGONO (Para sacar descarriladores después)
+                "achievement": scores.get('achievement', 0),
+                "risk_propensity": scores.get('risk_propensity', 0),
+                "innovativeness": scores.get('innovativeness', 0),
+                "locus_control": scores.get('locus_control', 0),
+                "self_efficacy": scores.get('self_efficacy', 0),
+                "autonomy": scores.get('autonomy', 0),
+                "ambiguity_tolerance": scores.get('ambiguity_tolerance', 0),
+                "emotional_stability": scores.get('emotional_stability', 0),
+                
+                # LA JOYA DE LA CORONA (Para Validez y Fiabilidad)
+                "raw_answers": history, # Guarda qué respondió en cada mes
+                "raw_scores": scores    # Respaldo JSON
             }
-            # Insertamos
+            
             supabase.table("sape_results").insert(data).execute()
+            print("✅ Datos completos guardados en Supabase")
+            
         except Exception as e:
-            print(f"Error guardando en Supabase: {e}")
+            print(f"❌ Error guardando: {e}")
 
 # --- CONFIGURACIÓN DE CALIBRACIÓN ---
 SCORE_MULTIPLIER = 1.5  # <--- SUBIDO A 1.5
@@ -1370,14 +1388,16 @@ elif st.session_state.get('auth', False):
             # Recuperamos la organización de la sesión (o ponemos GENERICO si falla)
             org_to_save = st.session_state.user_data.get('organization', 'GENERICO')
             
+            # 2. Llamada a la función de guardado (TODO DENTRO DEL MISMO PARÉNTESIS)
             save_result_to_db(
                 student_id=safe_student_id, 
                 sector=safe_sector, 
                 ire=safe_ire, 
                 friction=safe_friction, 
                 triggers=safe_triggers, 
-                scores=safe_scores,
-                organization=org_to_save  # <--- ¡AQUÍ ESTÁ LA CLAVE!
+                scores=st.session_state.octagon,   # Pasamos el octógono de la sesión
+                history=st.session_state.history,  # <--- NUEVO: Pasamos el historial
+                organization=org_to_save           # <--- NUEVO: Pasamos la organización
             )
             st.session_state.data_saved = True
 
