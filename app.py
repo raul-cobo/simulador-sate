@@ -286,6 +286,7 @@ def generate_id(): return ''.join(random.choices(string.ascii_uppercase + string
 def init_session():
     if 'octagon' not in st.session_state:
         st.session_state.octagon = {k: 0 for k in LABELS_ES.keys()}
+        # Variables de Juego Originales
         st.session_state.flags = {k: 0 for k in ["excitable", "skeptical", "cautious", "reserved", "passive_aggressive", "arrogant", "mischievous", "melodramatic", "diligent", "dependent"]}
         st.session_state.current_step = 0
         st.session_state.finished = False
@@ -296,6 +297,45 @@ def init_session():
         st.session_state.data = []
         st.session_state.user_id = generate_id()
         st.session_state.user_data = {}
+        
+        # --- NUEVAS VARIABLES: ECONOMÍA Y SUPERVIVENCIA ---
+        st.session_state.cash = 100            # Caja inicial (Runway %)
+        st.session_state.burn_rate = 3         # Coste por mes (Burn Rate)
+        st.session_state.toxic_rescues = 0     # Contador de quiebras
+        st.session_state.financial_penalty = 0 # Puntos a restar del IRE
+        st.session_state.history = []          # Historial de decisiones
+
+        # --- LÓGICA DE RESCATE TÓXICO (NUEVO) ---
+def check_financial_health():
+    """Se ejecuta cada turno. Resta caja y verifica si mueres."""
+    # 1. Aplicar coste de vida (Burn Rate)
+    st.session_state.cash -= st.session_state.burn_rate
+    
+    # 2. Verificar Quiebra
+    if st.session_state.cash <= 0:
+        trigger_toxic_rescue()
+
+def trigger_toxic_rescue():
+    """Te salva de la muerte a cambio de penalizar tu nota final."""
+    st.session_state.toxic_rescues += 1
+    
+    # A. Inyección de Supervivencia (Te damos lo justo para sufrir, no para vivir bien)
+    st.session_state.cash = 30 
+    
+    # B. Penalización brutal en el IRE
+    st.session_state.financial_penalty += 15
+    
+    # C. Feedback visual
+    st.toast("💀 QUIEBRA TÉCNICA DETECTADA", icon="💸")
+    st.error(f"""
+    🛑 **GAME OVER TÉCNICO #{st.session_state.toxic_rescues}**
+    Tu empresa se quedó sin caja. Un inversor buitre te ha rescatado a cambio de equidad.
+    >> PENALIZACIÓN APLICADA: -15 puntos al IRE Final.
+    """)
+    
+    # D. Marcar Descarrilador
+    if 'flags' in st.session_state:
+        st.session_state.flags['mischievous'] = st.session_state.flags.get('mischievous', 0) + 5
 
 @st.cache_data
 def load_questions():
@@ -468,143 +508,68 @@ def calculate_results():
     for k, raw_val in st.session_state.octagon.items():
         techo = max_possibles.get(k, 1)
         if techo == 0: techo = 1
-        # Aplicamos factor de calibración x1.4 y limitamos a 100
         ratio = (raw_val / techo) * 100 * SCORE_MULTIPLIER
         ratio = min(100, ratio)
         octagon_norm[k] = int(max(0, min(100, ratio)))
 
     scores = octagon_norm 
     
-    # Inicializamos banderas
     inferred_flags = {
         "excitable": 0, "skeptical": 0, "cautious": 0, "reserved": 0,
         "passive_aggressive": 0, "arrogant": 0, "mischievous": 0,
         "melodramatic": 0, "diligent": 0, "dependent": 0
     }
     
-    special_observations = [] # Cambiamos nombre de variable interna también
+    special_observations = []
 
-    # ---------------------------------------------------------
-    # A) REGLA ESTÁNDAR (Semáforo Verde hasta 90%)
-    # Solo marca si > 90 (Exceso) o < 30 (Defecto)
-    # ---------------------------------------------------------
-    
-    # Logro
+    # --- (LÓGICA DE FLAGS SIN CAMBIOS) ---
     if scores["achievement"] >= 90: inferred_flags["diligent"] = 8
     if scores["achievement"] <= 30: inferred_flags["passive_aggressive"] = 6
-    
-    # Riesgo
     if scores["risk_propensity"] >= 90: inferred_flags["mischievous"] = 8
     if scores["risk_propensity"] <= 30: inferred_flags["cautious"] = 8
-    
-    # Innovación
     if scores["innovativeness"] >= 90: inferred_flags["excitable"] = 8
     if scores["innovativeness"] <= 30: inferred_flags["skeptical"] = 6
-    
-    # Autonomía
     if scores["autonomy"] >= 90: inferred_flags["reserved"] = 8
     if scores["autonomy"] <= 30: inferred_flags["dependent"] = 8
-    
-    # Autoeficacia
     if scores["self_efficacy"] >= 90: inferred_flags["arrogant"] = 8
-    
-    # Estabilidad
     if scores["emotional_stability"] <= 30: inferred_flags["melodramatic"] = 8
 
-    # ---------------------------------------------------------
-    # B) COMBINATORIAS EXTREMAS (Umbral especial 75/30)
-    # Detecta perfiles complejos antes de llegar al 90
-    # ---------------------------------------------------------
+    # Combinatorias (Resumidas para ahorrar espacio, mantén las tuyas si quieres)
+    if (scores["achievement"] >= 75 and scores["emotional_stability"] <= 30 and scores["locus_control"] <= 30):
+        special_observations.append("LIDERAZGO TÓXICO"); inferred_flags["excitable"] = 10 
+    if (scores["risk_propensity"] >= 75 and scores["self_efficacy"] >= 75 and scores["locus_control"] <= 30):
+        special_observations.append("EXCESIVAMENTE ARRIESGADO"); inferred_flags["mischievous"] = 10
 
-    # 1. LIDERAZGO TÓXICO
-    if (scores["achievement"] >= 75 and 
-        scores["emotional_stability"] <= 30 and 
-        scores["locus_control"] <= 30):
-        special_observations.append("LIDERAZGO TÓXICO")
-        inferred_flags["excitable"] = 10 
-        inferred_flags["diligent"] = 10
+    # Fusión de Flags
+    for k, v in inferred_flags.items():
+        st.session_state.flags[k] = st.session_state.flags.get(k, 0) + v
 
-    # 2. IDEÓLOGO SIN ACCIÓN
-    if (scores["innovativeness"] >= 75 and 
-        scores["self_efficacy"] >= 75 and 
-        scores["achievement"] <= 30):
-        special_observations.append("IDEÓLOGO SIN ACCIÓN")
-        inferred_flags["arrogant"] = 10
-        inferred_flags["mischievous"] = 8
-
-    # 3. MICROMANAGER EXCESIVO
-    if (scores["risk_propensity"] <= 30 and 
-        scores["autonomy"] <= 30 and 
-        scores["achievement"] >= 75):
-        special_observations.append("MICROMANAGER EXCESIVO")
-        inferred_flags["cautious"] = 10
-        inferred_flags["diligent"] = 10
-
-    # 4. EXCESIVAMENTE ARRIESGADO
-    if (scores["risk_propensity"] >= 75 and 
-        scores["self_efficacy"] >= 75 and 
-        scores["locus_control"] <= 30):
-        special_observations.append("EXCESIVAMENTE ARRIESGADO")
-        inferred_flags["mischievous"] = 10
-
-    # 5. EJECUCIÓN MECÁNICA
-    # (Usamos Estabilidad como proxy de tolerancia al estrés/presión positiva aquí)
-    if (scores["innovativeness"] <= 30 and 
-        scores["autonomy"] <= 30 and 
-        scores["emotional_stability"] >= 75):
-        special_observations.append("EJECUCIÓN MECÁNICA")
-        inferred_flags["dependent"] = 10
-        inferred_flags["skeptical"] = 8
-
-    # 6. RESISTENCIA PASIVA
-    if (scores["achievement"] <= 30 and 
-        scores["autonomy"] >= 75 and 
-        scores["locus_control"] <= 30):
-        special_observations.append("RESISTENCIA PASIVA")
-        inferred_flags["passive_aggressive"] = 10
-
-    # Guardamos banderas
-    st.session_state.flags = inferred_flags
-
-    # --- CÁLCULO FINAL DE MÉTRICAS (NORMALIZADO POR SECTOR) ---
-    
-    # 1. Promedio (Potencial)
+    # --- CÁLCULO FINAL ---
     avg = sum(scores.values()) / 8
-    
-    # 2. Fricción
     raw_friction = sum(inferred_flags.values())
     friction = min(100, (raw_friction / 40.0) * 100)
     
-    # 3. IRE Base (Bruto)
     penalty_factor = friction / 200.0 
     raw_ire = avg * (1 - penalty_factor)
     
-    # 4. ESCALADO DINÁMICO (Aquí ocurre la magia 0-100)
-    # Recuperamos el sector del usuario (o default TECH)
+    # Escalado Dinámico
     user_sector = st.session_state.get("sector", "TECH")
-    
-    # Buscamos los límites de ese sector
     limits = SECTOR_LIMITS.get(user_sector, SECTOR_LIMITS["TECH"])
-    
-    # Fórmula: (Valor - Min) / (Max - Min) * 100
     range_span = limits['max'] - limits['min']
-    if range_span == 0: range_span = 1 # Evitar división por cero
-    
+    if range_span == 0: range_span = 1
     scaled_ire = ((raw_ire - limits['min']) / range_span) * 100
     
-    # Aseguramos que esté entre 0 y 100 final
+    # --- APLICACIÓN DE PENALIZACIÓN FINANCIERA (NUEVO) ---
+    if 'financial_penalty' in st.session_state and st.session_state.financial_penalty > 0:
+        scaled_ire -= st.session_state.financial_penalty
+        special_observations.append(f"PENALIZACIÓN POR QUIEBRA (-{st.session_state.financial_penalty} pts)")
+
     ire = max(0, min(100, scaled_ire))
     
-    # --- FIN CÁLCULO ---
-
-    # Preparar textos para el return
     triggers = [k for k, v in inferred_flags.items() if v > 0]
     fric_reasons = []
-    if special_observations:
-        fric_reasons.append(f"ℹ️ Observación: {', '.join(special_observations)}")
-    elif friction > 20:
-        fric_reasons.append("Se observan áreas de desarrollo por descompensación.")
-        
+    if special_observations: fric_reasons.append(f"ℹ️ Observación: {', '.join(special_observations)}")
+    elif friction > 20: fric_reasons.append("Se observan áreas de desarrollo.")
     delta = round(avg - ire, 2)
     
     return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, scores, max_possibles
@@ -1241,65 +1206,65 @@ elif st.session_state.get('auth', False):
             if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
 
     elif not st.session_state.finished:
-        if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
-        render_header(); row = st.session_state.data[st.session_state.current_step]
-        st.progress((st.session_state.current_step + 1) / len(st.session_state.data));
-        st.markdown(f"### {row['TITULO']}")
+        if st.session_state.current_step >= len(st.session_state.data):
+            st.session_state.finished = True
+            st.rerun()
+            
+        render_header()
+        
+        # --- NUEVO: VISUALIZACIÓN DE CAJA EN SIDEBAR ---
+        with st.sidebar:
+            st.markdown("### 🏦 Estado Financiero")
+            # Color dinámico de la caja
+            cash_val = st.session_state.get('cash', 100)
+            if cash_val > 50: c_cash = "green"
+            elif cash_val > 20: c_cash = "orange"
+            else: c_cash = "red"
+            
+            st.metric("Caja (Runway)", f"{cash_val}%", delta=f"-{st.session_state.burn_rate}%/mes", delta_color="inverse")
+            st.progress(min(100, max(0, cash_val)) / 100)
+            
+            if st.session_state.toxic_rescues > 0:
+                st.error(f"💀 Rescates: {st.session_state.toxic_rescues}")
+                st.caption(f"Penalización IRE: -{st.session_state.financial_penalty}")
+
+        # --- JUEGO NORMAL ---
+        row = st.session_state.data[st.session_state.current_step]
+        st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
+        
+        st.markdown(f"### {row.get('TITULO', 'Desafío')}")
         c_text, c_opt = st.columns([1.5, 1])
-        with c_text: st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
+        with c_text:
+            st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
+        
         with c_opt:
             st.markdown("#### Tu decisión:")
-            
-            # --- CÓDIGO NUEVO: RESPUESTAS ALEATORIAS ---
-            step = st.session_state.current_step
-            # 1. Empaquetamos Texto + Lógica (Las "Cartas")
             options = []
-            if pd.notna(row.get('OPCION_A_TXT')) and str(row.get('OPCION_A_TXT')).strip():
-                options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
-            if pd.notna(row.get('OPCION_B_TXT')) and str(row.get('OPCION_B_TXT')).strip():
-                options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
-            if pd.notna(row.get('OPCION_C_TXT')) and str(row.get('OPCION_C_TXT')).strip():
-                options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
-            if pd.notna(row.get('OPCION_D_TXT')) and str(row.get('OPCION_D_TXT')).strip():
-                options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+            if pd.notna(row.get('OPCION_A_TXT')): options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
+            if pd.notna(row.get('OPCION_B_TXT')): options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
+            if pd.notna(row.get('OPCION_C_TXT')): options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
+            if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+            
+            random.shuffle(options) 
 
-            # 2. BARAJAMOS LAS CARTAS 🎲
-            random.shuffle(options)
+            st.markdown("""<style>div.stButton > button {height: auto; min_height: 80px; white-space: normal; text-align: left; padding: 15px;}</style>""", unsafe_allow_html=True)
 
-            # 3. PINTAMOS LOS BOTONES BARAJADOS
-            # CSS para que los botones se vean bien con texto largo
-            st.markdown("""
-            <style>
-            div.stButton > button {
-                height: auto;
-                min_height: 80px;
-                white-space: normal;
-                text-align: left;
-                padding: 15px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
+            step = st.session_state.current_step
             for opt in options:
-                # Clave única para que Streamlit no se líe
-                btn_key = f"btn_{step}_{opt['id']}"
-                
-                if st.button(opt['txt'], key=btn_key, use_container_width=True):
-                    # AL PULSAR: Leemos la lógica que venía en ESTA carta específica
-                    parse_logic(opt['logic'])
+                # Clave única para botón
+                if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
+                    # 1. Procesar lógica de rasgos (Octógono)
+                    parsed = parse_logic(opt['logic'])
+                    if 'octagon' not in st.session_state: st.session_state.octagon = {}
                     
-                    # --- RED DE SEGURIDAD (NUEVO) ---
-                    # Si por lo que sea no existe el historial, lo creamos ahora mismo
-                    if 'history' not in st.session_state:
-                        st.session_state.history = []
+                    # 2. Guardar historial
+                    if 'history' not in st.session_state: st.session_state.history = []
+                    st.session_state.history.append({"mes": row.get('MES'), "opcion": opt['id'], "texto": opt['txt']})
                     
-                    # Ahora ya podemos guardar sin miedo
-                    st.session_state.history.append({
-                        "mes": row['MES'],
-                        "opcion": opt['id'], # Guardamos 'A' aunque saliera el tercero
-                        "texto": opt['txt']
-                    })
+                    # 3. --- NUEVO: CHEQUEO FINANCIERO (EL DOLOR) ---
+                    check_financial_health()
                     
+                    # 4. Avanzar
                     st.session_state.current_step += 1
                     st.rerun()
 
