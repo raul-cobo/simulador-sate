@@ -381,20 +381,33 @@ def diagnosticar_usuario_python(octagon, cerebro):
 # ==========================================
 def run_simulator_logic():
     """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
-    # Inyectamos estilos
-    st.markdown("""<style>
-        .stApp { background-color: #0E1117; }
-        div.stButton > button { width: 100%; border-radius: 8px; font-weight: bold; border: 1px solid #4A5568; }
-        div.stButton > button:hover { border-color: #3182CE; color: #3182CE; }
-    </style>""", unsafe_allow_html=True)
     
     # --- PANTALLA A: INSTRUCCIONES (ONBOARDING) ---
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
+        # 🎨 ESTILO ESPECÍFICO PARA ESTA PANTALLA
+        # 1. Quitamos fondo negro forzado.
+        # 2. Forzamos que el botón "Primary" sea AZUL AUDEO (#0D248D) y no rojo.
+        st.markdown("""
+        <style>
+        div.stButton > button[kind="primary"] {
+            background-color: #0D248D !important;
+            border-color: #0D248D !important;
+            color: white !important;
+        }
+        div.stButton > button[kind="primary"]:hover {
+            background-color: #0A1C6E !important;
+            border-color: #0A1C6E !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         st.markdown("## 📜 Guía simulador S.A.P.E.")
-        st.warning("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
+        
+        # Usamos st.info (Azul) en lugar de warning (Amarillo)
+        st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
         
         c1, c2 = st.columns(2)
         with c1:
@@ -405,6 +418,7 @@ def run_simulator_logic():
             st.markdown("* 🚫 NO uses el botón 'Atrás'.\n* 🚫 NO refresques la página.\n* ⏳ Sin límite de tiempo.")
             
         st.divider()
+        # El botón ahora será AZUL gracias al CSS de arriba
         if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True, type="primary"):
             st.session_state.instructions_seen = True
             st.rerun()
@@ -443,21 +457,19 @@ def run_simulator_logic():
     elif not st.session_state.started:
         st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
         
-        # Función para cargar preguntas
         def go_sector(sec_name):
             all_q = load_questions()
-            # Mapeo de nombres largos a cortos
             SECTOR_MAP = {
                 "Startup Tecnológica (Scalable)": "TECH",
                 "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "CONSULTORIA",
-                "Intraemprendimiento": "CONSULTORIA",
-                "Psicología Sanitaria": "SALUD",
+                "Autoempleo / Freelance": "FREELANCE",
+                "Intraemprendimiento": "INTRA",
+                "Psicología Sanitaria": "PSICO_SAN",
                 "Consultoría / Servicios Profesionales": "CONSULTORIA",
                 "Hostelería y Restauración": "TURISMO",
                 "Emprendimiento Social": "SOCIAL",
                 "Salud": "SALUD",
-                "Psicología no sanitaria": "SALUD"
+                "Psicología no sanitaria": "PSICO_NO_SAN"
             }
             code = SECTOR_MAP.get(sec_name, "TECH")
             qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
@@ -467,7 +479,7 @@ def run_simulator_logic():
             st.session_state.started = True
             st.rerun()
 
-        # SISTEMA DE BLOQUEO DE BOTONES
+        # SISTEMA DE BLOQUEO
         org_data = st.session_state.user_data.get('org_data', {})
         try:
             allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
@@ -481,46 +493,18 @@ def run_simulator_logic():
         # --- BLOQUE DE BOTONES DE ALTA PRECISIÓN ---
         c1, c2 = st.columns(2)
         with c1:
-            # 1. TECH
-            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): 
-                go_sector("Startup Tecnológica (Scalable)")
-            
-            # 2. RETAIL
-            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("RETAIL"), use_container_width=True): 
-                go_sector("Pequeña y Mediana Empresa (PYME)")
-            
-            # 3. FREELANCE
-            if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): 
-                go_sector("Autoempleo / Freelance")
-            
-            # 4. INTRA
-            if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): 
-                go_sector("Intraemprendimiento")
-            
-            # 5. PSICO SANITARIA (Solo esta)
-            if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): 
-                go_sector("Psicología Sanitaria")
+            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("RETAIL"), use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+            if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): go_sector("Autoempleo / Freelance")
+            if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): go_sector("Intraemprendimiento")
+            if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): go_sector("Psicología Sanitaria")
 
         with c2:
-            # 6. CONSULTORIA
-            if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): 
-                go_sector("Consultoría / Servicios Profesionales")
-            
-            # 7. TURISMO
-            if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): 
-                go_sector("Hostelería y Restauración")
-            
-            # 8. SOCIAL
-            if st.button("Emprendimiento Social", disabled=is_locked("SOCIAL"), use_container_width=True): 
-                go_sector("Emprendimiento Social")
-            
-            # 9. SALUD (Solo Salud y Bienestar)
-            if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): 
-                go_sector("Salud")
-            
-            # 10. PSICO NO SANITARIA (Solo esta)
-            if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): 
-                go_sector("Psicología no sanitaria")
+            if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+            if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): go_sector("Hostelería y Restauración")
+            if st.button("Emprendimiento Social", disabled=is_locked("SOCIAL"), use_container_width=True): go_sector("Emprendimiento Social")
+            if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): go_sector("Salud")
+            if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): go_sector("Psicología no sanitaria")
 
     # --- PANTALLA D: EL JUEGO (PREGUNTAS) ---
     elif not st.session_state.get('finished', False):
@@ -568,7 +552,7 @@ def run_simulator_logic():
             nivel = diagnostico.get('risk_level', 'ALERTA')
             desc = diagnostico.get('description', '')
             color = "#E74C3C" if "CRÍTICO" in nivel else "#F1C40F" if "ALTO" in nivel else "#2ECC71"
-            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #1A202C; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
 
         st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
         k1, k2, k3 = st.columns(3)
