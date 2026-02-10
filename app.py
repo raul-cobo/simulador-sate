@@ -170,7 +170,7 @@ def render_header():
     """Dibuja la cabecera en la aplicación Streamlit"""
     c1, c2 = st.columns([1.5, 6])
     with c1:
-        if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
+        if os.path.exists("logo_original.png.svg"): st.image("logo_original.png.svg", use_container_width=True)
         elif os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
         else: st.warning("Logo no encontrado")
     with c2: 
@@ -777,7 +777,6 @@ def main():
 
     # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
     if not st.session_state.logged_in:
-        # Nota: inject_custom_css ya fuerza el modo oscuro, así que quitamos estilos contradictorios aquí
         
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
