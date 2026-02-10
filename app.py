@@ -543,7 +543,7 @@ def diagnosticar_usuario_python(octagon, cerebro):
         return {"name": "Perfil Promedio", "risk_level": "MEDIO", "description": "Tienes bases sólidas, pero vigila las áreas de menor puntuación."}
     else:
         return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
-        
+
 # ==========================================
 # 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
 # ==========================================
@@ -553,7 +553,6 @@ def run_simulator_logic():
     # ==========================================================
     # 🎨 1. ESTILO BASE (Para pantallas Blancas: A, B, C y E)
     # ==========================================================
-    # Definimos el estilo "normal" por defecto (Fondo Blanco)
     st.markdown("""
     <style>
     /* Reset por si venimos del modo oscuro */
@@ -571,7 +570,7 @@ def run_simulator_logic():
     """, unsafe_allow_html=True)
     
     # ------------------------------------------------------------------
-    # 1️⃣ PANTALLA A: INSTRUCCIONES (Fondo Blanco)
+    # 1️⃣ PANTALLA A: INSTRUCCIONES
     # ------------------------------------------------------------------
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
@@ -603,7 +602,7 @@ def run_simulator_logic():
             st.rerun()
 
     # ------------------------------------------------------------------
-    # 2️⃣ PANTALLA B: DATOS (Fondo Blanco)
+    # 2️⃣ PANTALLA B: DATOS
     # ------------------------------------------------------------------
     elif not st.session_state.get('data_verified', False):
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
@@ -635,7 +634,7 @@ def run_simulator_logic():
                 else: st.error("Por favor, completa los campos obligatorios y acepta la política.")
 
     # ------------------------------------------------------------------
-    # 3️⃣ PANTALLA C: SELECCIÓN DE SECTOR (Fondo Blanco)
+    # 3️⃣ PANTALLA C: SELECCIÓN DE SECTOR
     # ------------------------------------------------------------------
     elif not st.session_state.started:
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
@@ -697,67 +696,37 @@ def run_simulator_logic():
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
         # --- 🎨 CSS RADICAL PARA EL MODO JUEGO ---
-        # Sobrescribimos todo para que sea Blanco sobre Fondo Oscuro
         st.markdown("""
         <style>
-        /* 1. Fondo Oscuro Profundo */
-        .stApp {
-            background-color: #050A1F !important;
-        }
-        
-        /* 2. FORZAR TEXTO BLANCO EN TODAS PARTES */
-        h1, h2, h3, h4, h5, h6, p, div, span, label, li {
-            color: #FFFFFF !important;
-        }
-        
-        /* 3. Estilo de la Caja de Narrativa (Sin fondo blanco, solo texto limpio) */
+        .stApp { background-color: #050A1F !important; }
+        h1, h2, h3, h4, h5, h6, p, div, span, label, li { color: #FFFFFF !important; }
         .narrative-text {
-            font-size: 1.3rem;
-            line-height: 1.6;
-            padding: 15px;
-            border-left: 4px solid #0D248D; /* Una linea azul elegante a la izquierda */
-            background-color: rgba(255, 255, 255, 0.05); /* Un fondo sutil casi invisible */
-            border-radius: 8px;
-            margin-bottom: 20px;
+            font-size: 1.3rem; line-height: 1.6; padding: 15px;
+            border-left: 4px solid #0D248D; background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 8px; margin-bottom: 20px;
         }
-        
-        /* 4. Botones de Respuesta (Azul Audeo) */
         div.stButton > button {
-            background-color: #0D248D !important;
-            color: white !important;
-            border: 2px solid #0D248D !important;
-            border-radius: 12px !important;
-            padding: 20px !important;
-            height: auto !important;
-            min-height: 90px !important;
-            font-size: 1.1rem !important;
-            transition: all 0.3s ease !important;
+            background-color: #0D248D !important; color: white !important;
+            border: 2px solid #0D248D !important; border-radius: 12px !important;
+            padding: 20px !important; height: auto !important; min_height: 90px !important;
+            font-size: 1.1rem !important; transition: all 0.3s ease !important;
         }
-        
-        /* Efecto Hover: Zoom y Brillo */
         div.stButton > button:hover {
-            transform: scale(1.05) !important;
-            background-color: #1530A0 !important;
-            box-shadow: 0 0 20px rgba(21, 48, 160, 0.6) !important;
-            border-color: white !important;
-            z-index: 100;
+            transform: scale(1.05) !important; background-color: #1530A0 !important;
+            box-shadow: 0 0 20px rgba(21, 48, 160, 0.6) !important; border-color: white !important; z-index: 100;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # --- LOGO BLANCO (Obligatorio en fondo oscuro) ---
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
-            if os.path.exists("logo_blanco.png"): 
-                st.image("logo_blanco.png", use_container_width=True)
-            else:
-                 st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
+            else: st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         
         st.markdown(f"### {row.get('TITULO', 'Desafío')}")
         
         c_text, c_opt = st.columns([1.5, 1])
         with c_text:
-            # Texto blanco limpio
             st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
         
         with c_opt:
@@ -769,7 +738,6 @@ def run_simulator_logic():
             if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
             
             random.shuffle(options)
-            
             step = st.session_state.current_step
             for opt in options:
                 if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
@@ -780,10 +748,10 @@ def run_simulator_logic():
                     st.rerun()
 
     # ------------------------------------------------------------------
-    # 5️⃣ PANTALLA E: RESULTADOS (Volvemos a Fondo Blanco)
+    # 5️⃣ PANTALLA E: RESULTADOS (CON SEMÁFORO VISUAL)
     # ------------------------------------------------------------------
     else:
-        # Forzamos RESET a modo claro para el informe
+        # Volver al modo blanco limpio
         st.markdown("""
         <style>
         .stApp { background-color: white !important; }
@@ -795,11 +763,13 @@ def run_simulator_logic():
         with c2:
             if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
 
+        # CÁLCULO DE RESULTADOS
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
         
         cerebro = cargar_cerebro_sape()
         diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
 
+        # CUADRO DE DIAGNÓSTICO
         if diagnostico:
             titulo = diagnostico.get('name', 'Diagnóstico')
             nivel = diagnostico.get('risk_level', 'ALERTA')
@@ -808,13 +778,62 @@ def run_simulator_logic():
             st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
 
         st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
+        
+        # MÉTRICAS PRINCIPALES
         k1, k2, k3 = st.columns(3)
         k1.metric("Índice IRE", f"{ire}/100")
         k2.metric("Potencial", f"{avg}/100")
         k3.metric("Fricción", f"{friction}%", delta_color="inverse")
         
-        st.plotly_chart(radar_chart(), use_container_width=True)
+        st.divider()
 
+        # COLUMNA IZQUIERDA: GRÁFICO DE ARAÑA
+        col_chart, col_bars = st.columns([1, 1.2])
+        
+        with col_chart:
+            st.plotly_chart(radar_chart(), use_container_width=True)
+
+        # COLUMNA DERECHA: BARRAS CON SEMÁFORO (DÉFICIT - ALERTA - ÓPTIMO - EXCESO)
+        with col_bars:
+            st.markdown("### Detalle de Competencias")
+            
+            # Mapeo de nombres para mostrar
+            labels_map = {
+                "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
+                "innovativeness": "Innovación", "locus_of_control": "Locus de Control",
+                "emotional_stability": "Estabilidad Emocional", "achievement": "Orientación al Logro",
+                "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
+            }
+
+            for key, label_text in labels_map.items():
+                val = octagon_norm.get(key, 0)
+                
+                # --- LÓGICA DE SEMÁFORO (LA CLAVE DEL DISEÑO SÓLIDO) ---
+                if val < 25:
+                    bar_color = "#E74C3C" # ROJO (Déficit Crítico)
+                elif val < 60:
+                    bar_color = "#F1C40F" # AMARILLO (Alerta / En desarrollo)
+                elif val <= 90:
+                    bar_color = "#2ECC71" # VERDE (Óptimo)
+                else:
+                    bar_color = "#E74C3C" # ROJO (Exceso / Peligro) - ¡IMPORTANTE!
+
+                # Renderizamos la barra con HTML/CSS puro
+                st.markdown(f"""
+                <div style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-weight: 600; font-size: 0.9rem;">{label_text}</span>
+                        <span style="font-weight: 700; color: {bar_color};">{int(val)}/100</span>
+                    </div>
+                    <div style="background-color: #E2E8F0; border-radius: 10px; height: 12px; width: 100%;">
+                        <div style="background-color: {bar_color}; width: {val}%; height: 100%; border-radius: 10px; transition: width 1s ease-in-out;"></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.divider()
+
+        # GUARDADO
         if 'data_saved' not in st.session_state:
             try:
                 org_name = st.session_state.user_data.get('org_data', {}).get('name', 'GENERICO')
@@ -833,7 +852,6 @@ def run_simulator_logic():
         else:
              st.success("✅ Resultados ya registrados.")
 
-        st.markdown("---")
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
