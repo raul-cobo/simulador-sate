@@ -7,18 +7,61 @@ import io
 import math
 import textwrap
 import json
+import ast  # <--- YA ESTÁ AQUÍ ARRIBA, DONDE DEBE ESTAR
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
-
-# --- LIBRERÍAS DE DATOS Y GRÁFICOS ---
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from supabase import create_client # <--- TAMBIÉN AQUÍ ARRIBA
 
-# --- BLOQUE 1: CONEXIÓN SUPABASE (AÑADIR AQUÍ) ---
-from supabase import create_client
+# --- 🎨 CONFIGURACIÓN VISUAL: FUERZA MODO OSCURO Y OCULTA MENÚS ---
+def inject_custom_css():
+    st.markdown("""
+        <style>
+        /* 1. OCULTAR BARRA SUPERIOR (GitHub, Deploy, Settings...) */
+        header {visibility: hidden !important;}
+        [data-testid="stToolbar"] {visibility: hidden !important;}
+        [data-testid="stDecoration"] {visibility: hidden !important;}
+        
+        /* 2. OCULTAR PIE DE PÁGINA */
+        footer {visibility: hidden !important;}
+        
+        /* 3. FORZAR MODO OSCURO (Fondo y Textos) */
+        .stApp {
+            background-color: #0E1117 !important;
+            color: white !important;
+        }
+        
+        /* 4. ARREGLAR INPUTS (Para que se vean bien sobre fondo negro) */
+        input, .stTextInput > div > div > input, .stNumberInput input {
+            color: white !important;
+            background-color: #262730 !important;
+            border-color: #4A5568 !important;
+        }
+        .stSelectbox > div > div > div {
+            color: white !important;
+            background-color: #262730 !important;
+        }
+        /* Color del texto en los desplegables */
+        div[role="listbox"] div {
+            background-color: #262730 !important;
+            color: white !important;
+        }
+        
+        /* 5. ARREGLAR PESTAÑAS (Tabs) */
+        button[data-baseweb="tab"] {
+            background-color: transparent !important;
+            color: white !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Audeo", page_icon="🧬", layout="wide")
+
+# --- CONEXIÓN SUPABASE ---
 @st.cache_resource
 def init_connection():
     try:
@@ -748,8 +791,14 @@ def render_admin_dashboard():
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
 # ==========================================
+# ==========================================
+# 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
+# ==========================================
 def main():
-    # Inicialización Segura (Autocontenida)
+    # 1. INYECTAR ESTILO LO PRIMERO (Modo Oscuro + Ocultar Barras)
+    inject_custom_css() 
+
+    # Inicialización Segura
     if 'octagon' not in st.session_state:
         st.session_state.octagon = {k: 50 for k in ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", "emotional_stability", "achievement", "leadership", "adaptability"]}
     if 'flags' not in st.session_state: st.session_state.flags = {}
@@ -760,13 +809,16 @@ def main():
 
     # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
     if not st.session_state.logged_in:
-        st.markdown("""<style>.stApp {background-color: white; color: black;}</style>""", unsafe_allow_html=True)
+        # Nota: inject_custom_css ya fuerza el modo oscuro, así que quitamos estilos contradictorios aquí
         
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             st.markdown("<br><br>", unsafe_allow_html=True)
-            st.markdown("<h1 style='text-align: center; color: black !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-            st.markdown("<h3 style='text-align: center; color: #555 !important;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
+            # Ajusta el nombre de la imagen si tienes el logo blanco
+            if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
+            else: st.markdown("<h1 style='text-align: center; color: white !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            
+            st.markdown("<h3 style='text-align: center; color: #AAA !important;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
             
             with st.form("login_form_supabase"):
                 user_in = st.text_input("USUARIO")
