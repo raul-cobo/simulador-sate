@@ -16,7 +16,7 @@ import numpy as np
 import plotly.express as px
 from supabase import create_client # <--- TAMBIÉN AQUÍ ARRIBA
 
-# --- 🎨 CONFIGURACIÓN VISUAL: FUERZA MODO OSCURO Y OCULTA MENÚS ---
+# --- 🎨 CONFIGURACIÓN VISUAL (SÓLO OCULTAR MENÚS) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -27,34 +27,6 @@ def inject_custom_css():
         
         /* 2. OCULTAR PIE DE PÁGINA */
         footer {visibility: hidden !important;}
-        
-        /* 3. FORZAR MODO OSCURO (Fondo y Textos) */
-        .stApp {
-            background-color: #0E1117 !important;
-            color: white !important;
-        }
-        
-        /* 4. ARREGLAR INPUTS (Para que se vean bien sobre fondo negro) */
-        input, .stTextInput > div > div > input, .stNumberInput input {
-            color: white !important;
-            background-color: #262730 !important;
-            border-color: #4A5568 !important;
-        }
-        .stSelectbox > div > div > div {
-            color: white !important;
-            background-color: #262730 !important;
-        }
-        /* Color del texto en los desplegables */
-        div[role="listbox"] div {
-            background-color: #262730 !important;
-            color: white !important;
-        }
-        
-        /* 5. ARREGLAR PESTAÑAS (Tabs) */
-        button[data-baseweb="tab"] {
-            background-color: transparent !important;
-            color: white !important;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -498,7 +470,6 @@ def run_simulator_logic():
         # SISTEMA DE BLOQUEO DE BOTONES
         org_data = st.session_state.user_data.get('org_data', {})
         try:
-            import ast
             allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
         except:
             allowed_sectors = ["ALL"]
@@ -628,9 +599,6 @@ def run_simulator_logic():
 
         st.markdown("---")
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
-
-
-import ast # Necesario para leer la lista de sectores
 
 # ==========================================
 # 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR (CORREGIDA)
@@ -818,7 +786,7 @@ def main():
             if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
             else: st.markdown("<h1 style='text-align: center; color: white !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
             
-            st.markdown("<h3 style='text-align: center; color: #AAA !important;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align: center; color: #AAA !important;'>Sistema de Análisis de la Personalidad Emprendedora</h3>", unsafe_allow_html=True)
             
             with st.form("login_form_supabase"):
                 user_in = st.text_input("USUARIO")
