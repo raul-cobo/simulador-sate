@@ -382,31 +382,43 @@ def diagnosticar_usuario_python(octagon, cerebro):
 def run_simulator_logic():
     """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
     
+    # --- 🎨 ESTILO CORPORATIVO GLOBAL PARA EL SIMULADOR ---
+    # Esto asegura que CUALQUIER botón activo sea Azul Audeo (#0D248D)
+    # y los botones bloqueados se queden en gris suave.
+    st.markdown("""
+    <style>
+    /* 1. Botones ACTIVOS (No bloqueados) -> Azul Audeo */
+    div.stButton > button:not([disabled]) {
+        background-color: #0D248D !important;
+        color: white !important;
+        border: 1px solid #0D248D !important;
+        font-weight: 500;
+    }
+    
+    /* 2. Efecto HOVER (Al pasar el ratón) -> Azul un poco más oscuro */
+    div.stButton > button:not([disabled]):hover {
+        background-color: #0A1C6E !important;
+        border-color: #0A1C6E !important;
+        color: white !important;
+    }
+
+    /* 3. Botones BLOQUEADOS (Disabled) -> Gris Claro */
+    div.stButton > button[disabled] {
+        background-color: #F0F2F6 !important;
+        color: #A3A8B8 !important;
+        border-color: #E2E8F0 !important;
+        opacity: 0.7;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # --- PANTALLA A: INSTRUCCIONES (ONBOARDING) ---
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
-        # 🎨 ESTILO ESPECÍFICO PARA ESTA PANTALLA
-        # 1. Quitamos fondo negro forzado.
-        # 2. Forzamos que el botón "Primary" sea AZUL AUDEO (#0D248D) y no rojo.
-        st.markdown("""
-        <style>
-        div.stButton > button[kind="primary"] {
-            background-color: #0D248D !important;
-            border-color: #0D248D !important;
-            color: white !important;
-        }
-        div.stButton > button[kind="primary"]:hover {
-            background-color: #0A1C6E !important;
-            border-color: #0A1C6E !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
         st.markdown("## 📜 Guía simulador S.A.P.E.")
         
-        # Usamos st.info (Azul) en lugar de warning (Amarillo)
         st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
         
         c1, c2 = st.columns(2)
@@ -418,8 +430,8 @@ def run_simulator_logic():
             st.markdown("* 🚫 NO uses el botón 'Atrás'.\n* 🚫 NO refresques la página.\n* ⏳ Sin límite de tiempo.")
             
         st.divider()
-        # El botón ahora será AZUL gracias al CSS de arriba
-        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True, type="primary"):
+        # Este botón ahora saldrá Azul automáticamente por el CSS de arriba
+        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True):
             st.session_state.instructions_seen = True
             st.rerun()
 
@@ -439,6 +451,7 @@ def run_simulator_logic():
             st.markdown("<br>", unsafe_allow_html=True)
             consent = st.checkbox("He leído y acepto la Política de Privacidad.")
             
+            # El botón de submit hereda el estilo azul
             if st.form_submit_button("VALIDAR DATOS Y CONTINUAR"):
                 if name and age and consent:
                     if 'user_data' not in st.session_state: st.session_state.user_data = {}
@@ -490,7 +503,7 @@ def run_simulator_logic():
             if "ALL" in allowed_sectors: return False
             return tag not in allowed_sectors
 
-        # --- BLOQUE DE BOTONES DE ALTA PRECISIÓN ---
+        # --- BLOQUE DE BOTONES (AHORA SERÁN AZULES SI ESTÁN ACTIVOS) ---
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
@@ -531,6 +544,9 @@ def run_simulator_logic():
             
             random.shuffle(options)
             
+            # Ajuste extra para altura de botones de opciones (Manteniendo el color azul)
+            st.markdown("""<style>div.stButton > button {height: auto; min_height: 80px; white-space: normal; text-align: left; padding: 15px;}</style>""", unsafe_allow_html=True)
+
             step = st.session_state.current_step
             for opt in options:
                 if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
