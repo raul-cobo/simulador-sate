@@ -476,7 +476,7 @@ def run_simulator_logic():
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
-        # LOGO EN INSTRUCCIONES
+        # LOGO A
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
             if os.path.exists("logo_original.png"): 
@@ -506,8 +506,7 @@ def run_simulator_logic():
 
     # --- PANTALLA B: DATOS DEL CANDIDATO ---
     elif not st.session_state.get('data_verified', False):
-        
-        # 🆕 LOGO EN IDENTIFICACIÓN (AQUÍ ES DONDE FALTABA)
+        # LOGO B
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
             if os.path.exists("logo_original.png"): 
@@ -549,6 +548,19 @@ def run_simulator_logic():
 
     # --- PANTALLA C: SELECCIÓN DE SECTOR (CON PERMISOS) ---
     elif not st.session_state.started:
+        
+        # 🆕 LOGO C (AQUÍ ES DONDE LO HEMOS AÑADIDO)
+        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
+        with c_logo:
+            if os.path.exists("logo_original.png"): 
+                st.image("logo_original.png", use_container_width=True)
+            elif os.path.exists("logo_blanco.png"): 
+                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
+                st.image("logo_blanco.png", use_container_width=True)
+            else:
+                 st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
         st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
         
         def go_sector(sec_name):
