@@ -296,22 +296,19 @@ def init_session():
 
 @st.cache_data
 def load_questions():
-    # CAMBIO: Apuntamos al archivo SATE_V4 (Escala Corta)
-    filename = 'SATE_V4.csv'  
-    if not os.path.exists(filename): return []
-    # 1. Intentar formato europeo (punto y coma)
-    try:
-        with open(filename, encoding='utf-8-sig', errors='replace') as f:
-            data = list(csv.DictReader(f, delimiter=';'))
-            if data and 'SECTOR' in data[0]: return data
-    except: pass
-    # 2. Intentar formato americano (comas)
-    try:
-        with open(filename, encoding='utf-8-sig', errors='replace') as f:
-            data = list(csv.DictReader(f, delimiter=','))
-            if data and 'SECTOR' in data[0]: return data
-    except: pass
-    return []
+    """Carga las preguntas desde SATE_V4.csv con el formato correcto"""
+    archivo = 'SATE_V4.csv'
+    
+    if os.path.exists(archivo):
+        try:
+            # Tu CSV usa punto y coma (;) como separador
+            return pd.read_csv(archivo, sep=';', encoding='utf-8').to_dict('records')
+        except Exception as e:
+            st.error(f"Error leyendo {archivo}: {e}")
+            return []
+    else:
+        st.error(f"⚠️ No encuentro el archivo {archivo}. Súbelo junto a app.py")
+        return []
 
     # --- NUEVAS FUNCIONES SAPE (Cerebro + Diagnóstico) ---
 
@@ -379,63 +376,62 @@ def diagnosticar_usuario_python(octagon, cerebro):
 # --- FUNCIÓN AUXILIAR IMPRESCINDIBLE PARA EL JUEGO ---
 def parse_logic(logic_string):
     """
-    Traduce las instrucciones del Excel (ej: 'RISK+10; IRE+5')
-    y actualiza las variables del usuario en tiempo real.
+    Traduce la lógica del CSV SATE_V4 (ej: 'risk_propensity 3 | achievement -1')
+    y actualiza el Octógono del usuario.
     """
     if not isinstance(logic_string, str) or not logic_string.strip():
         return
 
-    # Mapeo de nombres del Excel a variables internas (Octógono)
-    SKILL_MAP = {
-        "RISK": "risk_propensity", "RIESGO": "risk_propensity",
-        "AMBIGUITY": "ambiguity_tolerance", "AMBIGUEDAD": "ambiguity_tolerance",
-        "INNOVATION": "innovativeness", "INNOVACION": "innovativeness",
-        "LOCUS": "locus_of_control", "CONTROL": "locus_of_control",
-        "EMOTIONAL": "emotional_stability", "ESTABILIDAD": "emotional_stability",
-        "ACHIEVEMENT": "achievement", "LOGRO": "achievement",
-        "LEADERSHIP": "leadership", "LIDERAZGO": "leadership",
-        "ADAPTABILITY": "adaptability", "ADAPTABILIDAD": "adaptability"
+    # 1. DICCIONARIO DE TRADUCCIÓN (CSV -> APP)
+    # A la izquierda: Cómo se llama en tu Excel
+    # A la derecha: Cómo se llama en la variable interna de la App
+    MAPEO = {
+        "risk_propensity": "risk_propensity",
+        "ambiguity_tolerance": "ambiguity_tolerance",
+        "innovativeness": "innovativeness",
+        "locus_control": "locus_of_control",      # Nota la diferencia sutil
+        "emotional_stability": "emotional_stability",
+        "achievement": "achievement",
+        "leadership": "leadership",
+        "adaptability": "adaptability",
+        # Mapeos extra por si acaso aparecen en el CSV:
+        "self_efficacy": "leadership",  # Asignamos autoeficacia a liderazgo (ejemplo)
+        "autonomy": "locus_of_control"  # Asignamos autonomía a control
     }
 
-    # Separamos por punto y coma si hay varias instrucciones
-    changes = logic_string.split(';')
+    # 2. SEPARAR INSTRUCCIONES (Tu Excel usa '|')
+    # Ejemplo: "risk_propensity 3 | achievement -1"
+    instrucciones = logic_string.split('|')
     
-    for item in changes:
-        item = item.strip()
-        if not item: continue
+    for instruccion in instrucciones:
+        partes = instruccion.strip().split() # Separa por espacio
         
-        # Detectamos si es suma (+) o resta (-)
-        if '+' in item:
-            parts = item.split('+')
-            factor = 1
-        elif '-' in item:
-            parts = item.split('-')
-            factor = -1
-        else:
-            continue # Si no tiene signo, ignoramos
+        if len(partes) >= 2:
+            key_csv = partes[0].strip() # Ej: risk_propensity
+            try:
+                val = int(partes[1].strip()) # Ej: 3 o -1
+            except:
+                continue # Si no es un número, saltamos
 
-        key = parts[0].strip().upper()
-        try:
-            val = int(parts[1].strip())
-        except:
-            val = 0
+            # Buscamos la clave interna
+            internal_key = MAPEO.get(key_csv)
 
-        # CASO 1: Es una habilidad del Octógono
-        if key in SKILL_MAP:
-            internal_key = SKILL_MAP[key]
-            # Aseguramos que el octógono existe
-            if 'octagon' not in st.session_state:
-                st.session_state.octagon = {k: 50 for k in SKILL_MAP.values()}
+            if internal_key:
+                # Aseguramos que el octógono existe
+                if 'octagon' not in st.session_state:
+                    st.session_state.octagon = {k: 50 for k in MAPEO.values()}
+                
+                # Sumamos el valor (que puede ser negativo)
+                st.session_state.octagon[internal_key] += val
+                
+                # Limitamos entre 0 y 100
+                st.session_state.octagon[internal_key] = max(0, min(100, st.session_state.octagon[internal_key]))
             
-            st.session_state.octagon[internal_key] += (val * factor)
-            # Limitamos entre 0 y 100
-            st.session_state.octagon[internal_key] = max(0, min(100, st.session_state.octagon[internal_key]))
-
-        # CASO 2: Es otra variable (IRE, Friccion, etc) -> Lo guardamos en 'flags'
-        else:
-            if 'flags' not in st.session_state: st.session_state.flags = {}
-            current = st.session_state.flags.get(key, 0)
-            st.session_state.flags[key] = current + (val * factor)
+            # Si es algo especial como IRE o FRICTION
+            elif key_csv.upper() == "IRE":
+                # Lo guardamos en flags por si acaso, aunque IRE se calcula al final
+                if 'flags' not in st.session_state: st.session_state.flags = {}
+                st.session_state.flags['IRE_BONUS'] = st.session_state.flags.get('IRE_BONUS', 0) + val
 
 # ==========================================
 # 🛠️ BLOQUE DE HERRAMIENTAS (CÁLCULOS Y GRÁFICOS)
@@ -651,12 +647,18 @@ def run_simulator_logic():
         def go_sector(sec_name):
             all_q = load_questions()
             SECTOR_MAP = {
-                "Startup Tecnológica (Scalable)": "TECH", "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "FREELANCE", "Intraemprendimiento": "INTRA",
-                "Psicología Sanitaria": "PSICO_SAN", "Consultoría / Servicios Profesionales": "CONSULTORIA",
-                "Hostelería y Restauración": "TURISMO", "Emprendimiento Social": "SOCIAL",
-                "Salud": "SALUD", "Psicología no sanitaria": "PSICO_NO_SAN"
+                "Startup Tecnológica (Scalable)": "TECH",
+                "Pequeña y Mediana Empresa (PYME)": "RETAIL",
+                "Autoempleo / Freelance": "FREELANCE",
+                "Intraemprendimiento": "INTRA",
+                "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", 
+                "Consultoría / Servicios Profesionales": "CONSULTORÍA",
+                "Hostelería y Restauración": "HOSTELERÍA",
+                "Emprendimiento Social": "SOCIAL",
+                "Salud": "SALUD",
+                "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
             }
+
             code = SECTOR_MAP.get(sec_name, "TECH")
             qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
             if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"] 
