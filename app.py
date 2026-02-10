@@ -444,12 +444,16 @@ def run_simulator_logic():
     """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
     
     # ==========================================================
-    # 🎨 ESTILO GLOBAL POR DEFECTO (Para pantallas blancas)
+    # 🎨 1. ESTILO BASE (Para pantallas Blancas: A, B, C y E)
     # ==========================================================
-    # Este estilo se aplica a las pantallas de Intro y Datos.
-    # La pantalla de Juego (oscura) sobrescribirá esto después.
+    # Definimos el estilo "normal" por defecto (Fondo Blanco)
     st.markdown("""
     <style>
+    /* Reset por si venimos del modo oscuro */
+    .stApp { background-color: white; }
+    h1, h2, h3, p, div, span, label { color: black; }
+    
+    /* Botones Estándar */
     div.stButton > button:not([disabled]) {
         background-color: #0D248D; color: white; border: 1px solid #0D248D;
     }
@@ -460,7 +464,7 @@ def run_simulator_logic():
     """, unsafe_allow_html=True)
     
     # ------------------------------------------------------------------
-    # 1️⃣ PANTALLA A: INSTRUCCIONES (Fondo Blanco - Estilo Corporativo)
+    # 1️⃣ PANTALLA A: INSTRUCCIONES (Fondo Blanco)
     # ------------------------------------------------------------------
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
@@ -492,7 +496,7 @@ def run_simulator_logic():
             st.rerun()
 
     # ------------------------------------------------------------------
-    # 2️⃣ PANTALLA B: DATOS (Fondo Blanco - Estilo Corporativo)
+    # 2️⃣ PANTALLA B: DATOS (Fondo Blanco)
     # ------------------------------------------------------------------
     elif not st.session_state.get('data_verified', False):
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
@@ -575,7 +579,7 @@ def run_simulator_logic():
             if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): go_sector("Psicología no sanitaria")
 
     # ------------------------------------------------------------------
-    # 4️⃣ PANTALLA D: EL JUEGO (FONDO OSCURO + TEXTO NEGRO + LOGO BLANCO)
+    # 4️⃣ PANTALLA D: EL JUEGO ( MODO INMERSIVO OSCURO )
     # ------------------------------------------------------------------
     elif not st.session_state.get('finished', False):
         if st.session_state.current_step >= len(st.session_state.data):
@@ -585,37 +589,34 @@ def run_simulator_logic():
         row = st.session_state.data[st.session_state.current_step]
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
-        # --- 🎨 CSS ESPECÍFICO PARA MODO JUEGO ---
+        # --- 🎨 CSS RADICAL PARA EL MODO JUEGO ---
+        # Sobrescribimos todo para que sea Blanco sobre Fondo Oscuro
         st.markdown("""
         <style>
-        /* 1. Fondo Azul Oscuro Profundo (Casi Negro) */
+        /* 1. Fondo Oscuro Profundo */
         .stApp {
             background-color: #050A1F !important;
         }
         
-        /* 2. Textos generales en Blanco para que se vean sobre el fondo oscuro */
-        h1, h2, h3, .stProgress > div > div > div {
-            color: white !important;
+        /* 2. FORZAR TEXTO BLANCO EN TODAS PARTES */
+        h1, h2, h3, h4, h5, h6, p, div, span, label, li {
+            color: #FFFFFF !important;
         }
         
-        /* 3. CAJA DE NARRATIVA: Fondo Blanco para tener TEXTO NEGRO */
-        .narrative-box {
-            background-color: #FFFFFF;
-            border-left: 6px solid #0D248D;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .narrative-box p {
-            color: #000000 !important; /* Letra negra estricta */
-            font-size: 1.25rem;
+        /* 3. Estilo de la Caja de Narrativa (Sin fondo blanco, solo texto limpio) */
+        .narrative-text {
+            font-size: 1.3rem;
             line-height: 1.6;
+            padding: 15px;
+            border-left: 4px solid #0D248D; /* Una linea azul elegante a la izquierda */
+            background-color: rgba(255, 255, 255, 0.05); /* Un fondo sutil casi invisible */
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
         
-        /* 4. BOTONES DE RESPUESTA (Azul Corporativo con Efecto Zoom) */
+        /* 4. Botones de Respuesta (Azul Audeo) */
         div.stButton > button {
-            background-color: #0D248D !important; /* Azul Corporativo */
+            background-color: #0D248D !important;
             color: white !important;
             border: 2px solid #0D248D !important;
             border-radius: 12px !important;
@@ -623,21 +624,21 @@ def run_simulator_logic():
             height: auto !important;
             min-height: 90px !important;
             font-size: 1.1rem !important;
-            transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+            transition: all 0.3s ease !important;
         }
         
-        /* Efecto Hover: Se amplia y brilla */
+        /* Efecto Hover: Zoom y Brillo */
         div.stButton > button:hover {
-            transform: scale(1.03) !important; /* Se amplia un poco */
-            background-color: #1a2c9e !important; /* Un pelín más claro */
-            box-shadow: 0 0 15px rgba(13, 36, 141, 0.6) !important;
+            transform: scale(1.05) !important;
+            background-color: #1530A0 !important;
+            box-shadow: 0 0 20px rgba(21, 48, 160, 0.6) !important;
             border-color: white !important;
-            z-index: 10;
+            z-index: 100;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # --- LOGO BLANCO PARA FONDO OSCURO ---
+        # --- LOGO BLANCO (Obligatorio en fondo oscuro) ---
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
             if os.path.exists("logo_blanco.png"): 
@@ -649,8 +650,8 @@ def run_simulator_logic():
         
         c_text, c_opt = st.columns([1.5, 1])
         with c_text:
-            # Usamos la clase narrative-box definida arriba para tener fondo blanco y letra negra
-            st.markdown(f'<div class="narrative-box"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
+            # Texto blanco limpio
+            st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
         
         with c_opt:
             st.markdown("#### Tu decisión:")
@@ -664,7 +665,6 @@ def run_simulator_logic():
             
             step = st.session_state.current_step
             for opt in options:
-                # El CSS se encarga de que sean azules y se amplíen al pasar el ratón
                 if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
                     parse_logic(opt['logic'])
                     if 'history' not in st.session_state: st.session_state.history = []
@@ -673,13 +673,17 @@ def run_simulator_logic():
                     st.rerun()
 
     # ------------------------------------------------------------------
-    # 5️⃣ PANTALLA E: RESULTADOS (Volvemos a fondo normal/blanco)
+    # 5️⃣ PANTALLA E: RESULTADOS (Volvemos a Fondo Blanco)
     # ------------------------------------------------------------------
     else:
-        # Reseteamos estilo para que los informes se vean en limpio
-        st.markdown("<style>.stApp { background-color: white !important; } h1,h2,h3,p {color: black !important;}</style>", unsafe_allow_html=True)
+        # Forzamos RESET a modo claro para el informe
+        st.markdown("""
+        <style>
+        .stApp { background-color: white !important; }
+        h1, h2, h3, h4, p, li, span, div { color: black !important; }
+        </style>
+        """, unsafe_allow_html=True)
         
-        # Logo Original para informe
         c1, c2, c3 = st.columns([1,1,1])
         with c2:
             if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
