@@ -440,13 +440,10 @@ def parse_logic(logic_string):
 # ==========================================
 # 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
 # ==========================================
-# ==========================================
-# 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
-# ==========================================
 def run_simulator_logic():
     """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
     
-    # --- 🎨 ESTILO CORPORATIVO GLOBAL PARA EL SIMULADOR ---
+    # --- 🎨 ESTILO CORPORATIVO GLOBAL ---
     st.markdown("""
     <style>
     div.stButton > button:not([disabled]) {
@@ -479,26 +476,19 @@ def run_simulator_logic():
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
-        
-        # ---------------------------------------------------------
-        # 📍 AQUÍ ES DONDE HEMOS AÑADIDO EL LOGO
-        # ---------------------------------------------------------
+        # LOGO EN INSTRUCCIONES
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
             if os.path.exists("logo_original.png"): 
                 st.image("logo_original.png", use_container_width=True)
             elif os.path.exists("logo_blanco.png"): 
-                # Fondo azul oscuro para el logo blanco
                 st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
                 st.image("logo_blanco.png", use_container_width=True)
             else:
                  st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        
-        st.markdown("<br>", unsafe_allow_html=True) 
-        # ---------------------------------------------------------
+        st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("## 📜 Guía simulador S.A.P.E.")
-        
         st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
         
         c1, c2 = st.columns(2)
@@ -516,6 +506,19 @@ def run_simulator_logic():
 
     # --- PANTALLA B: DATOS DEL CANDIDATO ---
     elif not st.session_state.get('data_verified', False):
+        
+        # 🆕 LOGO EN IDENTIFICACIÓN (AQUÍ ES DONDE FALTABA)
+        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
+        with c_logo:
+            if os.path.exists("logo_original.png"): 
+                st.image("logo_original.png", use_container_width=True)
+            elif os.path.exists("logo_blanco.png"): 
+                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
+                st.image("logo_blanco.png", use_container_width=True)
+            else:
+                 st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
         st.markdown("#### 1. Identificación del/a Candidato/a")
         
         with st.form("user_data_form"):
