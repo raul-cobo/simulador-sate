@@ -376,6 +376,67 @@ def diagnosticar_usuario_python(octagon, cerebro):
     # --- FASE 3: PERFIL VERDE (Defecto) ---
     return cerebro.get('balanced_profile')
 
+# --- FUNCIÓN AUXILIAR IMPRESCINDIBLE PARA EL JUEGO ---
+def parse_logic(logic_string):
+    """
+    Traduce las instrucciones del Excel (ej: 'RISK+10; IRE+5')
+    y actualiza las variables del usuario en tiempo real.
+    """
+    if not isinstance(logic_string, str) or not logic_string.strip():
+        return
+
+    # Mapeo de nombres del Excel a variables internas (Octógono)
+    SKILL_MAP = {
+        "RISK": "risk_propensity", "RIESGO": "risk_propensity",
+        "AMBIGUITY": "ambiguity_tolerance", "AMBIGUEDAD": "ambiguity_tolerance",
+        "INNOVATION": "innovativeness", "INNOVACION": "innovativeness",
+        "LOCUS": "locus_of_control", "CONTROL": "locus_of_control",
+        "EMOTIONAL": "emotional_stability", "ESTABILIDAD": "emotional_stability",
+        "ACHIEVEMENT": "achievement", "LOGRO": "achievement",
+        "LEADERSHIP": "leadership", "LIDERAZGO": "leadership",
+        "ADAPTABILITY": "adaptability", "ADAPTABILIDAD": "adaptability"
+    }
+
+    # Separamos por punto y coma si hay varias instrucciones
+    changes = logic_string.split(';')
+    
+    for item in changes:
+        item = item.strip()
+        if not item: continue
+        
+        # Detectamos si es suma (+) o resta (-)
+        if '+' in item:
+            parts = item.split('+')
+            factor = 1
+        elif '-' in item:
+            parts = item.split('-')
+            factor = -1
+        else:
+            continue # Si no tiene signo, ignoramos
+
+        key = parts[0].strip().upper()
+        try:
+            val = int(parts[1].strip())
+        except:
+            val = 0
+
+        # CASO 1: Es una habilidad del Octógono
+        if key in SKILL_MAP:
+            internal_key = SKILL_MAP[key]
+            # Aseguramos que el octógono existe
+            if 'octagon' not in st.session_state:
+                st.session_state.octagon = {k: 50 for k in SKILL_MAP.values()}
+            
+            st.session_state.octagon[internal_key] += (val * factor)
+            # Limitamos entre 0 y 100
+            st.session_state.octagon[internal_key] = max(0, min(100, st.session_state.octagon[internal_key]))
+
+        # CASO 2: Es otra variable (IRE, Friccion, etc) -> Lo guardamos en 'flags'
+        else:
+            if 'flags' not in st.session_state: st.session_state.flags = {}
+            current = st.session_state.flags.get(key, 0)
+            st.session_state.flags[key] = current + (val * factor)
+
 # ==========================================
 # 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
 # ==========================================
