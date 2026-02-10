@@ -1198,7 +1198,7 @@ elif st.session_state.get('auth', False):
         render_header();
         st.markdown("#### 1. Identificación del/a Candidato/a")
         col1, col2 = st.columns(2)
-        name = col1.text_input("Nombre Completo", key="name_input")
+        name = col1.text_input("Usuario/a", key="name_input")
         age = col2.number_input("Edad", 18, 99, key="age_input")
         col3, col4 = st.columns(2)
         gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
@@ -1567,7 +1567,7 @@ if st.session_state.get('auth', False):
             render_header()
             st.markdown("#### 1. Identificación del/a Candidato/a")
             col1, col2 = st.columns(2)
-            name = col1.text_input("Nombre Completo", key="name_input")
+            name = col1.text_input("Usuario/a", key="name_input_candidato_final")
             age = col2.number_input("Edad", 18, 99, key="age_input")
             col3, col4 = st.columns(2)
             gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
