@@ -296,8 +296,8 @@ def init_session():
 
 @st.cache_data
 def load_questions():
-    # CAMBIO: Apuntamos al archivo SATE_v3 (Escala Corta)
-    filename = 'SATE_v3.csv'  
+    # CAMBIO: Apuntamos al archivo SATE_V4 (Escala Corta)
+    filename = 'SATE_V4.csv'  
     if not os.path.exists(filename): return []
     # 1. Intentar formato europeo (punto y coma)
     try:
