@@ -609,9 +609,22 @@ def render_admin_dashboard():
         with st.form("new_org_form"):
             org_id = st.text_input("ID Organización (Ej: UNIV_SEVILLA)")
             org_name = st.text_input("Nombre Real (Ej: Universidad de Sevilla)")
-            sectores = st.multiselect("Sectores Permitidos", 
-                                      ["Tech", "Salud", "Retail", "Social", "Consultoría", "Turismo"],
-                                      default=["Tech"])
+            lista_opciones = [
+                "TECH",          # Startup Tecnológica
+                "RETAIL",        # Pequeña Empresa
+                "FREELANCE",     # Autoempleo
+                "INTRA",         # Intraemprendimiento
+                "PSICO_SAN",     # Psicología Sanitaria
+                "CONSULTORIA",   # Consultoría Servicios
+                "TURISMO",       # Hostelería
+                "SOCIAL",        # Social
+                "SALUD",         # Salud y Bienestar (Genérico)
+                "PSICO_NO_SAN"   # Psicología No Sanitaria
+            ]
+            
+            sectores = st.multiselect("Sectores Permitidos (Selección Exacta)", 
+                                      lista_opciones,
+                                      default=["TECH"])
             
             if st.form_submit_button("🏢 Crear Organización"):
                 try:
