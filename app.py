@@ -587,97 +587,173 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 
+import ast # Necesario para leer la lista de sectores
+
 # ==========================================
-# 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR
+# 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR (VERSIÓN EDITAR/BORRAR)
 # ==========================================
 def render_admin_dashboard():
     st.title("🎛️ Consola de Mando: AUDEO HQ")
     st.info(f"Bienvenido, {st.session_state.user_data['username']}. Modo Dios activado.")
     
-    tab1, tab2, tab3 = st.tabs(["👥 Gestión de Usuarios", "🏢 Organizaciones", "📊 Estadísticas"])
+    tab1, tab2, tab3 = st.tabs(["👥 Usuarios (Alta/Edición)", "🏢 Organizaciones (Alta/Edición)", "📊 Estadísticas"])
     
+    # ==========================================
+    # PESTAÑA 1: GESTIÓN DE USUARIOS
+    # ==========================================
     with tab1:
-        st.subheader("Dar de Alta Nuevo Usuario")
-        with st.form("new_user_form"):
-            c1, c2 = st.columns(2)
-            new_user = c1.text_input("Nombre de Usuario (Login)")
-            new_pass = c2.text_input("Contraseña", type="password")
-            
-            c3, c4 = st.columns(2)
-            try:
-                orgs_db = supabase.table("organizations").select("id").execute()
-                lista_orgs = [o['id'] for o in orgs_db.data]
-            except:
-                lista_orgs = ["Audeo"]
+        st.markdown("### 1️⃣ Crear Nuevo Usuario")
+        with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
+            with st.form("new_user_form"):
+                c1, c2 = st.columns(2)
+                new_user = c1.text_input("Nuevo Usuario (Login)")
+                new_pass = c2.text_input("Contraseña", type="password")
                 
-            new_org = c3.selectbox("Organización", lista_orgs)
-            new_role = c4.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-            
-            if st.form_submit_button("💾 Crear Usuario"):
+                c3, c4 = st.columns(2)
                 try:
-                    supabase.table("users").insert({
-                        "username": new_user,
-                        "password": new_pass,
-                        "org_id": new_org,
-                        "role": new_role
-                    }).execute()
-                    st.success(f"Usuario {new_user} creado correctamente.")
-                    st.rerun() 
-                except Exception as e:
-                    st.error(f"Error al crear: {e}")
+                    orgs_db = supabase.table("organizations").select("id").execute()
+                    lista_orgs = [o['id'] for o in orgs_db.data]
+                except: lista_orgs = ["Audeo"]
+                    
+                new_org = c3.selectbox("Asignar Organización", lista_orgs)
+                new_role = c4.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
+                
+                if st.form_submit_button("💾 Crear Usuario"):
+                    try:
+                        supabase.table("users").insert({
+                            "username": new_user, "password": new_pass, "org_id": new_org, "role": new_role
+                        }).execute()
+                        st.success(f"Usuario {new_user} creado."); st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
 
         st.divider()
-        st.subheader("Base de Datos de Usuarios")
-        try:
-            users_list = supabase.table("users").select("*").execute()
-            st.dataframe(users_list.data)
-        except: st.error("No se pudieron cargar usuarios.")
-
-    with tab2:
-        st.subheader("Registrar Nueva Organización")
-        with st.form("new_org_form"):
-            org_id = st.text_input("ID Organización (Ej: UNIV_SEVILLA)")
-            org_name = st.text_input("Nombre Real (Ej: Universidad de Sevilla)")
-            lista_opciones = [
-                "TECH",          # Startup Tecnológica
-                "RETAIL",        # Pequeña Empresa
-                "FREELANCE",     # Autoempleo
-                "INTRA",         # Intraemprendimiento
-                "PSICO_SAN",     # Psicología Sanitaria
-                "CONSULTORIA",   # Consultoría Servicios
-                "TURISMO",       # Hostelería
-                "SOCIAL",        # Social
-                "SALUD",         # Salud y Bienestar (Genérico)
-                "PSICO_NO_SAN"   # Psicología No Sanitaria
-            ]
-            
-            sectores = st.multiselect("Sectores Permitidos (Selección Exacta)", 
-                                      lista_opciones,
-                                      default=["TECH"])
-            
-            if st.form_submit_button("🏢 Crear Organización"):
-                try:
-                    supabase.table("organizations").insert({
-                        "id": org_id,
-                        "name": org_name,
-                        "active_sectors": str(sectores),
-                        "is_active": True
-                    }).execute()
-                    st.success(f"Organización {org_name} registrada.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+        st.markdown("### 2️⃣ Editar o Borrar Usuario Existente")
         
-        st.divider()
-        st.subheader("Organizaciones Activas")
+        # Cargar usuarios para el selector
         try:
-            orgs_list = supabase.table("organizations").select("*").execute()
-            st.dataframe(orgs_list.data)
-        except: st.error("No se pudieron cargar organizaciones.")
+            users_db = supabase.table("users").select("*").execute()
+            df_users = pd.DataFrame(users_db.data)
+            lista_users_ids = df_users['username'].tolist() if not df_users.empty else []
+        except: lista_users_ids = []
 
+        # SELECTOR DE USUARIO A EDITAR
+        user_to_edit = st.selectbox("🔍 Selecciona Usuario para Editar/Borrar", ["Seleccionar..."] + lista_users_ids)
+
+        if user_to_edit != "Seleccionar...":
+            # Buscamos los datos actuales de ese usuario
+            user_info = df_users[df_users['username'] == user_to_edit].iloc[0]
+            
+            st.info(f"Editando a: **{user_to_edit}**")
+            
+            with st.form("edit_user_form"):
+                col_e1, col_e2 = st.columns(2)
+                # Cargamos los valores actuales
+                edit_pass = col_e1.text_input("Contraseña", value=user_info['password'])
+                edit_role = col_e2.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"], index=["STUDENT", "MANAGER", "ADMIN"].index(user_info['role']))
+                
+                edit_org = st.selectbox("Organización", lista_orgs, index=lista_orgs.index(user_info['org_id']) if user_info['org_id'] in lista_orgs else 0)
+                
+                c_btn1, c_btn2 = st.columns([1,1])
+                
+                # BOTÓN ACTUALIZAR
+                if c_btn1.form_submit_button("💾 GUARDAR CAMBIOS"):
+                    supabase.table("users").update({
+                        "password": edit_pass, "role": edit_role, "org_id": edit_org
+                    }).eq("username", user_to_edit).execute()
+                    st.success("Usuario actualizado."); st.rerun()
+                
+                # BOTÓN BORRAR
+                if c_btn2.form_submit_button("🗑️ BORRAR USUARIO", type="primary"):
+                    if user_to_edit == "admin": st.error("No puedes borrar al admin.")
+                    else:
+                        supabase.table("users").delete().eq("username", user_to_edit).execute()
+                        st.success("Usuario eliminado."); st.rerun()
+
+    # ==========================================
+    # PESTAÑA 2: GESTIÓN DE ORGANIZACIONES
+    # ==========================================
+    with tab2:
+        st.markdown("### 1️⃣ Crear Nueva Organización")
+        with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
+            with st.form("new_org_form"):
+                org_id = st.text_input("ID (Sin espacios, ej: UNIV_VALENCIA)")
+                org_name = st.text_input("Nombre Real (Ej: Universidad de Valencia)")
+                
+                lista_opciones = ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"]
+                sectores = st.multiselect("Sectores Permitidos", lista_opciones, default=["TECH"])
+                
+                if st.form_submit_button("🏢 Crear Organización"):
+                    try:
+                        supabase.table("organizations").insert({
+                            "id": org_id, "name": org_name, "active_sectors": str(sectores), "is_active": True
+                        }).execute()
+                        st.success(f"Org {org_name} creada."); st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
+
+        st.divider()
+        st.markdown("### 2️⃣ Editar o Borrar Organización")
+
+        # Selector de Organización
+        org_to_edit_id = st.selectbox("🔍 Selecciona Organización", ["Seleccionar..."] + lista_orgs)
+
+        if org_to_edit_id != "Seleccionar..." and org_to_edit_id != "Audeo":
+            # Cargar datos actuales de Supabase
+            current_org_data = supabase.table("organizations").select("*").eq("id", org_to_edit_id).execute().data[0]
+            
+            # Convertir el string de sectores "['TECH']" a lista real Python
+            try:
+                current_sectors_list = ast.literal_eval(current_org_data['active_sectors'])
+            except: current_sectors_list = []
+
+            with st.form("edit_org_form"):
+                st.write(f"Editando: **{current_org_data['name']}**")
+                
+                # Campos editables
+                new_name_edit = st.text_input("Nombre Real", value=current_org_data['name'])
+                new_sectors_edit = st.multiselect("Sectores Permitidos", 
+                                                  ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"],
+                                                  default=current_sectors_list)
+                
+                c_btn_o1, c_btn_o2 = st.columns([1,1])
+                
+                # BOTÓN ACTUALIZAR
+                if c_btn_o1.form_submit_button("💾 ACTUALIZAR PERMISOS"):
+                    supabase.table("organizations").update({
+                        "name": new_name_edit,
+                        "active_sectors": str(new_sectors_edit)
+                    }).eq("id", org_to_edit_id).execute()
+                    st.success("Organización actualizada."); st.rerun()
+                
+                # BOTÓN BORRAR
+                if c_btn_o2.form_submit_button("🗑️ BORRAR ORGANIZACIÓN", type="primary"):
+                    try:
+                        supabase.table("organizations").delete().eq("id", org_to_edit_id).execute()
+                        st.success("Organización eliminada."); st.rerun()
+                    except:
+                        st.error("Error: Probablemente tenga usuarios dentro. Borra los usuarios primero.")
+
+    # ==========================================
+    # PESTAÑA 3: ESTADÍSTICAS
+    # ==========================================
     with tab3:
-        st.write("Estadísticas globales en construcción...")
-
+        st.subheader("📊 Vista Global")
+        try:
+            # Traemos todos los resultados de golpe
+            all_results = supabase.table("sape_results").select("*").execute()
+            df_res = pd.DataFrame(all_results.data)
+            
+            if not df_res.empty:
+                m1, m2 = st.columns(2)
+                m1.metric("Total Simulaciones", len(df_res))
+                avg_ire = df_res['ire'].mean()
+                m2.metric("Promedio IRE Global", f"{avg_ire:.1f}")
+                
+                st.write("Últimos registros:")
+                st.dataframe(df_res.tail(10))
+            else:
+                st.info("Aún no hay partidas jugadas.")
+        except:
+            st.warning("No se pudo cargar la tabla de resultados.")
 
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
