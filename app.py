@@ -590,17 +590,15 @@ def run_simulator_logic():
 import ast # Necesario para leer la lista de sectores
 
 # ==========================================
-# 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR (VERSIÓN EDITAR/BORRAR)
+# 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR (CORREGIDA)
 # ==========================================
 def render_admin_dashboard():
     st.title("🎛️ Consola de Mando: AUDEO HQ")
     st.info(f"Bienvenido, {st.session_state.user_data['username']}. Modo Dios activado.")
     
-    tab1, tab2, tab3 = st.tabs(["👥 Usuarios (Alta/Edición)", "🏢 Organizaciones (Alta/Edición)", "📊 Estadísticas"])
+    tab1, tab2, tab3 = st.tabs(["👥 Usuarios", "🏢 Organizaciones", "📊 Estadísticas"])
     
-    # ==========================================
-    # PESTAÑA 1: GESTIÓN DE USUARIOS
-    # ==========================================
+    # --- PESTAÑA 1: GESTIÓN DE USUARIOS ---
     with tab1:
         st.markdown("### 1️⃣ Crear Nuevo Usuario")
         with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
@@ -627,60 +625,56 @@ def render_admin_dashboard():
                     except Exception as e: st.error(f"Error: {e}")
 
         st.divider()
-        st.markdown("### 2️⃣ Editar o Borrar Usuario Existente")
+        st.markdown("### 2️⃣ Editar o Borrar Usuario")
         
-        # Cargar usuarios para el selector
         try:
             users_db = supabase.table("users").select("*").execute()
             df_users = pd.DataFrame(users_db.data)
             lista_users_ids = df_users['username'].tolist() if not df_users.empty else []
         except: lista_users_ids = []
 
-        # SELECTOR DE USUARIO A EDITAR
-        user_to_edit = st.selectbox("🔍 Selecciona Usuario para Editar/Borrar", ["Seleccionar..."] + lista_users_ids)
+        user_to_edit = st.selectbox("🔍 Selecciona Usuario", ["Seleccionar..."] + lista_users_ids)
 
         if user_to_edit != "Seleccionar...":
-            # Buscamos los datos actuales de ese usuario
             user_info = df_users[df_users['username'] == user_to_edit].iloc[0]
-            
             st.info(f"Editando a: **{user_to_edit}**")
             
             with st.form("edit_user_form"):
                 col_e1, col_e2 = st.columns(2)
-                # Cargamos los valores actuales
                 edit_pass = col_e1.text_input("Contraseña", value=user_info['password'])
                 edit_role = col_e2.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"], index=["STUDENT", "MANAGER", "ADMIN"].index(user_info['role']))
                 
-                edit_org = st.selectbox("Organización", lista_orgs, index=lista_orgs.index(user_info['org_id']) if user_info['org_id'] in lista_orgs else 0)
+                # Manejo de error si la org antigua ya no existe
+                current_org_idx = 0
+                if user_info['org_id'] in lista_orgs:
+                    current_org_idx = lista_orgs.index(user_info['org_id'])
+                
+                edit_org = st.selectbox("Organización", lista_orgs, index=current_org_idx)
                 
                 c_btn1, c_btn2 = st.columns([1,1])
-                
-                # BOTÓN ACTUALIZAR
                 if c_btn1.form_submit_button("💾 GUARDAR CAMBIOS"):
                     supabase.table("users").update({
                         "password": edit_pass, "role": edit_role, "org_id": edit_org
                     }).eq("username", user_to_edit).execute()
                     st.success("Usuario actualizado."); st.rerun()
                 
-                # BOTÓN BORRAR
                 if c_btn2.form_submit_button("🗑️ BORRAR USUARIO", type="primary"):
                     if user_to_edit == "admin": st.error("No puedes borrar al admin.")
                     else:
                         supabase.table("users").delete().eq("username", user_to_edit).execute()
                         st.success("Usuario eliminado."); st.rerun()
 
-    # ==========================================
-    # PESTAÑA 2: GESTIÓN DE ORGANIZACIONES
-    # ==========================================
+    # --- PESTAÑA 2: GESTIÓN DE ORGANIZACIONES (AQUÍ ESTABA EL ERROR) ---
     with tab2:
+        # Definimos la lista maestra de opciones válidas una sola vez
+        OPCIONES_VALIDAS = ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"]
+
         st.markdown("### 1️⃣ Crear Nueva Organización")
         with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
             with st.form("new_org_form"):
                 org_id = st.text_input("ID (Sin espacios, ej: UNIV_VALENCIA)")
                 org_name = st.text_input("Nombre Real (Ej: Universidad de Valencia)")
-                
-                lista_opciones = ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"]
-                sectores = st.multiselect("Sectores Permitidos", lista_opciones, default=["TECH"])
+                sectores = st.multiselect("Sectores Permitidos", OPCIONES_VALIDAS, default=["TECH"])
                 
                 if st.form_submit_button("🏢 Crear Organización"):
                     try:
@@ -693,67 +687,63 @@ def render_admin_dashboard():
         st.divider()
         st.markdown("### 2️⃣ Editar o Borrar Organización")
 
-        # Selector de Organización
         org_to_edit_id = st.selectbox("🔍 Selecciona Organización", ["Seleccionar..."] + lista_orgs)
 
         if org_to_edit_id != "Seleccionar..." and org_to_edit_id != "Audeo":
-            # Cargar datos actuales de Supabase
-            current_org_data = supabase.table("organizations").select("*").eq("id", org_to_edit_id).execute().data[0]
-            
-            # Convertir el string de sectores "['TECH']" a lista real Python
             try:
-                current_sectors_list = ast.literal_eval(current_org_data['active_sectors'])
-            except: current_sectors_list = []
+                current_org_data = supabase.table("organizations").select("*").eq("id", org_to_edit_id).execute().data[0]
+                
+                # Intentamos leer la lista. Si falla, lista vacía.
+                try:
+                    raw_list = ast.literal_eval(current_org_data['active_sectors'])
+                except: raw_list = []
 
-            with st.form("edit_org_form"):
-                st.write(f"Editando: **{current_org_data['name']}**")
+                # --- 🛡️ FILTRO DE SEGURIDAD (LA SOLUCIÓN) ---
+                # Solo dejamos pasar los valores que existen en nuestra lista nueva.
+                # Si hay un "ALL" o un nombre viejo, se elimina para no romper el selector.
+                safe_defaults = [s for s in raw_list if s in OPCIONES_VALIDAS]
                 
-                # Campos editables
-                new_name_edit = st.text_input("Nombre Real", value=current_org_data['name'])
-                new_sectors_edit = st.multiselect("Sectores Permitidos", 
-                                                  ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"],
-                                                  default=current_sectors_list)
-                
-                c_btn_o1, c_btn_o2 = st.columns([1,1])
-                
-                # BOTÓN ACTUALIZAR
-                if c_btn_o1.form_submit_button("💾 ACTUALIZAR PERMISOS"):
-                    supabase.table("organizations").update({
-                        "name": new_name_edit,
-                        "active_sectors": str(new_sectors_edit)
-                    }).eq("id", org_to_edit_id).execute()
-                    st.success("Organización actualizada."); st.rerun()
-                
-                # BOTÓN BORRAR
-                if c_btn_o2.form_submit_button("🗑️ BORRAR ORGANIZACIÓN", type="primary"):
-                    try:
-                        supabase.table("organizations").delete().eq("id", org_to_edit_id).execute()
-                        st.success("Organización eliminada."); st.rerun()
-                    except:
-                        st.error("Error: Probablemente tenga usuarios dentro. Borra los usuarios primero.")
+                with st.form("edit_org_form"):
+                    st.write(f"Editando: **{current_org_data['name']}**")
+                    new_name_edit = st.text_input("Nombre Real", value=current_org_data['name'])
+                    
+                    # Usamos safe_defaults en lugar de la lista cruda
+                    new_sectors_edit = st.multiselect("Sectores Permitidos", 
+                                                      OPCIONES_VALIDAS,
+                                                      default=safe_defaults)
+                    
+                    c_btn_o1, c_btn_o2 = st.columns([1,1])
+                    if c_btn_o1.form_submit_button("💾 ACTUALIZAR PERMISOS"):
+                        supabase.table("organizations").update({
+                            "name": new_name_edit,
+                            "active_sectors": str(new_sectors_edit)
+                        }).eq("id", org_to_edit_id).execute()
+                        st.success("Organización actualizada."); st.rerun()
+                    
+                    if c_btn_o2.form_submit_button("🗑️ BORRAR ORGANIZACIÓN", type="primary"):
+                        try:
+                            supabase.table("organizations").delete().eq("id", org_to_edit_id).execute()
+                            st.success("Organización eliminada."); st.rerun()
+                        except:
+                            st.error("Error: Probablemente tenga usuarios dentro. Borra los usuarios primero.")
+            except Exception as e:
+                st.error(f"Error cargando datos de la organización: {e}")
 
-    # ==========================================
-    # PESTAÑA 3: ESTADÍSTICAS
-    # ==========================================
+    # --- PESTAÑA 3: ESTADÍSTICAS ---
     with tab3:
         st.subheader("📊 Vista Global")
         try:
-            # Traemos todos los resultados de golpe
             all_results = supabase.table("sape_results").select("*").execute()
             df_res = pd.DataFrame(all_results.data)
-            
             if not df_res.empty:
                 m1, m2 = st.columns(2)
                 m1.metric("Total Simulaciones", len(df_res))
                 avg_ire = df_res['ire'].mean()
                 m2.metric("Promedio IRE Global", f"{avg_ire:.1f}")
-                
                 st.write("Últimos registros:")
                 st.dataframe(df_res.tail(10))
-            else:
-                st.info("Aún no hay partidas jugadas.")
-        except:
-            st.warning("No se pudo cargar la tabla de resultados.")
+            else: st.info("Aún no hay partidas jugadas.")
+        except: st.warning("No se pudo cargar la tabla de resultados.")
 
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
