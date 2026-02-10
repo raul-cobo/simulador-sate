@@ -1587,21 +1587,7 @@ if st.session_state.get('auth', False):
                 else:
                     st.error("Por favor, completa los campos obligatorios.")
 
-        # --- SELECCIÓN DE SECTOR ---
-        elif not st.session_state.get('started', False):
-            render_header()
-            st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-            def go_sector(sec):
-                all_q = load_questions()
-                # Mapeo de seguridad
-                qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == str(SECTOR_MAP.get(sec, 'TECH')).upper()]
-                if not qs: qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == "TECH"]
-                st.session_state.data = qs
-                st.session_state.user_data["sector"] = sec
-                st.session_state.started = True
-                st.rerun()
-
-        # --- JUEGO (PREGUNTAS) ---
+                # --- JUEGO (PREGUNTAS) ---
         elif not st.session_state.get('finished', False):
             if st.session_state.current_step >= len(st.session_state.data):
                 st.session_state.finished = True
