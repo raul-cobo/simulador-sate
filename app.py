@@ -443,49 +443,36 @@ def parse_logic(logic_string):
 def run_simulator_logic():
     """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
     
-    # --- 🎨 ESTILO CORPORATIVO GLOBAL ---
+    # ==========================================================
+    # 🎨 ESTILO GLOBAL POR DEFECTO (Para pantallas blancas)
+    # ==========================================================
+    # Este estilo se aplica a las pantallas de Intro y Datos.
+    # La pantalla de Juego (oscura) sobrescribirá esto después.
     st.markdown("""
     <style>
     div.stButton > button:not([disabled]) {
-        background-color: #0D248D !important;
-        color: white !important;
-        border: 1px solid #0D248D !important;
-        font-weight: 500;
-    }
-    div.stButton > button:not([disabled]):hover {
-        background-color: #0A1C6E !important;
-        border-color: #0A1C6E !important;
-        color: white !important;
-    }
-    div.stButton > button[disabled] {
-        background-color: #F0F2F6 !important;
-        color: #A3A8B8 !important;
-        border-color: #E2E8F0 !important;
-        opacity: 0.7;
+        background-color: #0D248D; color: white; border: 1px solid #0D248D;
     }
     div.stButton > button[kind="primary"] {
-        background-color: #0D248D !important;
-        border-color: #0D248D !important;
-        color: white !important;
+        background-color: #0D248D; border-color: #0D248D; color: white;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # --- PANTALLA A: INSTRUCCIONES (ONBOARDING) ---
+    # ------------------------------------------------------------------
+    # 1️⃣ PANTALLA A: INSTRUCCIONES (Fondo Blanco - Estilo Corporativo)
+    # ------------------------------------------------------------------
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
-        # LOGO A
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
-            if os.path.exists("logo_original.png"): 
-                st.image("logo_original.png", use_container_width=True)
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
             elif os.path.exists("logo_blanco.png"): 
                 st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
                 st.image("logo_blanco.png", use_container_width=True)
-            else:
-                 st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
         st.markdown("## 📜 Guía simulador S.A.P.E.")
@@ -504,61 +491,49 @@ def run_simulator_logic():
             st.session_state.instructions_seen = True
             st.rerun()
 
-    # --- PANTALLA B: DATOS DEL CANDIDATO ---
+    # ------------------------------------------------------------------
+    # 2️⃣ PANTALLA B: DATOS (Fondo Blanco - Estilo Corporativo)
+    # ------------------------------------------------------------------
     elif not st.session_state.get('data_verified', False):
-        # LOGO B
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
-            if os.path.exists("logo_original.png"): 
-                st.image("logo_original.png", use_container_width=True)
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
             elif os.path.exists("logo_blanco.png"): 
                 st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
                 st.image("logo_blanco.png", use_container_width=True)
-            else:
-                 st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         st.markdown("#### 1. Identificación del/a Candidato/a")
-        
         with st.form("user_data_form"):
             col1, col2 = st.columns(2)
             name = col1.text_input("Nombre Completo / Alias", key="final_name_input") 
             age = col2.number_input("Edad", 18, 99, key="final_age_input")
-            
             col3, col4 = st.columns(2)
             gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="final_gender")
             experience = col4.selectbox("Experiencia Previa", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="final_exp")
-            
             st.markdown("<br>", unsafe_allow_html=True)
             consent = st.checkbox("He leído y acepto la Política de Privacidad.")
             
             if st.form_submit_button("VALIDAR DATOS Y CONTINUAR"):
                 if name and age and consent:
                     if 'user_data' not in st.session_state: st.session_state.user_data = {}
-                    st.session_state.user_data.update({
-                        "name": name, 
-                        "age": age, 
-                        "gender": gender, 
-                        "experience": experience
-                    })
+                    st.session_state.user_data.update({"name": name, "age": age, "gender": gender, "experience": experience})
                     st.session_state.data_verified = True
                     st.rerun()
-                else:
-                    st.error("Por favor, completa los campos obligatorios y acepta la política.")
+                else: st.error("Por favor, completa los campos obligatorios y acepta la política.")
 
-    # --- PANTALLA C: SELECCIÓN DE SECTOR (CON PERMISOS) ---
+    # ------------------------------------------------------------------
+    # 3️⃣ PANTALLA C: SELECCIÓN DE SECTOR (Fondo Blanco)
+    # ------------------------------------------------------------------
     elif not st.session_state.started:
-        
-        # 🆕 LOGO C (AQUÍ ES DONDE LO HEMOS AÑADIDO)
         c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
         with c_logo:
-            if os.path.exists("logo_original.png"): 
-                st.image("logo_original.png", use_container_width=True)
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
             elif os.path.exists("logo_blanco.png"): 
                 st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
                 st.image("logo_blanco.png", use_container_width=True)
-            else:
-                 st.markdown("<h2 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
@@ -566,16 +541,11 @@ def run_simulator_logic():
         def go_sector(sec_name):
             all_q = load_questions()
             SECTOR_MAP = {
-                "Startup Tecnológica (Scalable)": "TECH",
-                "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "FREELANCE",
-                "Intraemprendimiento": "INTRA",
-                "Psicología Sanitaria": "PSICO_SAN",
-                "Consultoría / Servicios Profesionales": "CONSULTORIA",
-                "Hostelería y Restauración": "TURISMO",
-                "Emprendimiento Social": "SOCIAL",
-                "Salud": "SALUD",
-                "Psicología no sanitaria": "PSICO_NO_SAN"
+                "Startup Tecnológica (Scalable)": "TECH", "Pequeña y Mediana Empresa (PYME)": "RETAIL",
+                "Autoempleo / Freelance": "FREELANCE", "Intraemprendimiento": "INTRA",
+                "Psicología Sanitaria": "PSICO_SAN", "Consultoría / Servicios Profesionales": "CONSULTORIA",
+                "Hostelería y Restauración": "TURISMO", "Emprendimiento Social": "SOCIAL",
+                "Salud": "SALUD", "Psicología no sanitaria": "PSICO_NO_SAN"
             }
             code = SECTOR_MAP.get(sec_name, "TECH")
             qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
@@ -585,18 +555,11 @@ def run_simulator_logic():
             st.session_state.started = True
             st.rerun()
 
-        # SISTEMA DE BLOQUEO
         org_data = st.session_state.user_data.get('org_data', {})
-        try:
-            allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
-        except:
-            allowed_sectors = ["ALL"]
+        try: allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
+        except: allowed_sectors = ["ALL"]
+        def is_locked(tag): return tag not in allowed_sectors if "ALL" not in allowed_sectors else False
 
-        def is_locked(tag):
-            if "ALL" in allowed_sectors: return False
-            return tag not in allowed_sectors
-
-        # BOTONES
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
@@ -604,7 +567,6 @@ def run_simulator_logic():
             if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): go_sector("Autoempleo / Freelance")
             if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): go_sector("Intraemprendimiento")
             if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): go_sector("Psicología Sanitaria")
-
         with c2:
             if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
             if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): go_sector("Hostelería y Restauración")
@@ -612,7 +574,9 @@ def run_simulator_logic():
             if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): go_sector("Salud")
             if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): go_sector("Psicología no sanitaria")
 
-    # --- PANTALLA D: EL JUEGO (PREGUNTAS) ---
+    # ------------------------------------------------------------------
+    # 4️⃣ PANTALLA D: EL JUEGO (FONDO OSCURO + TEXTO NEGRO + LOGO BLANCO)
+    # ------------------------------------------------------------------
     elif not st.session_state.get('finished', False):
         if st.session_state.current_step >= len(st.session_state.data):
             st.session_state.finished = True
@@ -621,11 +585,72 @@ def run_simulator_logic():
         row = st.session_state.data[st.session_state.current_step]
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
+        # --- 🎨 CSS ESPECÍFICO PARA MODO JUEGO ---
+        st.markdown("""
+        <style>
+        /* 1. Fondo Azul Oscuro Profundo (Casi Negro) */
+        .stApp {
+            background-color: #050A1F !important;
+        }
+        
+        /* 2. Textos generales en Blanco para que se vean sobre el fondo oscuro */
+        h1, h2, h3, .stProgress > div > div > div {
+            color: white !important;
+        }
+        
+        /* 3. CAJA DE NARRATIVA: Fondo Blanco para tener TEXTO NEGRO */
+        .narrative-box {
+            background-color: #FFFFFF;
+            border-left: 6px solid #0D248D;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .narrative-box p {
+            color: #000000 !important; /* Letra negra estricta */
+            font-size: 1.25rem;
+            line-height: 1.6;
+        }
+        
+        /* 4. BOTONES DE RESPUESTA (Azul Corporativo con Efecto Zoom) */
+        div.stButton > button {
+            background-color: #0D248D !important; /* Azul Corporativo */
+            color: white !important;
+            border: 2px solid #0D248D !important;
+            border-radius: 12px !important;
+            padding: 20px !important;
+            height: auto !important;
+            min-height: 90px !important;
+            font-size: 1.1rem !important;
+            transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+        }
+        
+        /* Efecto Hover: Se amplia y brilla */
+        div.stButton > button:hover {
+            transform: scale(1.03) !important; /* Se amplia un poco */
+            background-color: #1a2c9e !important; /* Un pelín más claro */
+            box-shadow: 0 0 15px rgba(13, 36, 141, 0.6) !important;
+            border-color: white !important;
+            z-index: 10;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # --- LOGO BLANCO PARA FONDO OSCURO ---
+        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
+        with c_logo:
+            if os.path.exists("logo_blanco.png"): 
+                st.image("logo_blanco.png", use_container_width=True)
+            else:
+                 st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+        
         st.markdown(f"### {row.get('TITULO', 'Desafío')}")
         
         c_text, c_opt = st.columns([1.5, 1])
         with c_text:
-            st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
+            # Usamos la clase narrative-box definida arriba para tener fondo blanco y letra negra
+            st.markdown(f'<div class="narrative-box"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
         
         with c_opt:
             st.markdown("#### Tu decisión:")
@@ -637,10 +662,9 @@ def run_simulator_logic():
             
             random.shuffle(options)
             
-            st.markdown("""<style>div.stButton > button {height: auto; min_height: 80px; white-space: normal; text-align: left; padding: 15px;}</style>""", unsafe_allow_html=True)
-
             step = st.session_state.current_step
             for opt in options:
+                # El CSS se encarga de que sean azules y se amplíen al pasar el ratón
                 if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
                     parse_logic(opt['logic'])
                     if 'history' not in st.session_state: st.session_state.history = []
@@ -648,8 +672,18 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
-    # --- PANTALLA E: RESULTADOS FINALES ---
+    # ------------------------------------------------------------------
+    # 5️⃣ PANTALLA E: RESULTADOS (Volvemos a fondo normal/blanco)
+    # ------------------------------------------------------------------
     else:
+        # Reseteamos estilo para que los informes se vean en limpio
+        st.markdown("<style>.stApp { background-color: white !important; } h1,h2,h3,p {color: black !important;}</style>", unsafe_allow_html=True)
+        
+        # Logo Original para informe
+        c1, c2, c3 = st.columns([1,1,1])
+        with c2:
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
         
         cerebro = cargar_cerebro_sape()
@@ -670,7 +704,6 @@ def run_simulator_logic():
         
         st.plotly_chart(radar_chart(), use_container_width=True)
 
-        # GUARDADO EN SUPABASE
         if 'data_saved' not in st.session_state:
             try:
                 org_name = st.session_state.user_data.get('org_data', {}).get('name', 'GENERICO')
