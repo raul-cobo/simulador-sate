@@ -464,20 +464,49 @@ def run_simulator_logic():
             if "ALL" in allowed_sectors: return False
             return tag not in allowed_sectors
 
+        # --- BLOQUE DE BOTONES DE ALTA PRECISIÓN ---
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("Tech"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("Retail"), use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
-            if st.button("Autoempleo / Freelance", disabled=is_locked("Consultoría"), use_container_width=True): go_sector("Autoempleo / Freelance")
-            if st.button("Intraemprendimiento", disabled=is_locked("Consultoría"), use_container_width=True): go_sector("Intraemprendimiento")
-            if st.button("Psicología Sanitaria", disabled=is_locked("Salud"), use_container_width=True): go_sector("Psicología Sanitaria")
+            # 1. TECH
+            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): 
+                go_sector("Startup Tecnológica (Scalable)")
+            
+            # 2. RETAIL
+            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("RETAIL"), use_container_width=True): 
+                go_sector("Pequeña y Mediana Empresa (PYME)")
+            
+            # 3. FREELANCE
+            if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): 
+                go_sector("Autoempleo / Freelance")
+            
+            # 4. INTRA
+            if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): 
+                go_sector("Intraemprendimiento")
+            
+            # 5. PSICO SANITARIA (Solo esta)
+            if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): 
+                go_sector("Psicología Sanitaria")
 
         with c2:
-            if st.button("Consultoría / Servicios", disabled=is_locked("Consultoría"), use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
-            if st.button("Hostelería y Turismo", disabled=is_locked("Turismo"), use_container_width=True): go_sector("Hostelería y Restauración")
-            if st.button("Emprendimiento Social", disabled=is_locked("Social"), use_container_width=True): go_sector("Emprendimiento Social")
-            if st.button("Salud y Bienestar", disabled=is_locked("Salud"), use_container_width=True): go_sector("Salud")
-            if st.button("Psicología No Sanitaria", disabled=is_locked("Salud"), use_container_width=True): go_sector("Psicología no sanitaria")
+            # 6. CONSULTORIA
+            if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): 
+                go_sector("Consultoría / Servicios Profesionales")
+            
+            # 7. TURISMO
+            if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): 
+                go_sector("Hostelería y Restauración")
+            
+            # 8. SOCIAL
+            if st.button("Emprendimiento Social", disabled=is_locked("SOCIAL"), use_container_width=True): 
+                go_sector("Emprendimiento Social")
+            
+            # 9. SALUD (Solo Salud y Bienestar)
+            if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): 
+                go_sector("Salud")
+            
+            # 10. PSICO NO SANITARIA (Solo esta)
+            if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): 
+                go_sector("Psicología no sanitaria")
 
     # --- PANTALLA D: EL JUEGO (PREGUNTAS) ---
     elif not st.session_state.get('finished', False):
