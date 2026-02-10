@@ -438,6 +438,113 @@ def parse_logic(logic_string):
             st.session_state.flags[key] = current + (val * factor)
 
 # ==========================================
+# 🛠️ BLOQUE DE HERRAMIENTAS (CÁLCULOS Y GRÁFICOS)
+# ==========================================
+
+def load_questions():
+    """Carga las preguntas desde el archivo CSV"""
+    # Lista de posibles nombres de archivo
+    files = ['SAPE_DATA.csv', 'sape_data.csv', 'dataset.csv']
+    for f in files:
+        if os.path.exists(f):
+            try:
+                return pd.read_csv(f).to_dict('records')
+            except: pass
+    return [] # Si falla devuelve lista vacía
+
+def calculate_results():
+    """Calcula las métricas finales (IRE, Fricción, Octágono)"""
+    
+    # 1. Recuperar datos del Octágono
+    # Aseguramos que existan valores, si no ponemos 50 por defecto
+    raw = st.session_state.get('octagon', {})
+    keys = ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", "emotional_stability", "achievement", "leadership", "adaptability"]
+    octagon_norm = {k: min(100, max(0, raw.get(k, 50))) for k in keys}
+    
+    # 2. Calcular IRE (Índice de Resiliencia) -> Promedio
+    avg = sum(octagon_norm.values()) / len(octagon_norm) if len(octagon_norm) > 0 else 0
+    ire = round(avg, 1)
+    
+    # 3. Calcular Fricción
+    friction = st.session_state.get('flags', {}).get('FRICTION', 0)
+    friction = min(100, max(0, friction)) # Topes 0-100
+    
+    # 4. Variables extra (Triggers)
+    triggers = []
+    fric_reasons = []
+    delta = 0
+    max_possibles = 100
+    
+    return ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles
+
+def radar_chart():
+    """Genera el gráfico de araña con Plotly"""
+    data = st.session_state.get('octagon', {})
+    
+    # Etiquetas bonitas para el gráfico
+    labels_map = {
+        "risk_propensity": "Riesgo", "ambiguity_tolerance": "Ambigüedad",
+        "innovativeness": "Innovación", "locus_of_control": "Control",
+        "emotional_stability": "Estabilidad", "achievement": "Logro",
+        "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
+    }
+    
+    # Ordenamos los valores
+    r_val = [data.get(k, 50) for k in labels_map.keys()]
+    theta_val = list(labels_map.values())
+    
+    # Cerramos el círculo repitiendo el primero
+    r_val.append(r_val[0])
+    theta_val.append(theta_val[0])
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=r_val, theta=theta_val,
+        fill='toself', name='Tu Perfil',
+        line_color='#0D248D', opacity=0.8
+    ))
+    
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=40, b=40),
+        font=dict(color="black") # Texto negro para fondo blanco
+    )
+    return fig
+
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
+    """Guarda los resultados en Supabase"""
+    try:
+        payload = {
+            "student_id": student_id,
+            "sector": sector,
+            "ire": float(ire),
+            "friction": int(friction),
+            "octagon": str(scores), # Guardamos como texto/JSON
+            "history": str(history),
+            "organization": organization,
+            "created_at": datetime.now().isoformat()
+        }
+        supabase.table("sape_results").insert(payload).execute()
+    except Exception as e:
+        print(f"Error guardando DB: {e}")
+
+# Funciones Auxiliares de Diagnóstico
+def cargar_cerebro_sape():
+    return {} # Placeholder por si no hay archivo JSON
+
+def diagnosticar_usuario_python(octagon, cerebro):
+    """Genera un diagnóstico textual simple basado en la puntuación"""
+    avg = sum(octagon.values()) / len(octagon) if octagon else 0
+    
+    if avg >= 75:
+        return {"name": "Perfil Sólido", "risk_level": "BAJO", "description": "Tus competencias muestran una gran preparación para el reto."}
+    elif avg >= 50:
+        return {"name": "Perfil Promedio", "risk_level": "MEDIO", "description": "Tienes bases sólidas, pero vigila las áreas de menor puntuación."}
+    else:
+        return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
+        
+# ==========================================
 # 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
 # ==========================================
 def run_simulator_logic():
