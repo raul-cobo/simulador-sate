@@ -170,7 +170,7 @@ def render_header():
     """Dibuja la cabecera en la aplicación Streamlit"""
     c1, c2 = st.columns([1.5, 6])
     with c1:
-        if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+        if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
         elif os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
         else: st.warning("Logo no encontrado")
     with c2: 
@@ -776,16 +776,28 @@ def main():
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 
     # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
+    # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
     if not st.session_state.logged_in:
         
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             st.markdown("<br><br>", unsafe_allow_html=True)
-            # Ajusta el nombre de la imagen si tienes el logo blanco
-            if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h1 style='text-align: center; color: white !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
             
-            st.markdown("<h3 style='text-align: center; color: #AAA !important;'>Sistema de Análisis de la Personalidad Emprendedora</h3>", unsafe_allow_html=True)
+            # --- LÓGICA DEL LOGO CORREGIDA ---
+            # Prioridad 1: Logo Original (Color #0D248D y Negro) -> Ideal para fondo blanco
+            if os.path.exists("logo_original.png"): 
+                st.image("logo_original.png", use_container_width=True)
+            # Prioridad 2: Logo Blanco (Por si acaso falta el otro)
+            elif os.path.exists("logo_blanco.png"): 
+                # Le ponemos un fondo oscuro temporal con CSS solo a la imagen si toca usar el blanco
+                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
+                st.image("logo_blanco.png", use_container_width=True)
+            # Prioridad 3: Texto (Si no hay imágenes) -> Usamos tu color corporativo
+            else: 
+                st.markdown("<h1 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+            
+            # Subtítulo en Gris Oscuro (para que se lea en fondo blanco)
+            st.markdown("<h3 style='text-align: center; color: #333333 !important;'>Sistema de Análisis de la Personalidad Emprendedora</h3>", unsafe_allow_html=True)
             
             with st.form("login_form_supabase"):
                 user_in = st.text_input("USUARIO")
