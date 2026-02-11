@@ -857,7 +857,7 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 PANEL ADMIN (VERSIÓN DEFINITIVA: CARGA MASIVA + FILTROS)
+# 👑 PANEL ADMIN (VERSIÓN FINAL: CARGA CSV BLINDADA)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
@@ -877,7 +877,7 @@ def render_admin_dashboard():
     
     tab1, tab2, tab3 = st.tabs(["👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
     
-    # --- PESTAÑA 1: USUARIOS (CARGA MASIVA) ---
+    # --- PESTAÑA 1: USUARIOS (CARGA MASIVA INTELIGENTE) ---
     with tab1:
         st.markdown("### Gestión de Usuarios")
         
@@ -902,19 +902,41 @@ def render_admin_dashboard():
                         st.success(f"✅ Usuario {new_user} creado.")
                     except Exception as e: st.error(f"Error: {e}")
 
-        # B) CARGA MASIVA (TU SOLICITUD)
+        # B) CARGA MASIVA (AHORA CON LIMPIEZA DE COMILLAS)
         else:
             st.info("📂 Sube un archivo CSV con las columnas: `username`, `password`, `role`, `org_id`")
             uploaded_file = st.file_uploader("Arrastra tu CSV aquí", type=["csv"])
             
             if uploaded_file is not None:
                 try:
-                    df_upload = pd.read_csv(uploaded_file, sep=';') # Intentamos con punto y coma primero
-                    if len(df_upload.columns) < 2: # Si falló, probamos con coma
+                    # 1. Intentamos leer con punto y coma
+                    uploaded_file.seek(0)
+                    try:
+                        df_upload = pd.read_csv(uploaded_file, sep=';')
+                    except:
                         uploaded_file.seek(0)
                         df_upload = pd.read_csv(uploaded_file, sep=',')
+
+                    # 2. LIMPIEZA INTELIGENTE DE COMILLAS (El arreglo clave)
+                    # Si las columnas tienen comillas extra (ej: '"username'), las limpiamos
+                    df_upload.columns = df_upload.columns.str.replace('"', '').str.replace("'", "").str.strip()
                     
-                    st.write("Vista previa de datos a cargar:", df_upload.head())
+                    # Si los valores tienen comillas extra, las limpiamos también
+                    for col in df_upload.columns:
+                        if df_upload[col].dtype == object:
+                            df_upload[col] = df_upload[col].astype(str).str.replace('"', '').str.replace("'", "").str.strip()
+
+                    # 3. Verificamos que existan las columnas obligatorias
+                    if 'username' not in df_upload.columns:
+                        # Último intento: Forzar lectura sin comillas si todo falló
+                        uploaded_file.seek(0)
+                        df_upload = pd.read_csv(uploaded_file, sep=';', quoting=3) # QUOTE_NONE
+                        df_upload.columns = df_upload.columns.str.replace('"', '').str.strip()
+                        for col in df_upload.columns:
+                            if df_upload[col].dtype == object:
+                                df_upload[col] = df_upload[col].astype(str).str.replace('"', '').str.strip()
+
+                    st.write("Vista previa (Datos limpios):", df_upload.head())
                     
                     if st.button(f"🚀 Procesar {len(df_upload)} Usuarios"):
                         progress_bar = st.progress(0)
@@ -923,13 +945,20 @@ def render_admin_dashboard():
                         
                         for i, row in df_upload.iterrows():
                             try:
-                                supabase.table("users").insert({
-                                    "username": str(row['username']).strip(),
-                                    "password": str(row['password']).strip(),
-                                    "role": str(row['role']).strip().upper(),
-                                    "org_id": str(row['org_id']).strip()
-                                }).execute()
-                                success_count += 1
+                                # Usamos .get() para evitar errores si falta alguna columna no esencial
+                                u = str(row.get('username', '')).strip()
+                                p = str(row.get('password', '1234')).strip()
+                                r = str(row.get('role', 'STUDENT')).strip().upper()
+                                o = str(row.get('org_id', 'GENERICO')).strip()
+                                
+                                if u: # Solo si hay usuario
+                                    supabase.table("users").insert({
+                                        "username": u,
+                                        "password": p,
+                                        "role": r,
+                                        "org_id": o
+                                    }).execute()
+                                    success_count += 1
                             except Exception as e:
                                 errors.append(f"Fila {i}: {e}")
                             progress_bar.progress((i + 1) / len(df_upload))
@@ -949,31 +978,23 @@ def render_admin_dashboard():
             st.dataframe(pd.DataFrame(res_users.data), use_container_width=True)
         except: pass
 
-    # --- PESTAÑA 2: RESULTADOS (FILTROS INTELIGENTES) ---
+    # --- PESTAÑA 2: RESULTADOS (FILTROS) ---
     with tab2:
         st.markdown("### Análisis de Resultados")
-        
-        # SELECTOR DE VISTA
         view_mode = st.radio("Filtrar por:", ["🌍 Globales", "🏢 Por Empresa"], horizontal=True)
         
         try:
-            # Traemos TODOS los datos (si son miles, esto se debería paginar, pero para <1000 vale)
             all_results = supabase.table("sape_results").select("*").execute()
             df_res = pd.DataFrame(all_results.data)
             
             if not df_res.empty:
-                # LÓGICA DE FILTRADO
                 if view_mode == "🏢 Por Empresa":
-                    # Sacamos lista de empresas únicas en los resultados
                     unique_orgs = df_res['organization'].unique()
                     selected_org = st.selectbox("Selecciona la Empresa:", unique_orgs)
-                    # Filtramos el DataFrame
                     df_final = df_res[df_res['organization'] == selected_org]
                 else:
-                    # Modo Global: Usamos todo
                     df_final = df_res
 
-                # ESTADÍSTICAS DINÁMICAS (Se calculan sobre df_final)
                 st.divider()
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Total Evaluados", len(df_final))
@@ -986,14 +1007,13 @@ def render_admin_dashboard():
                 csv = df_final.to_csv(index=False).encode('utf-8')
                 st.download_button(f"📥 Descargar CSV ({view_mode})", csv, "resultados.csv", "text/csv")
             else:
-                st.info("Aún no hay resultados registrados en el sistema.")
+                st.info("Aún no hay resultados registrados.")
         except Exception as e:
             st.error(f"Error cargando resultados: {e}")
 
     # --- PESTAÑA 3: EMPRESAS (NUEVOS CAMPOS) ---
     with tab3:
         st.markdown("### 🏢 Alta de Organizaciones")
-        
         col_new_org, col_view_orgs = st.columns([1, 1.5])
         
         with col_new_org:
@@ -1002,7 +1022,6 @@ def render_admin_dashboard():
                 org_name_input = st.text_input("Nombre Completo", placeholder="ej: Universidad de Granada")
                 org_pass_input = st.text_input("Contraseña Maestra (Opcional)", type="password")
                 
-                # SELECTOR DE SECTORES
                 SECTORES_DISPONIBLES = [
                     "TECH", "RETAIL", "FREELANCE", "INTRA", "PSICOLOGÍA_SANITARIA", 
                     "CONSULTORÍA", "HOSTELERÍA", "SOCIAL", "SALUD", "PSICOLOGÍA_NO_SANITARIA"
@@ -1016,7 +1035,7 @@ def render_admin_dashboard():
                                 "id": org_id_input,
                                 "name": org_name_input,
                                 "password": org_pass_input,
-                                "active_sectors": str(sectors_input) # Guardamos como texto
+                                "active_sectors": str(sectors_input)
                             }).execute()
                             st.success(f"✅ Empresa '{org_name_input}' creada.")
                             st.rerun()
@@ -1032,7 +1051,8 @@ def render_admin_dashboard():
                 df_orgs = pd.DataFrame(res_orgs.data)
                 if not df_orgs.empty:
                     # Mostramos tabla limpia
-                    st.dataframe(df_orgs[['id', 'name', 'active_sectors']], use_container_width=True)
+                    cols_show = [c for c in ['id', 'name', 'active_sectors'] if c in df_orgs.columns]
+                    st.dataframe(df_orgs[cols_show], use_container_width=True)
                 else:
                     st.info("No hay empresas creadas.")
             except: pass
