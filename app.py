@@ -857,40 +857,42 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 PANEL ADMIN (CORREGIDO Y FINAL)
+# 👑 PANEL ADMIN (VERSIÓN PRO: CON GESTIÓN DE EMPRESAS)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
     
-    # 1. KPIs Rápidos (Protegidos con try/except)
+    # 1. KPIs Rápidos
     try:
         count_users = supabase.table("users").select("*", count="exact").execute().count
         count_results = supabase.table("sape_results").select("*", count="exact").execute().count
+        count_orgs = supabase.table("organizations").select("*", count="exact").execute().count
     except: 
-        count_users = count_results = 0
+        count_users = count_results = count_orgs = 0
 
-    k1, k2 = st.columns(2)
+    k1, k2, k3 = st.columns(3)
     k1.metric("👥 Usuarios", count_users)
     k2.metric("📊 Simulaciones", count_results)
+    k3.metric("🏢 Empresas", count_orgs)
     
-    # 2. DEFINICIÓN DE PESTAÑAS (SOLO 2)
-    tab1, tab2 = st.tabs(["USUARIOS", "RESULTADOS"])
+    # 2. TRES PESTAÑAS AHORA
+    tab1, tab2, tab3 = st.tabs(["👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
     
     # --- PESTAÑA 1: GESTIÓN DE USUARIOS ---
     with tab1:
         c_form, c_list = st.columns([1, 2])
         
         with c_form:
-            st.markdown("### Crear Usuario")
+            st.markdown("### Nuevo Usuario")
+            st.info("💡 Consejo: Copia el ID exacto de la pestaña 'Empresas'")
             with st.form("new_user_admin"):
                 new_user = st.text_input("Username / Email")
                 new_pass = st.text_input("Password", value="".join(random.choices(string.ascii_letters + string.digits, k=8)))
                 new_role = st.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
-                new_org_id = st.text_input("Org ID", value="GENERICO") 
+                new_org_id = st.text_input("Org ID (Debe existir)", value="GENERICO") 
                 
                 if st.form_submit_button("Crear Usuario"):
                     try:
-                        # Usamos 'org_id' que es la columna real de tu tabla users
                         supabase.table("users").insert({
                             "username": new_user,
                             "password": new_pass,
@@ -900,45 +902,73 @@ def render_admin_dashboard():
                         st.success(f"✅ Usuario {new_user} creado.")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error al crear: {e}")
+                        if "foreign key" in str(e):
+                            st.error(f"❌ Error: La empresa '{new_org_id}' NO existe. Créala primero en la pestaña EMPRESAS.")
+                        else:
+                            st.error(f"Error: {e}")
 
         with c_list:
             st.markdown("### Usuarios Existentes")
-            if count_users > 0:
-                try:
-                    res_users = supabase.table("users").select("*").execute()
-                    df_users = pd.DataFrame(res_users.data)
-                    
-                    # FILTRO DE SEGURIDAD PARA COLUMNAS
-                    # Mostramos solo las que existen para evitar KeyError
-                    cols_to_show = []
-                    # Comprobamos una a una si existen en tu base de datos
-                    if 'username' in df_users.columns: cols_to_show.append('username')
-                    if 'role' in df_users.columns: cols_to_show.append('role')
-                    if 'org_id' in df_users.columns: cols_to_show.append('org_id')
-                    if 'created_at' in df_users.columns: cols_to_show.append('created_at')
-                    
+            try:
+                res_users = supabase.table("users").select("*").order("created_at", desc=True).execute()
+                df_users = pd.DataFrame(res_users.data)
+                
+                cols_to_show = [c for c in ['username', 'role', 'org_id', 'created_at'] if c in df_users.columns]
+                if not df_users.empty:
                     st.dataframe(df_users[cols_to_show], use_container_width=True)
-                except Exception as e:
-                    st.error(f"Error visualizando tabla: {e}")
-            else:
-                st.info("No hay usuarios registrados.")
+            except: st.info("Sin usuarios.")
 
     # --- PESTAÑA 2: RESULTADOS ---
     with tab2:
         st.markdown("### Resultados Globales")
         try:
-            res = supabase.table("sape_results").select("*").execute()
+            res = supabase.table("sape_results").select("*").order("created_at", desc=True).execute()
             df_res = pd.DataFrame(res.data)
             if not df_res.empty:
                 st.dataframe(df_res, use_container_width=True)
-                # Botón de descarga CSV
                 csv = df_res.to_csv(index=False).encode('utf-8')
                 st.download_button("📥 Descargar CSV", csv, "resultados.csv", "text/csv")
             else:
                 st.info("Aún no hay resultados.")
-        except: 
-            st.info("Sin datos o error de conexión.")
+        except: st.info("Sin datos.")
+
+    # --- PESTAÑA 3: GESTIÓN DE EMPRESAS (LA NUEVA JOYITA) ---
+    with tab3:
+        st.markdown("### 🏢 Alta de Organizaciones")
+        st.caption("Crea aquí las empresas para que luego puedas asignarles usuarios.")
+        
+        col_new_org, col_view_orgs = st.columns([1, 2])
+        
+        with col_new_org:
+            with st.form("create_org_form"):
+                org_id_input = st.text_input("ID Empresa (Sin espacios)", placeholder="ej: ugr")
+                org_name_input = st.text_input("Nombre Completo", placeholder="ej: Universidad de Granada")
+                
+                if st.form_submit_button("💾 Guardar Empresa"):
+                    if org_id_input and org_name_input:
+                        try:
+                            supabase.table("organizations").insert({
+                                "id": org_id_input,
+                                "name": org_name_input
+                            }).execute()
+                            st.success(f"✅ Empresa '{org_name_input}' creada.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    else:
+                        st.warning("Rellena ambos campos.")
+
+        with col_view_orgs:
+            st.markdown("### Empresas Activas")
+            try:
+                res_orgs = supabase.table("organizations").select("*").execute()
+                df_orgs = pd.DataFrame(res_orgs.data)
+                if not df_orgs.empty:
+                    st.dataframe(df_orgs, use_container_width=True)
+                else:
+                    st.info("No hay empresas creadas.")
+            except:
+                st.error("Error cargando empresas.")
 
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
