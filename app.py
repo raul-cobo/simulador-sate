@@ -857,105 +857,78 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 BLOQUE ADMIN: GESTIÓN TOTAL
+# 👑 PANEL ADMIN (CORREGIDO KEYERROR)
 # ==========================================
 def render_admin_dashboard():
-    """Renderiza el panel de control del Administrador"""
+    st.title("👑 Panel de Administración")
     
-    # --- HEADER CON LOGO ---
-    c1, c2 = st.columns([1, 5])
-    with c1:
-        if os.path.exists("logo_original.png"):
-            st.image("logo_original.png", use_container_width=True)
-    with c2:
-        st.markdown("<h1 style='color: #0D248D;'>Panel de Administración</h1>", unsafe_allow_html=True)
-    
-    st.divider()
-
-    # --- KPIs RÁPIDOS ---
+    # 1. KPIs Rápidos
     try:
-        res_users = supabase.table("users").select("*", count="exact").execute()
-        res_results = supabase.table("sape_results").select("*", count="exact").execute()
-        count_users = res_users.count
-        count_results = res_results.count
-    except:
-        count_users = 0
-        count_results = 0
+        # Consultamos a la tabla 'users'
+        count_users = supabase.table("users").select("*", count="exact").execute().count
+        count_results = supabase.table("sape_results").select("*", count="exact").execute().count
+    except: 
+        count_users = count_results = 0
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("👥 Usuarios Totales", count_users)
-    k2.metric("📊 Simulaciones Hechas", count_results)
-    k3.metric("🏢 Empresas Activas", "3") # Esto podrías calcularlo real si quieres
-    k4.metric("⚙️ Estado Sistema", "🟢 Online")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # --- PESTAÑAS DE GESTIÓN ---
-    tab1, tab2, tab3 = st.tabs(["👥 GESTIÓN USUARIOS", "📈 RESULTADOS GLOBALES", "📥 CARGA MASIVA"])
-
-    # --- PESTAÑA 1: CREAR / VER USUARIOS ---
+    k1, k2 = st.columns(2)
+    k1.metric("👥 Usuarios", count_users)
+    k2.metric("📊 Simulaciones", count_results)
+    
+    tab1, tab2 = st.tabs(["USUARIOS", "RESULTADOS"])
+    
+    # --- PESTAÑA 1: USUARIOS ---
     with tab1:
         c_form, c_list = st.columns([1, 2])
         
         with c_form:
-            st.markdown("### Nuevo Usuario")
+            st.markdown("### Crear Usuario")
             with st.form("new_user_admin"):
-                new_user = st.text_input("Usuario (Email/ID)")
-                new_pass = st.text_input("Contraseña", value="".join(random.choices(string.ascii_letters + string.digits, k=8)))
-                new_role = st.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-                new_org = st.text_input("Organización", value="GENERICO")
+                new_user = st.text_input("Username / Email")
+                new_pass = st.text_input("Password", value="".join(random.choices(string.ascii_letters + string.digits, k=8)))
+                new_role = st.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
+                new_org_id = st.text_input("Org ID", value="GENERICO") # Usamos org_id
                 
-                # Sectores permitidos (Para bloquear botones)
-                st.markdown("**Sectores Activos:**")
-                sec_tech = st.checkbox("Tech", True)
-                sec_retail = st.checkbox("Retail", True)
-                sec_all = st.checkbox("TODOS", False)
-                
-                if st.form_submit_button("💾 Crear Usuario"):
-                    active_secs = ["ALL"] if sec_all else []
-                    if sec_tech and not sec_all: active_secs.append("TECH")
-                    if sec_retail and not sec_all: active_secs.append("RETAIL")
-                    
+                if st.form_submit_button("Crear Usuario"):
                     try:
                         supabase.table("users").insert({
                             "username": new_user,
                             "password": new_pass,
                             "role": new_role,
-                            "organization": new_org,
-                            "active_sectors": str(active_secs)
+                            "org_id": new_org_id  # <--- CLAVE: Usamos org_id
                         }).execute()
-                        st.success(f"Usuario {new_user} creado.")
+                        st.success(f"✅ Usuario {new_user} creado.")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error: {e}")
+                        st.error(f"Error al crear: {e}")
 
         with c_list:
             st.markdown("### Usuarios Existentes")
             if count_users > 0:
-                df_users = pd.DataFrame(res_users.data)
-                # Ocultar contraseña por seguridad
-                st.dataframe(df_users[['username', 'role', 'organization', 'created_at']], use_container_width=True)
+                try:
+                    res_users = supabase.table("users").select("*").execute()
+                    df_users = pd.DataFrame(res_users.data)
+                    
+                    # --- CORRECCIÓN DEL ERROR ---
+                    # Definimos las columnas que QUEREMOS mostrar
+                    desired_cols = ['username', 'role', 'org_id', 'created_at']
+                    
+                    # Filtramos solo las que REALMENTE EXISTEN en la base de datos
+                    # Así, si falta 'created_at' u otra, no da error.
+                    final_cols = [c for c in desired_cols if c in df_users.columns]
+                    
+                    st.dataframe(df_users[final_cols], use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error mostrando tabla: {e}")
             else:
                 st.info("No hay usuarios registrados.")
 
     # --- PESTAÑA 2: RESULTADOS ---
     with tab2:
-        st.markdown("### 📊 Base de Datos de Resultados")
-        if count_results > 0:
-            df_res = pd.DataFrame(res_results.data)
-            st.dataframe(df_res, use_container_width=True)
-            
-            # Botón descargar CSV
-            csv = df_res.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "📥 Descargar CSV Completo",
-                csv,
-                "resultados_sape.csv",
-                "text/csv",
-                key='download-csv'
-            )
-        else:
-            st.warning("Aún no hay resultados de simulaciones.")
+        st.markdown("### Resultados")
+        try:
+            res = supabase.table("sape_results").select("*").execute()
+            st.dataframe(pd.DataFrame(res.data))
+        except: st.info("Sin datos.")
 
     # --- PESTAÑA 3: CARGA MASIVA (CSV) ---
     with tab3:
