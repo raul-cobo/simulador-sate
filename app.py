@@ -857,14 +857,13 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 PANEL ADMIN (CORREGIDO KEYERROR)
+# 👑 PANEL ADMIN (CORREGIDO Y FINAL)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
     
-    # 1. KPIs Rápidos
+    # 1. KPIs Rápidos (Protegidos con try/except)
     try:
-        # Consultamos a la tabla 'users'
         count_users = supabase.table("users").select("*", count="exact").execute().count
         count_results = supabase.table("sape_results").select("*", count="exact").execute().count
     except: 
@@ -874,9 +873,10 @@ def render_admin_dashboard():
     k1.metric("👥 Usuarios", count_users)
     k2.metric("📊 Simulaciones", count_results)
     
+    # 2. DEFINICIÓN DE PESTAÑAS (SOLO 2)
     tab1, tab2 = st.tabs(["USUARIOS", "RESULTADOS"])
     
-    # --- PESTAÑA 1: USUARIOS ---
+    # --- PESTAÑA 1: GESTIÓN DE USUARIOS ---
     with tab1:
         c_form, c_list = st.columns([1, 2])
         
@@ -886,15 +886,16 @@ def render_admin_dashboard():
                 new_user = st.text_input("Username / Email")
                 new_pass = st.text_input("Password", value="".join(random.choices(string.ascii_letters + string.digits, k=8)))
                 new_role = st.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
-                new_org_id = st.text_input("Org ID", value="GENERICO") # Usamos org_id
+                new_org_id = st.text_input("Org ID", value="GENERICO") 
                 
                 if st.form_submit_button("Crear Usuario"):
                     try:
+                        # Usamos 'org_id' que es la columna real de tu tabla users
                         supabase.table("users").insert({
                             "username": new_user,
                             "password": new_pass,
                             "role": new_role,
-                            "org_id": new_org_id  # <--- CLAVE: Usamos org_id
+                            "org_id": new_org_id
                         }).execute()
                         st.success(f"✅ Usuario {new_user} creado.")
                         st.rerun()
@@ -908,53 +909,36 @@ def render_admin_dashboard():
                     res_users = supabase.table("users").select("*").execute()
                     df_users = pd.DataFrame(res_users.data)
                     
-                    # --- CORRECCIÓN DEL ERROR ---
-                    # Definimos las columnas que QUEREMOS mostrar
-                    desired_cols = ['username', 'role', 'org_id', 'created_at']
+                    # FILTRO DE SEGURIDAD PARA COLUMNAS
+                    # Mostramos solo las que existen para evitar KeyError
+                    cols_to_show = []
+                    # Comprobamos una a una si existen en tu base de datos
+                    if 'username' in df_users.columns: cols_to_show.append('username')
+                    if 'role' in df_users.columns: cols_to_show.append('role')
+                    if 'org_id' in df_users.columns: cols_to_show.append('org_id')
+                    if 'created_at' in df_users.columns: cols_to_show.append('created_at')
                     
-                    # Filtramos solo las que REALMENTE EXISTEN en la base de datos
-                    # Así, si falta 'created_at' u otra, no da error.
-                    final_cols = [c for c in desired_cols if c in df_users.columns]
-                    
-                    st.dataframe(df_users[final_cols], use_container_width=True)
+                    st.dataframe(df_users[cols_to_show], use_container_width=True)
                 except Exception as e:
-                    st.error(f"Error mostrando tabla: {e}")
+                    st.error(f"Error visualizando tabla: {e}")
             else:
                 st.info("No hay usuarios registrados.")
 
     # --- PESTAÑA 2: RESULTADOS ---
     with tab2:
-        st.markdown("### Resultados")
+        st.markdown("### Resultados Globales")
         try:
             res = supabase.table("sape_results").select("*").execute()
-            st.dataframe(pd.DataFrame(res.data))
-        except: st.info("Sin datos.")
-
-    # --- PESTAÑA 3: CARGA MASIVA (CSV) ---
-    with tab3:
-        st.markdown("### Carga Masiva de Alumnos")
-        st.info("Sube un CSV con columnas: `username`, `password`, `organization`")
-        up_file = st.file_uploader("Arrastra tu CSV aquí", type=["csv"])
-        if up_file:
-            try:
-                df_upload = pd.read_csv(up_file)
-                st.write("Vista previa:", df_upload.head())
-                if st.button("🚀 Procesar Carga"):
-                    progress = st.progress(0)
-                    for i, row in df_upload.iterrows():
-                        try:
-                            supabase.table("users").insert({
-                                "username": row['username'],
-                                "password": str(row['password']),
-                                "role": "STUDENT",
-                                "org_id": row.get('organization', 'GENERICO'),
-                                "active_sectors": "['ALL']"
-                            }).execute()
-                        except: pass
-                        progress.progress((i + 1) / len(df_upload))
-                    st.success("Carga completada.")
-            except Exception as e:
-                st.error(f"Error leyendo CSV: {e}")
+            df_res = pd.DataFrame(res.data)
+            if not df_res.empty:
+                st.dataframe(df_res, use_container_width=True)
+                # Botón de descarga CSV
+                csv = df_res.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Descargar CSV", csv, "resultados.csv", "text/csv")
+            else:
+                st.info("Aún no hay resultados.")
+        except: 
+            st.info("Sin datos o error de conexión.")
 
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
