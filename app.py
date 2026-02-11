@@ -857,36 +857,131 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 PANEL ADMIN (VERSIÓN "ROMPE-COLUMNAS" PARA CSVs REBELDES)
+# 👑 PANEL ADMIN (VERSIÓN 4.0: EL INSPECTOR DE EMPRESAS)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
     
-    # 1. KPIs
+    # 1. KPIs Globales
     try:
         count_users = supabase.table("users").select("*", count="exact").execute().count
         count_results = supabase.table("sape_results").select("*", count="exact").execute().count
         count_orgs = supabase.table("organizations").select("*", count="exact").execute().count
-    except: count_users = count_results = count_orgs = 0
+        
+        # Obtenemos IDs para los selectores
+        res_orgs = supabase.table("organizations").select("id", "name").execute()
+        valid_ids = [o['id'] for o in res_orgs.data]
+        org_names = {o['id']: o['name'] for o in res_orgs.data} # Diccionario ID -> Nombre
+    except: 
+        count_users = count_results = count_orgs = 0
+        valid_ids = []
+        org_names = {}
 
     k1, k2, k3 = st.columns(3)
-    k1.metric("👥 Usuarios", count_users)
-    k2.metric("📊 Simulaciones", count_results)
+    k1.metric("👥 Usuarios Totales", count_users)
+    k2.metric("📊 Tests Realizados", count_results)
     k3.metric("🏢 Empresas", count_orgs)
     
-    tab1, tab2, tab3 = st.tabs(["👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
+    # AHORA 4 PESTAÑAS
+    tab1, tab2, tab3, tab4 = st.tabs(["🔎 INSPECTOR", "👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
     
-    # --- PESTAÑA 1: USUARIOS ---
+    # --- PESTAÑA 1: INSPECTOR DE EMPRESA (LO NUEVO) ---
     with tab1:
-        st.markdown("### Gestión de Usuarios")
+        st.markdown("### 🕵️ Visión Detallada por Empresa")
+        st.caption("Selecciona una organización para ver el estado de todos sus alumnos.")
         
-        # CHULETA DE IDs
-        try:
-            res_orgs = supabase.table("organizations").select("id").execute()
-            valid_ids = [o['id'] for o in res_orgs.data]
-            st.info("👇 IDs VÁLIDOS (Copia esto en tu Excel):")
-            st.code(valid_ids, language="json")
-        except: valid_ids = []
+        if valid_ids:
+            col_sel, col_kpis = st.columns([1, 2])
+            with col_sel:
+                selected_org = st.selectbox("Selecciona Organización:", valid_ids, format_func=lambda x: f"{x} ({org_names.get(x, '')})")
+            
+            # LÓGICA DE CRUCE DE DATOS (JOIN)
+            if selected_org:
+                try:
+                    # 1. Bajamos TODOS los usuarios de esa empresa
+                    users_response = supabase.table("users").select("*").eq("org_id", selected_org).execute()
+                    df_users = pd.DataFrame(users_response.data)
+                    
+                    # 2. Bajamos TODOS los resultados de esa empresa
+                    results_response = supabase.table("sape_results").select("*").eq("organization", selected_org).execute()
+                    df_results = pd.DataFrame(results_response.data)
+                    
+                    if not df_users.empty:
+                        # 3. CRUZAMOS (Merge Left) -> Queremos todos los usuarios, tengan o no resultado
+                        # Asumimos que 'username' en users coincide con 'student_id' en results
+                        if not df_results.empty:
+                            # Preparamos resultados para el cruce (nos quedamos con lo importante)
+                            df_results_clean = df_results[['student_id', 'ire', 'friction', 'created_at']].copy()
+                            df_results_clean.rename(columns={'created_at': 'fecha_test', 'student_id': 'student_join_id'}, inplace=True)
+                            
+                            # Hacemos el MERGE
+                            df_final = pd.merge(
+                                df_users, 
+                                df_results_clean, 
+                                left_on='username', 
+                                right_on='student_join_id', 
+                                how='left'
+                            )
+                        else:
+                            # Si nadie ha hecho el test, el final es igual al de usuarios + columnas vacías
+                            df_final = df_users.copy()
+                            df_final['ire'] = None
+                            df_final['friction'] = None
+                            df_final['fecha_test'] = None
+
+                        # 4. LIMPIEZA Y FORMATO VISUAL
+                        # Calculamos estado
+                        df_final['Estado'] = df_final['fecha_test'].apply(lambda x: "✅ Completado" if pd.notnull(x) else "❌ Pendiente")
+                        
+                        # KPIs de la Empresa Seleccionada
+                        total_org = len(df_final)
+                        hechos = len(df_final[df_final['Estado'] == "✅ Completado"])
+                        pendientes = total_org - hechos
+                        avance = (hechos / total_org) * 100 if total_org > 0 else 0
+                        
+                        with col_kpis:
+                            sk1, sk2, sk3 = st.columns(3)
+                            sk1.metric("Alumnos", total_org)
+                            sk2.metric("Completados", f"{hechos} ({int(avance)}%)")
+                            sk3.metric("Pendientes", pendientes)
+                        
+                        st.divider()
+                        
+                        # 5. TABLA DE DETALLE
+                        # Seleccionamos y renombramos columnas para que sea bonito
+                        cols_visual = ['username', 'password', 'role', 'Estado', 'ire', 'friction', 'fecha_test']
+                        df_show = df_final[cols_visual].copy()
+                        df_show.columns = ['Usuario', 'Password', 'Rol', 'Estado', 'Nota IRE', 'Fricción', 'Fecha Realización']
+                        
+                        # Formato condicional (Truco visual)
+                        st.dataframe(
+                            df_show,
+                            column_config={
+                                "Estado": st.column_config.TextColumn("Estado", width="medium"),
+                                "Fecha Realización": st.column_config.DatetimeColumn("Fecha", format="D MMM YYYY, HH:mm"),
+                                "Nota IRE": st.column_config.ProgressColumn("IRE", format="%.1f", min_value=0, max_value=100),
+                            },
+                            use_container_width=True
+                        )
+                        
+                        # Botón descarga
+                        csv = df_show.to_csv(index=False).encode('utf-8')
+                        st.download_button(f"📥 Descargar Informe {selected_org}", csv, f"informe_{selected_org}.csv", "text/csv")
+                        
+                    else:
+                        st.warning(f"La empresa '{selected_org}' existe pero no tiene usuarios asignados todavía.")
+                        
+                except Exception as e:
+                    st.error(f"Error cruzando datos: {e}")
+        else:
+            st.info("No hay empresas registradas.")
+
+    # --- PESTAÑA 2: GESTIÓN DE USUARIOS (Igual que antes) ---
+    with tab2:
+        st.markdown("### Gestión de Usuarios")
+        if valid_ids:
+            with st.expander("👀 Ver IDs Válidos"):
+                st.code(valid_ids, language="json")
 
         type_add = st.radio("Modo de alta:", ["Uno a Uno", "Carga Masiva (Excel/CSV)"], horizontal=True)
         
@@ -897,125 +992,81 @@ def render_admin_dashboard():
                 new_pass = c2.text_input("Password", value="1234")
                 c3, c4 = st.columns(2)
                 new_role = c3.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
-                if valid_ids: new_org_id = c4.selectbox("Org ID", valid_ids)
-                else: new_org_id = c4.text_input("Org ID")
+                new_org_id = c4.selectbox("Org ID", valid_ids) if valid_ids else c4.text_input("Org ID")
                 
                 if st.form_submit_button("Crear Usuario"):
                     try:
-                        supabase.table("users").insert({
-                            "username": new_user, "password": new_pass,
-                            "role": new_role, "org_id": new_org_id
-                        }).execute()
+                        supabase.table("users").insert({"username": new_user, "password": new_pass, "role": new_role, "org_id": new_org_id}).execute()
                         st.success(f"✅ Usuario {new_user} creado.")
                     except Exception as e: st.error(f"Error: {e}")
 
-        else: # CARGA MASIVA MEJORADA
-            st.markdown("##### Sube tu CSV")
-            uploaded_file = st.file_uploader("Arrastra aquí el archivo", type=["csv"])
-            
+        else: # CARGA MASIVA
+            st.info("Formato: `username`, `password`, `role`, `org_id`")
+            uploaded_file = st.file_uploader("Arrastra tu CSV aquí", type=["csv"])
             if uploaded_file is not None:
                 try:
-                    # 1. Lectura estándar
                     uploaded_file.seek(0)
                     try: df_upload = pd.read_csv(uploaded_file, sep=';')
                     except: 
                         uploaded_file.seek(0)
                         df_upload = pd.read_csv(uploaded_file, sep=',')
 
-                    # 2. LÓGICA ROMPE-COLUMNAS (Aquí estaba el fallo de "0 creados")
-                    # Si detectamos que solo hay 1 columna, es que el CSV está "pegado". Lo forzamos.
-                    if len(df_upload.columns) == 1:
-                        # Obtenemos el nombre de esa columna gigante y la separamos
+                    if len(df_upload.columns) == 1: # Rompe-columnas
                         col_raw = df_upload.columns[0]
-                        # Intentamos separar los datos de esa columna única
                         try:
-                            # Reconstruimos el dataframe separando por punto y coma
                             new_data = df_upload[col_raw].str.split(';', expand=True)
-                            # Si el header también estaba pegado, lo separamos
-                            new_header = col_raw.split(';')
-                            # Limpiamos comillas del header
-                            new_header = [h.replace('"', '').replace("'", "").strip() for h in new_header]
-                            
-                            # Si coinciden columnas, asignamos
+                            new_header = [h.replace('"', '').replace("'", "").strip() for h in col_raw.split(';')]
                             if len(new_header) == new_data.shape[1]:
                                 new_data.columns = new_header
                                 df_upload = new_data
                         except: pass
 
-                    # 3. Limpieza final de comillas en todas las celdas
                     df_upload.columns = df_upload.columns.str.replace('"', '').str.replace("'", "").str.strip()
                     for col in df_upload.columns:
                         if df_upload[col].dtype == object:
                             df_upload[col] = df_upload[col].astype(str).str.replace('"', '').str.replace("'", "").str.strip()
 
-                    st.write("Vista previa (¿Se ven bien las 4 columnas?):")
+                    # VALIDACIÓN EMPRESAS
+                    if 'org_id' in df_upload.columns:
+                        invalids = [o for o in df_upload['org_id'].unique() if o not in valid_ids]
+                        if invalids:
+                            st.error(f"🛑 Empresas NO válidas en CSV: {invalids}")
+                            st.stop()
+
                     st.dataframe(df_upload.head(3), use_container_width=True)
                     
                     if st.button(f"🚀 Procesar {len(df_upload)} Usuarios"):
                         progress_bar = st.progress(0)
                         success_count = 0
-                        errors = []
-                        
                         for i, row in df_upload.iterrows():
                             try:
-                                # .get hace que no falle si el nombre de columna varía ligeramente
-                                u = str(row.get('username', row.get('Username', ''))).strip()
+                                u = str(row.get('username', '')).strip()
                                 p = str(row.get('password', '1234')).strip()
                                 r = str(row.get('role', 'STUDENT')).strip().upper()
                                 o = str(row.get('org_id', 'GENERICO')).strip()
-                                
-                                if u and u != 'nan': 
-                                    supabase.table("users").insert({
-                                        "username": u, "password": p, "role": r, "org_id": o
-                                    }).execute()
+                                if u: 
+                                    supabase.table("users").insert({"username": u, "password": p, "role": r, "org_id": o}).execute()
                                     success_count += 1
-                                else:
-                                    errors.append(f"Fila {i}: Usuario vacío o inválido.")
-                            except Exception as e:
-                                msg = str(e)
-                                if "foreign key" in msg: errors.append(f"❌ Fila {i}: Empresa '{o}' no existe.")
-                                elif "unique constraint" in msg: errors.append(f"⚠️ Fila {i}: Usuario '{u}' ya existe.")
-                                else: errors.append(f"❌ Fila {i}: {msg}")
-                            
+                            except: pass
                             progress_bar.progress((i + 1) / len(df_upload))
-                        
-                        st.success(f"✅ Finalizado: {success_count}/{len(df_upload)} usuarios.")
-                        if errors:
-                            with st.expander("Ver Errores", expanded=True):
-                                for err in errors: st.write(err)
+                        st.success(f"✅ {success_count} usuarios creados.")
+                except Exception as e: st.error(f"Error: {e}")
 
-                except Exception as e: st.error(f"Error grave leyendo archivo: {e}")
-
-        # TABLA USUARIOS
-        st.divider()
-        try:
-            res = supabase.table("users").select("*").order("created_at", desc=True).limit(50).execute()
-            st.dataframe(pd.DataFrame(res.data), use_container_width=True)
-        except: pass
-
-    # --- PESTAÑA 2: RESULTADOS ---
-    with tab2:
-        st.markdown("### Resultados")
-        view_mode = st.radio("Ver:", ["🌍 Globales", "🏢 Por Empresa"], horizontal=True)
+    # --- PESTAÑA 3: RESULTADOS GLOBALES ---
+    with tab3:
+        st.markdown("### 🌍 Resultados Globales")
         try:
             all_res = supabase.table("sape_results").select("*").execute()
             df = pd.DataFrame(all_res.data)
             if not df.empty:
-                if view_mode == "🏢 Por Empresa":
-                    sel = st.selectbox("Empresa:", df['organization'].unique())
-                    df = df[df['organization'] == sel]
-                
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Total", len(df))
-                m2.metric("IRE", f"{df['ire'].mean():.1f}")
-                m3.metric("Fricción", f"{df['friction'].mean():.1f}%")
                 st.dataframe(df, use_container_width=True)
+                st.download_button("📥 CSV Global", df.to_csv(index=False).encode('utf-8'), "global.csv", "text/csv")
             else: st.info("Sin datos.")
         except: pass
 
-    # --- PESTAÑA 3: EMPRESAS ---
-    with tab3:
-        st.markdown("### 🏢 Empresas")
+    # --- PESTAÑA 4: EMPRESAS ---
+    with tab4:
+        st.markdown("### 🏢 Gestión de Empresas")
         c1, c2 = st.columns([1, 1.5])
         with c1:
             with st.form("new_org"):
@@ -1035,11 +1086,12 @@ def render_admin_dashboard():
                 df = pd.DataFrame(res.data)
                 if not df.empty:
                     st.dataframe(df[['id', 'name']], use_container_width=True)
-                    # Borrar
                     to_del = st.selectbox("Borrar empresa:", df['id'])
-                    if st.button("🗑️ Eliminar"):
-                        supabase.table("organizations").delete().eq("id", to_del).execute()
-                        st.rerun()
+                    if st.button("🗑️ Eliminar Empresa"):
+                        try:
+                            supabase.table("organizations").delete().eq("id", to_del).execute()
+                            st.rerun()
+                        except: st.error("No se puede borrar si tiene usuarios.")
             except: pass
 
 # ==========================================
