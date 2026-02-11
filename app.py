@@ -7,33 +7,18 @@ import io
 import math
 import textwrap
 import json
-import ast  # <--- YA ESTÁ AQUÍ ARRIBA, DONDE DEBE ESTAR
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
+
+# --- LIBRERÍAS DE DATOS Y GRÁFICOS ---
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from supabase import create_client # <--- TAMBIÉN AQUÍ ARRIBA
 
-# --- 🎨 CONFIGURACIÓN VISUAL (SÓLO OCULTAR MENÚS) ---
-def inject_custom_css():
-    st.markdown("""
-        <style>
-        /* 1. OCULTAR BARRA SUPERIOR (GitHub, Deploy, Settings...) */
-        header {visibility: hidden !important;}
-        [data-testid="stToolbar"] {visibility: hidden !important;}
-        [data-testid="stDecoration"] {visibility: hidden !important;}
-        
-        /* 2. OCULTAR PIE DE PÁGINA */
-        footer {visibility: hidden !important;}
-        </style>
-    """, unsafe_allow_html=True)
+# --- BLOQUE 1: CONEXIÓN SUPABASE (AÑADIR AQUÍ) ---
+from supabase import create_client
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Audeo", page_icon="🧬", layout="wide")
-
-# --- CONEXIÓN SUPABASE ---
 @st.cache_resource
 def init_connection():
     try:
@@ -58,37 +43,55 @@ def check_if_user_finished(student_id):
             print(f"Error comprobando usuario: {e}")
     return False
 
-# --- 🔐 NUEVA FUNCIÓN DE LOGIN CONECTADA A SUPABASE ---
-def login_supabase(username, password):
-    """Verifica usuario y contraseña en la tabla 'users' de Supabase"""
-    if not supabase:
-        st.error("Error de conexión con la base de datos.")
-        return None
-
+def check_credentials_from_csv(org_input, user_code, user_pass):
+    """Verifica Organización + Usuario + Contraseña (Devuelve 3 valores)"""
     try:
-        # Buscamos al usuario que coincida en nombre y contraseña
-        response = supabase.table("users").select("*").eq("username", username).eq("password", password).execute()
+        if not os.path.exists("usuarios.csv"):
+            return False, "Error: No se encuentra usuarios.csv", None
+            
+        # INTENTO 1: Leer como UTF-8
+        try:
+            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='utf-8')
+        except UnicodeDecodeError:
+            # INTENTO 2: Leer como Latin-1 (Windows)
+            df_users = pd.read_csv("usuarios.csv", sep=";", dtype=str, encoding='latin-1')
         
-        # Si encontramos algo, devolvemos los datos del usuario
-        if len(response.data) > 0:
-            user_info = response.data[0]
-            
-            # Buscamos también los datos de su organización para saber qué permisos tiene
-            org_response = supabase.table("organizations").select("*").eq("id", user_info['org_id']).execute()
-            
-            if len(org_response.data) > 0:
-                user_info['org_data'] = org_response.data[0] # Guardamos info de la empresa
-            else:
-                user_info['org_data'] = {"active_sectors": "[]"} # Por si acaso
-                
-            return user_info
-            
+        # Limpieza
+        df_users.columns = [c.strip().lower() for c in df_users.columns]
+        org_clean = org_input.strip().upper()
+        user_clean = user_code.strip().upper()
+        pass_clean = user_pass.strip()
+        
+        # Normalizamos la columna organización en el CSV
+        if 'organizacion' in df_users.columns:
+            df_users['organizacion'] = df_users['organizacion'].str.strip().str.upper()
         else:
-            return None # Usuario o contraseña incorrectos
+            # Si no existe la columna en el CSV, creamos una genérica
+            df_users['organizacion'] = 'GENERICO'
+
+        df_users['usuario'] = df_users['usuario'].str.strip().str.upper()
+        df_users['password'] = df_users['password'].str.strip()
+        
+        # 1. Buscamos fila que coincida en ORGANIZACIÓN y USUARIO
+        match = df_users[
+            (df_users['organizacion'] == org_clean) & 
+            (df_users['usuario'] == user_clean)
+        ]
+        
+        if match.empty:
+            return False, "No se encuentra esa combinación de Organización y Usuario.", None
+            
+        # 2. Comprobamos contraseña
+        correct_pass = match.iloc[0]['password']
+        
+        if str(correct_pass) == str(pass_clean):
+            # AQUÍ ESTÁ LA CLAVE: Devolvemos 3 cosas
+            return True, "OK", org_clean 
+        else:
+            return False, "Contraseña incorrecta.", None
             
     except Exception as e:
-        st.error(f"Error en login: {e}")
-        return None
+        return False, f"Error de sistema: {e}", None
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization="GENERICO"):
     """Guarda TODO: Rasgos individuales y las respuestas crudas para estadística"""
@@ -296,19 +299,22 @@ def init_session():
 
 @st.cache_data
 def load_questions():
-    """Carga las preguntas desde SATE_V4.csv con el formato correcto"""
-    archivo = 'SATE_V4.csv'
-    
-    if os.path.exists(archivo):
-        try:
-            # Tu CSV usa punto y coma (;) como separador
-            return pd.read_csv(archivo, sep=';', encoding='utf-8').to_dict('records')
-        except Exception as e:
-            st.error(f"Error leyendo {archivo}: {e}")
-            return []
-    else:
-        st.error(f"⚠️ No encuentro el archivo {archivo}. Súbelo junto a app.py")
-        return []
+    # CAMBIO: Apuntamos al archivo SATE_v3 (Escala Corta)
+    filename = 'SATE_v3.csv'  
+    if not os.path.exists(filename): return []
+    # 1. Intentar formato europeo (punto y coma)
+    try:
+        with open(filename, encoding='utf-8-sig', errors='replace') as f:
+            data = list(csv.DictReader(f, delimiter=';'))
+            if data and 'SECTOR' in data[0]: return data
+    except: pass
+    # 2. Intentar formato americano (comas)
+    try:
+        with open(filename, encoding='utf-8-sig', errors='replace') as f:
+            data = list(csv.DictReader(f, delimiter=','))
+            if data and 'SECTOR' in data[0]: return data
+    except: pass
+    return []
 
     # --- NUEVAS FUNCIONES SAPE (Cerebro + Diagnóstico) ---
 
@@ -373,726 +379,1323 @@ def diagnosticar_usuario_python(octagon, cerebro):
     # --- FASE 3: PERFIL VERDE (Defecto) ---
     return cerebro.get('balanced_profile')
 
-# --- FUNCIÓN AUXILIAR IMPRESCINDIBLE PARA EL JUEGO ---
-def parse_logic(logic_string):
-    """
-    Traduce la lógica del CSV SATE_V4 (ej: 'risk_propensity 3 | achievement -1')
-    y actualiza el Octógono del usuario.
-    """
-    if not isinstance(logic_string, str) or not logic_string.strip():
-        return
-
-    # 1. DICCIONARIO DE TRADUCCIÓN (CSV -> APP)
-    # A la izquierda: Cómo se llama en tu Excel
-    # A la derecha: Cómo se llama en la variable interna de la App
-    MAPEO = {
-        "risk_propensity": "risk_propensity",
-        "ambiguity_tolerance": "ambiguity_tolerance",
-        "innovativeness": "innovativeness",
-        "locus_control": "locus_of_control",      # Nota la diferencia sutil
-        "emotional_stability": "emotional_stability",
-        "achievement": "achievement",
-        "leadership": "leadership",
-        "adaptability": "adaptability",
-        # Mapeos extra por si acaso aparecen en el CSV:
-        "self_efficacy": "leadership",  # Asignamos autoeficacia a liderazgo (ejemplo)
-        "autonomy": "locus_of_control"  # Asignamos autonomía a control
-    }
-
-    # 2. SEPARAR INSTRUCCIONES (Tu Excel usa '|')
-    # Ejemplo: "risk_propensity 3 | achievement -1"
-    instrucciones = logic_string.split('|')
+# --- PARSE LOGIC (USANDO solidos) ---
+def parse_logic(logic_str):
+    """Actualiza el estado sumando el valor directo (1, 2, 3)"""
+    if not logic_str: return
     
-    for instruccion in instrucciones:
-        partes = instruccion.strip().split() # Separa por espacio
+    # Separamos por barra vertical
+    for action in logic_str.split('|'):
+        # Limpieza: quitamos los dos puntos y espacios extra
+        parts = action.replace(":", " ").strip().split()
+        if len(parts) < 2: continue
         
-        if len(partes) >= 2:
-            key_csv = partes[0].strip() # Ej: risk_propensity
-            try:
-                val = int(partes[1].strip()) # Ej: 3 o -1
-            except:
-                continue # Si no es un número, saltamos
+        var_code = parts[0].lower().strip()
+        try: 
+            # CAMBIO CRÍTICO: Leemos el entero DIRECTAMENTE. No dividimos.
+            val = int(parts[1])
+        except: continue
+        
+        target = VARIABLE_MAP.get(var_code)
+        if target:
+            if target in st.session_state.octagon:
+                # Sumamos puntos al octógono
+                st.session_state.octagon[target] = max(0, st.session_state.octagon[target] + val)
+            elif target in st.session_state.flags:
+                # Sumamos puntos a los descarriladores
+                st.session_state.flags[target] = max(0, st.session_state.flags[target] + val)
 
-            # Buscamos la clave interna
-            internal_key = MAPEO.get(key_csv)
-
-            if internal_key:
-                # Aseguramos que el octógono existe
-                if 'octagon' not in st.session_state:
-                    st.session_state.octagon = {k: 50 for k in MAPEO.values()}
-                
-                # Sumamos el valor (que puede ser negativo)
-                st.session_state.octagon[internal_key] += val
-                
-                # Limitamos entre 0 y 100
-                st.session_state.octagon[internal_key] = max(0, min(100, st.session_state.octagon[internal_key]))
+# --- ALGORITMO DE NORMALIZACIÓN DINÁMICA ---
+def get_sector_max_scores(sector_data):
+    """Calcula máximos por rasgo Y máximo total del juego (CORREGIDO)"""
+    max_scores = {k: 0 for k in LABELS_ES.keys()}
+    total_game_points = 0 
+    
+    for row in sector_data:
+        question_max_per_trait = {k: 0 for k in LABELS_ES.keys()}
+        max_points_in_this_question = 0 
+        
+        for col in ['OPCION_A_LOGIC', 'OPCION_B_LOGIC', 'OPCION_C_LOGIC', 'OPCION_D_LOGIC']:
+            logic = row.get(col)
+            if not logic: continue
             
-            # Si es algo especial como IRE o FRICTION
-            elif key_csv.upper() == "IRE":
-                # Lo guardamos en flags por si acaso, aunque IRE se calcula al final
-                if 'flags' not in st.session_state: st.session_state.flags = {}
-                st.session_state.flags['IRE_BONUS'] = st.session_state.flags.get('IRE_BONUS', 0) + val
+            # Calculamos cuántos puntos de COMPETENCIA da esta opción
+            option_points = 0
+            
+            for action in logic.split('|'):
+                parts = action.replace(":", " ").strip().split()
+                if len(parts) < 2: continue
+                
+                trait_key = parts[0].lower().strip()
+                trait = VARIABLE_MAP.get(trait_key)
+                try: val = int(parts[1])
+                except: continue
+                
+                # 1. Si es rasgo del octógono, actualizamos su máximo individual
+                if trait in question_max_per_trait and val > 0:
+                    question_max_per_trait[trait] = max(question_max_per_trait[trait], val)
+                
+                # 2. CAMBIO CLAVE: Solo sumamos al "bote total" si es una COMPETENCIA (no descarrilador)
+                if val > 0 and trait in LABELS_ES: 
+                    option_points += val
+            
+            # El máximo de esta pregunta es la opción que más puntos de competencia daba
+            max_points_in_this_question = max(max_points_in_this_question, option_points)
+            
+        # Acumulamos
+        for k, v in question_max_per_trait.items():
+            max_scores[k] += v
+        total_game_points += max_points_in_this_question
 
-# ==========================================
-# 🛠️ BLOQUE DE HERRAMIENTAS (CÁLCULOS Y GRÁFICOS)
-# ==========================================
-
-def load_questions():
-    """Carga las preguntas desde el archivo CSV"""
-    # Lista de posibles nombres de archivo
-    files = ['SAPE_DATA.csv', 'sape_data.csv', 'dataset.csv']
-    for f in files:
-        if os.path.exists(f):
-            try:
-                return pd.read_csv(f).to_dict('records')
-            except: pass
-    return [] # Si falla devuelve lista vacía
+    # Evitar div/0
+    for k in max_scores:
+        if max_scores[k] == 0: max_scores[k] = 1
+    if total_game_points == 0: total_game_points = 1
+        
+    return max_scores, total_game_points
+            
+    # Evitar división por cero
+    for k in max_scores:
+        if max_scores[k] == 0: max_scores[k] = 1
+        
+    return max_scores
 
 def calculate_results():
-    """Calcula las métricas finales (IRE, Fricción, Octágono)"""
+    # 1. Obtener datos y normalizar
+    max_possibles, total_game_points = get_sector_max_scores(st.session_state.data)
     
-    # 1. Recuperar datos del Octágono
-    # Aseguramos que existan valores, si no ponemos 50 por defecto
-    raw = st.session_state.get('octagon', {})
-    keys = ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", "emotional_stability", "achievement", "leadership", "adaptability"]
-    octagon_norm = {k: min(100, max(0, raw.get(k, 50))) for k in keys}
-    
-    # 2. Calcular IRE (Índice de Resiliencia) -> Promedio
-    avg = sum(octagon_norm.values()) / len(octagon_norm) if len(octagon_norm) > 0 else 0
-    ire = round(avg, 1)
-    
-    # 3. Calcular Fricción
-    friction = st.session_state.get('flags', {}).get('FRICTION', 0)
-    friction = min(100, max(0, friction)) # Topes 0-100
-    
-    # 4. Variables extra (Triggers)
-    triggers = []
-    fric_reasons = []
-    delta = 0
-    max_possibles = 100
-    
-    return ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles
+    octagon_norm = {}
+    for k, raw_val in st.session_state.octagon.items():
+        techo = max_possibles.get(k, 1)
+        if techo == 0: techo = 1
+        # Aplicamos factor de calibración x1.4 y limitamos a 100
+        ratio = (raw_val / techo) * 100 * SCORE_MULTIPLIER
+        ratio = min(100, ratio)
+        octagon_norm[k] = int(max(0, min(100, ratio)))
 
-def radar_chart():
-    """Genera el gráfico de araña con Plotly"""
-    data = st.session_state.get('octagon', {})
+    scores = octagon_norm 
     
-    # Etiquetas bonitas para el gráfico
-    labels_map = {
-        "risk_propensity": "Riesgo", "ambiguity_tolerance": "Ambigüedad",
-        "innovativeness": "Innovación", "locus_of_control": "Control",
-        "emotional_stability": "Estabilidad", "achievement": "Logro",
-        "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
+    # Inicializamos banderas
+    inferred_flags = {
+        "excitable": 0, "skeptical": 0, "cautious": 0, "reserved": 0,
+        "passive_aggressive": 0, "arrogant": 0, "mischievous": 0,
+        "melodramatic": 0, "diligent": 0, "dependent": 0
     }
     
-    # Ordenamos los valores
-    r_val = [data.get(k, 50) for k in labels_map.keys()]
-    theta_val = list(labels_map.values())
+    special_observations = [] # Cambiamos nombre de variable interna también
+
+    # ---------------------------------------------------------
+    # A) REGLA ESTÁNDAR (Semáforo Verde hasta 90%)
+    # Solo marca si > 90 (Exceso) o < 30 (Defecto)
+    # ---------------------------------------------------------
     
-    # Cerramos el círculo repitiendo el primero
-    r_val.append(r_val[0])
-    theta_val.append(theta_val[0])
+    # Logro
+    if scores["achievement"] >= 90: inferred_flags["diligent"] = 8
+    if scores["achievement"] <= 30: inferred_flags["passive_aggressive"] = 6
     
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=r_val, theta=theta_val,
-        fill='toself', name='Tu Perfil',
-        line_color='#0D248D', opacity=0.8
-    ))
+    # Riesgo
+    if scores["risk_propensity"] >= 90: inferred_flags["mischievous"] = 8
+    if scores["risk_propensity"] <= 30: inferred_flags["cautious"] = 8
     
+    # Innovación
+    if scores["innovativeness"] >= 90: inferred_flags["excitable"] = 8
+    if scores["innovativeness"] <= 30: inferred_flags["skeptical"] = 6
+    
+    # Autonomía
+    if scores["autonomy"] >= 90: inferred_flags["reserved"] = 8
+    if scores["autonomy"] <= 30: inferred_flags["dependent"] = 8
+    
+    # Autoeficacia
+    if scores["self_efficacy"] >= 90: inferred_flags["arrogant"] = 8
+    
+    # Estabilidad
+    if scores["emotional_stability"] <= 30: inferred_flags["melodramatic"] = 8
+
+    # ---------------------------------------------------------
+    # B) COMBINATORIAS EXTREMAS (Umbral especial 75/30)
+    # Detecta perfiles complejos antes de llegar al 90
+    # ---------------------------------------------------------
+
+    # 1. LIDERAZGO TÓXICO
+    if (scores["achievement"] >= 75 and 
+        scores["emotional_stability"] <= 30 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("LIDERAZGO TÓXICO")
+        inferred_flags["excitable"] = 10 
+        inferred_flags["diligent"] = 10
+
+    # 2. IDEÓLOGO SIN ACCIÓN
+    if (scores["innovativeness"] >= 75 and 
+        scores["self_efficacy"] >= 75 and 
+        scores["achievement"] <= 30):
+        special_observations.append("IDEÓLOGO SIN ACCIÓN")
+        inferred_flags["arrogant"] = 10
+        inferred_flags["mischievous"] = 8
+
+    # 3. MICROMANAGER EXCESIVO
+    if (scores["risk_propensity"] <= 30 and 
+        scores["autonomy"] <= 30 and 
+        scores["achievement"] >= 75):
+        special_observations.append("MICROMANAGER EXCESIVO")
+        inferred_flags["cautious"] = 10
+        inferred_flags["diligent"] = 10
+
+    # 4. EXCESIVAMENTE ARRIESGADO
+    if (scores["risk_propensity"] >= 75 and 
+        scores["self_efficacy"] >= 75 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("EXCESIVAMENTE ARRIESGADO")
+        inferred_flags["mischievous"] = 10
+
+    # 5. EJECUCIÓN MECÁNICA
+    # (Usamos Estabilidad como proxy de tolerancia al estrés/presión positiva aquí)
+    if (scores["innovativeness"] <= 30 and 
+        scores["autonomy"] <= 30 and 
+        scores["emotional_stability"] >= 75):
+        special_observations.append("EJECUCIÓN MECÁNICA")
+        inferred_flags["dependent"] = 10
+        inferred_flags["skeptical"] = 8
+
+    # 6. RESISTENCIA PASIVA
+    if (scores["achievement"] <= 30 and 
+        scores["autonomy"] >= 75 and 
+        scores["locus_control"] <= 30):
+        special_observations.append("RESISTENCIA PASIVA")
+        inferred_flags["passive_aggressive"] = 10
+
+    # Guardamos banderas
+# FUSIÓN INTELIGENTE: Sumamos lo acumulado en el juego + lo inferido por el perfil final
+    for k, v in inferred_flags.items():
+        # Si ya tenía puntos (del juego), se los sumamos. Si no, empezamos con el valor inferido.
+        st.session_state.flags[k] = st.session_state.flags.get(k, 0) + v
+    # --- CÁLCULO FINAL DE MÉTRICAS (NORMALIZADO POR SECTOR) ---
+    
+    # 1. Promedio (Potencial)
+    avg = sum(scores.values()) / 8
+    
+    # 2. Fricción
+    raw_friction = sum(inferred_flags.values())
+    friction = min(100, (raw_friction / 40.0) * 100)
+    
+    # 3. IRE Base (Bruto)
+    penalty_factor = friction / 200.0 
+    raw_ire = avg * (1 - penalty_factor)
+    
+    # 4. ESCALADO DINÁMICO (Aquí ocurre la magia 0-100)
+    # Recuperamos el sector del usuario (o default TECH)
+    user_sector = st.session_state.get("sector", "TECH")
+    
+    # Buscamos los límites de ese sector
+    limits = SECTOR_LIMITS.get(user_sector, SECTOR_LIMITS["TECH"])
+    
+    # Fórmula: (Valor - Min) / (Max - Min) * 100
+    range_span = limits['max'] - limits['min']
+    if range_span == 0: range_span = 1 # Evitar división por cero
+    
+    scaled_ire = ((raw_ire - limits['min']) / range_span) * 100
+    
+    # Aseguramos que esté entre 0 y 100 final
+    ire = max(0, min(100, scaled_ire))
+    
+    # --- FIN CÁLCULO ---
+
+    # Preparar textos para el return
+    triggers = [k for k, v in inferred_flags.items() if v > 0]
+    fric_reasons = []
+    if special_observations:
+        fric_reasons.append(f"ℹ️ Observación: {', '.join(special_observations)}")
+    elif friction > 20:
+        fric_reasons.append("Se observan áreas de desarrollo por descompensación.")
+        
+    delta = round(avg - ire, 2)
+    
+    return round(ire, 2), round(avg, 2), round(friction, 2), triggers, fric_reasons, delta, scores, max_possibles
+
+def get_ire_text(s): 
+    if s > 75: return "Nivel de Viabilidad: ALTO (Sostenible)"
+    if s > 50: return "Nivel de Viabilidad: MEDIO (Requiere Ajustes)"
+    return "Nivel de Viabilidad: BAJO (Riesgo Operativo)"
+
+def radar_chart():
+    if st.session_state.finished:
+        # AQUÍ ESTABA EL ERROR:
+        # Antes: _, _, _, _, _, _, octagon_data = calculate_results()
+        # Ahora: Recogemos todo en una variable 'res' y sacamos lo que queremos por índice
+        results = calculate_results()
+        octagon_data = results[6] # El índice 6 es 'octagon_norm'
+    else:
+        octagon_data = {k:0 for k in LABELS_ES.keys()}
+        
+    data = octagon_data
+    cat = [LABELS_ES.get(k) for k in data.keys()]
+    val = list(data.values())
+    cat += [cat[0]]
+    val += [val[0]]
+    
+    fig = go.Figure(go.Scatterpolar(r=val, theta=cat, fill='toself', line=dict(color='#5D5FEF'), fillcolor='rgba(93, 95, 239, 0.2)'))
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        polar=dict(
+            radialaxis=dict(visible=True, showticklabels=False, range=[0, 100]),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
         showlegend=False,
-        margin=dict(l=40, r=40, t=40, b=40),
-        font=dict(color="black") # Texto negro para fondo blanco
+        margin=dict(l=40, r=40, t=20, b=20),
+        dragmode=False
     )
     return fig
 
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
-    """Guarda los resultados en Supabase"""
-    try:
-        payload = {
-            "student_id": student_id,
-            "sector": sector,
-            "ire": float(ire),
-            "friction": int(friction),
-            "octagon": str(scores), # Guardamos como texto/JSON
-            "history": str(history),
-            "organization": organization,
-            "created_at": datetime.now().isoformat()
+# --- DESCRIPCIONES ---
+def get_competency_desc(key, score):
+    texts = {
+        "achievement": {
+            "high": "Nivel alto. Clara orientación a resultados y estándares de excelencia. Prioriza la finalización de tareas.",
+            "low": "Baja orientación a resultados. Puede diluirse en procesos sin cerrar etapas críticas."
+        },
+        "risk_propensity": {
+            "high": "Alta tolerancia al riesgo. Disposición a actuar en escenarios de incertidumbre financiera u operativa.",
+            "low": "Perfil conservador. Tendencia a evitar decisiones sin garantías totales."
+        },
+        "innovativeness": {
+            "high": "Visión estratégica y creatividad diferencial.",
+            "low": "Resistencia al cambio o preferencia por métodos tradicionales."
+        },
+        "locus_control": {
+            "high": "Alta responsabilidad personal sobre los resultados. Enfoque proactivo.",
+            "low": "Tendencia a atribuir resultados a factores externos. Puede reducir la proactividad correctiva."
+        },
+        "self_efficacy": {
+            "high": "Confianza sólida en las propias capacidades para ejecutar el plan.",
+            "low": "Dudas sobre la propia capacidad que pueden llevar a la parálisis por análisis."
+        },
+        "autonomy": {
+            "high": "Puntuación muy alta. Fuerte independencia operativa y de criterio. No requiere supervisión.",
+            "low": "Dependencia operativa. Requiere validación constante y directrices claras para avanzar."
+        },
+        "ambiguity_tolerance": {
+            "high": "Capacidad de operar sin información completa.",
+            "low": "Nivel medio-bajo. Requiere información estructurada antes de proceder. En fases iniciales deriva en retrasos."
+        },
+        "emotional_stability": {
+            "high": "Capacidad absoluta para mantener la regulación emocional bajo presión. Gestión óptima del estrés.",
+            "low": "Vulnerabilidad ante presión. Riesgo de reactividad impulsiva."
         }
-        supabase.table("sape_results").insert(payload).execute()
-    except Exception as e:
-        print(f"Error guardando DB: {e}")
+    }
+    cat = texts.get(key, {"high": "Competencia desarrollada.", "low": "Área de mejora."})
+    return cat["high"] if score > 60 else cat["low"]
 
-# Funciones Auxiliares de Diagnóstico
-def cargar_cerebro_sape():
-    return {} # Placeholder por si no hay archivo JSON
-
-def diagnosticar_usuario_python(octagon, cerebro):
-    """Genera un diagnóstico textual simple basado en la puntuación"""
-    avg = sum(octagon.values()) / len(octagon) if octagon else 0
-    
-    if avg >= 75:
-        return {"name": "Perfil Sólido", "risk_level": "BAJO", "description": "Tus competencias muestran una gran preparación para el reto."}
-    elif avg >= 50:
-        return {"name": "Perfil Promedio", "risk_level": "MEDIO", "description": "Tienes bases sólidas, pero vigila las áreas de menor puntuación."}
+# --- GENERACIÓN DE PDF PROFESIONAL ---
+def draw_page_header(p, w, h):
+    p.setFillColorRGB(0.02, 0.04, 0.12)
+    p.rect(0, h-100, w, 100, fill=1, stroke=0)
+    p.setFillColorRGB(1, 1, 1)
+    p.rect(30, h-85, 140, 70, fill=1, stroke=0)
+    if os.path.exists("logo_original.png"):
+        try: img = ImageReader("logo_original.png"); p.drawImage(img, 40, h-80, width=120, height=60, preserveAspectRatio=True, mask='auto')
+        except: pass
     else:
-        return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
+        p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 24); p.drawString(50, h-50, "AUDEO")
+    p.setFillColorRGB(1, 1, 1)
+    p.setFont("Helvetica-Bold", 16)
+    p.drawRightString(w-30, h-40, "INFORME TÉCNICO S.A.P.E.")
+    p.setFont("Helvetica", 10)
+    p.drawRightString(w-30, h-55, "Sistema de Análisis de la Personalidad Emprendedora")
 
-# ==========================================
-# 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
-# ==========================================
-def run_simulator_logic():
-    """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
+def draw_radar_on_pdf(p, data, x, y, r):
+    keys = list(data.keys())
+    values = list(data.values())
+    n = len(keys)
+    angle_step = (2 * math.pi) / n
+    p.setLineWidth(0.5)
+    p.setStrokeColorRGB(0.8, 0.8, 0.8)
+    for i in range(n):
+        angle = i * angle_step + (math.pi/2)
+        ex = x + r * math.cos(angle)
+        ey = y + r * math.sin(angle)
+        p.line(x, y, ex, ey)
+        lbl_x = x + (r + 15) * math.cos(angle)
+        lbl_y = y + (r + 15) * math.sin(angle)
+        p.setFont("Helvetica", 6)
+        p.setFillColorRGB(0.3,0.3,0.3)
+        lbl = LABELS_ES.get(keys[i], keys[i])[:10]
+        p.drawCentredString(lbl_x, lbl_y, lbl)
+    p.setLineWidth(2)
+    p.setStrokeColorRGB(0.36, 0.37, 0.93)
+    p.setFillColorRGB(0.36, 0.37, 0.93, 0.2)
+    path = p.beginPath()
+    first = True
+    for i in range(n):
+        val_r = (values[i] / 100) * r
+        angle = i * angle_step + (math.pi/2)
+        px = x + val_r * math.cos(angle)
+        py = y + val_r * math.sin(angle)
+        if first:
+            path.moveTo(px, py)
+            first = False
+        else:
+            path.lineTo(px, py)
+    path.close()
+    p.drawPath(path, fill=1, stroke=1)
+
+# --- DICCIONARIO MAESTRO DE RIESGOS (INDICE CONDUCTUAL) ---
+# Copiado de tu documento "Índice Maestro de Riesgos Conductuales.docx"
+RISK_MASTER_INDEX = {
+    "EXCITABLE": {
+        "alias": "El Ciclotímico (Volátil)",
+        "desc": "Energía explosiva seguida de abandono.",
+        "risk": "Inconsistencia Estratégica: Cambios de rumbo por estado de ánimo, no por datos."
+    },
+    "SKEPTICAL": {
+        "alias": "El Desconfiado (Escéptico)",
+        "desc": "Ve amenazas y conspiraciones donde hay oportunidades.",
+        "risk": "Bloqueo de Innovación: Rechazo sistemático a nuevas ideas y creación de silos."
+    },
+    "CAUTIOUS": {
+        "alias": "El Temeroso (Cauteloso)",
+        "desc": "Miedo paralizante al error y al mercado.",
+        "risk": "Coste de Oportunidad: Pérdida de ventanas de mercado por parálisis."
+    },
+    "RESERVED": {
+        "alias": "La Caja Negra (Reservado)",
+        "desc": "Se aísla y corta la comunicación bajo presión.",
+        "risk": "Desalineamiento: El equipo y los inversores operan a ciegas ante crisis."
+    },
+    "PASSIVE_AGGRESSIVE": {
+        "alias": "El Saboteador (Pasivo-Agresivo)",
+        "desc": "Falsa cooperación. Dice 'sí' pero ejecuta 'no'.",
+        "risk": "Toxicidad Cultural: Erosión de la autoridad y agendas ocultas."
+    },
+    "ARROGANT": {
+        "alias": "El Dios (Arrogante)",
+        "desc": "Exceso de confianza. Cree que las reglas no aplican a él.",
+        "risk": "Ceguera de Mercado: Ignora el feedback del cliente hasta que es tarde."
+    },
+    "MISCHIEVOUS": {
+        "alias": "El Jugador (Travieso)",
+        "desc": "Toma riesgos irracionales por pura adrenalina.",
+        "risk": "Mortalidad Súbita: Riesgo de quiebra por apuestas 'Todo o Nada'."
+    },
+    "MELODRAMATIC": {
+        "alias": "El Actor (Melodramático)",
+        "desc": "Necesita ser el centro de atención. Crea crisis para resolverlas.",
+        "risk": "Distracción Operativa: La empresa gira en torno al ego del fundador."
+    },
+    "DILIGENT": {
+        "alias": "El Perfeccionista (Diligente)",
+        "desc": "Obsesión por el detalle y el micro-management.",
+        "risk": "Parálisis por Análisis: Incapacidad para delegar o lanzar productos mínimos."
+    },
+    "DEPENDENT": {
+        "alias": "El Seguidor (Dependiente)",
+        "desc": "Incapaz de tomar decisiones sin consenso o aprobación.",
+        "risk": "Cuello de Botella: El fundador se convierte en el freno del crecimiento."
+    },
+    # Patrones Complejos
+    "LIDERAZGO TÓXICO": {
+        "alias": "Patrón: Liderazgo Tóxico",
+        "desc": "Combinación de alta exigencia, baja empatía y culpa externa.",
+        "risk": "Alta Rotación: Destrucción del talento clave en tiempo récord."
+    },
+    "IDEÓLOGO SIN ACCIÓN": {
+        "alias": "Patrón: Ideólogo sin Acción",
+        "desc": "Mucha visión y creatividad, pero nula capacidad de cierre.",
+        "risk": "Burnout de Caja: Se gasta el dinero en ideas que nunca salen al mercado."
+    },
+    "MICROMANAGER EXCESIVO": {
+        "alias": "Patrón: Micromanager",
+        "desc": "Control absoluto por miedo al error ajeno.",
+        "risk": "Techo de Escalabilidad: La empresa no crece más allá de las horas del fundador."
+    },
+    "EXCESIVAMENTE ARRIESGADO": {
+        "alias": "Patrón: Kamikaze",
+        "desc": "Confianza ciega + Riesgo extremo + Cero culpa.",
+        "risk": "Colapso Estructural: Probabilidad de fraude o quiebra por negligencia."
+    },
+    "EJECUCIÓN MECÁNICA": {
+        "alias": "Patrón: El Burócrata",
+        "desc": "Obediencia ciega al proceso. Cero innovación.",
+        "risk": "Obsolescencia: Incapacidad para pivotar ante cambios del mercado."
+    },
+    "PERFIL DELIRANTE": {
+        "alias": "Patrón: Delirante",
+        "desc": "Desconexión total de la realidad operativa.",
+        "risk": "Inviabilidad Absoluta: El proyecto es una fantasía del fundador."
+    }
+}
+
+# --- FUNCIÓN PDF CORREGIDA (V65) ---
+def create_pdf_report(ire, avg, friction, triggers, friction_reasons, delta, user, stats, diagnostico=None):
+    if not PDF_AVAILABLE: return None
     
-    # ==========================================================
-    # 🎨 1. ESTILO BASE (Para pantallas Blancas: A, B, C y E)
-    # ==========================================================
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    w, h = A4
+    
+    # --- PÁGINA 1 ---
+    draw_page_header(p, w, h)
+    
+    # DATOS CABECERA
+    y = h - 130
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, f"ID Usuario: {st.session_state.user_id}")
+    p.drawString(40, y-15, f"Fecha de Análisis: {datetime.now().strftime('%d/%m/%Y')}")
+    p.drawString(40, y-30, f"Sector: {user.get('sector', 'N/A')}")
+    p.drawRightString(w-40, y, f"Candidato: {user.get('name', 'N/A')}")
+    
+    # -------------------------------------------------------
+    # BLOQUE DIAGNÓSTICO
+    # -------------------------------------------------------
+    y -= 50
+    if diagnostico:
+        titulo = diagnostico.get('name', 'Diagnóstico')
+        if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
+        elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
+        else: nivel = "ALERTA"
+            
+        desc = diagnostico.get('description') or diagnostico.get('risk_summary') or ""
+        
+        # Color según riesgo
+        if "CRÍTICO" in nivel: r,g,b = 0.9, 0.3, 0.23 # Rojo
+        elif "ALTO" in nivel or "ALERTA" in nivel: r,g,b = 0.94, 0.76, 0.06 # Amarillo
+        else: r,g,b = 0.18, 0.8, 0.44 # Verde
+        
+        box_height = 80 
+        p.saveState() 
+        p.setStrokeColorRGB(r,g,b)
+        try: p.setFillColorRGB(r,g,b, 0.1) 
+        except: p.setFillColorRGB(0.95, 0.95, 0.95)
+        p.roundRect(40, y-box_height, w-80, box_height+10, 4, fill=1, stroke=1)
+        p.restoreState()
+        
+        p.setFillColorRGB(r,g,b); p.rect(40, y-box_height, 5, box_height+10, fill=1, stroke=0)
+        p.setFont("Helvetica-Bold", 12); p.drawString(55, y-15, titulo)
+        p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(55, y-30, f"Nivel: {nivel}")
+        p.setFont("Helvetica", 9); p.setFillColorRGB(0.3, 0.3, 0.3)
+        
+        text_obj = p.beginText(55, y - 45)
+        lines = textwrap.wrap(desc, width=95)
+        for line in lines[:3]: text_obj.textLine(line)
+        p.drawText(text_obj)
+        y -= (box_height + 30)
+
+    # -------------------------------------------------------
+    # SECCIÓN 1: MÉTRICAS
+    # -------------------------------------------------------
+    p.setFillColorRGB(0, 0, 0)
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    
+    p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "1. Métricas Principales")
+    y -= 25
+    
+    # Potencial
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"POTENCIAL ({avg}/100):")
+    p.setFont("Helvetica", 9); 
+    desc_pot = "Nivel Superior." if avg > 70 else "Perfil Generalista / Ejecutor Equilibrado." if avg > 50 else "En Desarrollo."
+    p.drawString(160, y, desc_pot)
+    y -= 12
+    p.setFillColorRGB(0.3, 0.3, 0.3); p.drawString(40, y, "Recursos cognitivos basales.")
+    
+    # Fricción
+    y -= 25
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"FRICCIÓN ({friction}/100):")
+    p.setFont("Helvetica", 9);
+    desc_fric = "Nivel crítico." if friction > 50 else "Nivel moderado." if friction > 20 else "Nivel bajo."
+    p.drawString(160, y, desc_fric)
+    y -= 12
+    p.setFillColorRGB(0.3, 0.3, 0.3)
+    p.drawString(40, y, "Conductas que ralentizan la ejecución (Ver Detalle en Sección 3).")
+
+    # IRE
+    y -= 25
+    p.setFillColorRGB(0,0,0)
+    p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"IRE FINAL ({ire}/100):")
+    p.setFont("Helvetica", 9);
+    desc_ire = "Viabilidad Operativa Sólida." if ire > 50 else "Requiere Revisión Estructural."
+    p.drawString(160, y, desc_ire)
+
+    y -= 20
+    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
+
+    # -------------------------------------------------------
+    # SECCIÓN 2: ANÁLISIS DIMENSIONAL
+    # -------------------------------------------------------
+    y -= 30
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2. Análisis Dimensional")
+    y -= 25
+
+    bar_x = 260; bar_w = 250; bar_h = 10
+    seg1 = bar_w * 0.25; seg2 = bar_w * 0.35; seg3 = bar_w * 0.30; seg4 = bar_w * 0.10
+    
+    for k, score in stats.items():
+        if y < 60: p.showPage(); draw_page_header(p, w, h); y = h - 130
+        lbl = LABELS_ES.get(k, k)
+        p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 9); p.drawString(40, y, lbl)
+        p.drawRightString(bar_x - 10, y, f"{score}")
+        p.setStrokeColorRGB(0.9,0.9,0.9); p.setFillColorRGB(0.95, 0.95, 0.95); p.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=1)
+        cur_x = bar_x
+        w1 = min(score, 25) / 25 * seg1
+        if w1 > 0: p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(cur_x, y, w1, bar_h, fill=1, stroke=0); cur_x += w1
+        if score > 25:
+            w2 = min(score-25, 35)/35*seg2; p.setFillColorRGB(0.94, 0.76, 0.06); p.rect(bar_x+seg1, y, w2, bar_h, fill=1, stroke=0)
+        if score > 60:
+            w3 = min(score-60, 30)/30*seg3; p.setFillColorRGB(0.18, 0.8, 0.44); p.rect(bar_x+seg1+seg2, y, w3, bar_h, fill=1, stroke=0)
+        if score > 90:
+            w4 = min(score-90, 10)/10*seg4; p.setFillColorRGB(0.9, 0.3, 0.23); p.rect(bar_x+seg1+seg2+seg3, y, w4, bar_h, fill=1, stroke=0)
+        y -= 15
+
+    y -= 15
+    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
+
+    # -------------------------------------------------------
+    # SECCIÓN 2.2 / 2.3 (Fortalezas / Mejoras)
+    # -------------------------------------------------------
+    fortalezas = {k:v for k,v in stats.items() if v >= 60}
+    mejoras = {k:v for k,v in stats.items() if v < 60}
+
+    y -= 30
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.2 Fortalezas Consolidadas")
+    y -= 20
+    if not fortalezas: p.setFont("Helvetica-Oblique", 9); p.drawString(40, y, "No se detectan fortalezas destacadas (>60)."); y -= 20
+    else:
+        for k, v in fortalezas.items():
+            lbl = LABELS_ES.get(k, k); desc = get_competency_desc(k, v)
+            lines = textwrap.wrap(desc, width=90)
+            if y < (len(lines)*10 + 30): p.showPage(); draw_page_header(p, w, h); y = h - 130
+            p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"• {lbl} ({v}/100)"); y -= 12
+            text_obj = p.beginText(40, y); text_obj.setFont("Helvetica", 9); text_obj.setFillColorRGB(0.3,0.3,0.3)
+            for line in lines: text_obj.textLine(line)
+            p.drawText(text_obj); y -= (len(lines)*10 + 10)
+
+    y -= 20
+    if y < 100: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "2.3 Áreas de Desarrollo")
+    y -= 20
+    if not mejoras: p.setFont("Helvetica-Oblique", 9); p.drawString(40, y, "Perfil muy equilibrado."); y -= 20
+    else:
+        for k, v in mejoras.items():
+            lbl = LABELS_ES.get(k, k); desc = get_competency_desc(k, v)
+            lines = textwrap.wrap(desc, width=90)
+            if y < (len(lines)*10 + 30): p.showPage(); draw_page_header(p, w, h); y = h - 130
+            p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 10); p.drawString(40, y, f"• {lbl} ({v}/100)"); y -= 12
+            text_obj = p.beginText(40, y); text_obj.setFont("Helvetica", 9); text_obj.setFillColorRGB(0.3,0.3,0.3)
+            for line in lines: text_obj.textLine(line)
+            p.drawText(text_obj); y -= (len(lines)*10 + 10)
+
+    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
+
+    # -------------------------------------------------------
+    # SECCIÓN 3: FRICCIÓN (CON ÍNDICE MAESTRO) - CORREGIDO
+    # -------------------------------------------------------
+    y -= 30
+    if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12)
+    p.drawString(40, y, "3. Análisis de la Fricción (Bloqueos Operativos)")
+    y -= 25
+    
+    if friction_reasons:
+        p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
+        for reason in friction_reasons:
+            if y < 80: p.showPage(); draw_page_header(p, w, h); y = h - 130
+            
+            # Intentamos extraer el KEY del razón (ej: "Conducta EXCITABLE (8/10)")
+            # Buscamos qué key del RISK_MASTER_INDEX está en el string 'reason'
+            risk_info = None
+            for key, info in RISK_MASTER_INDEX.items():
+                if key in reason.upper():
+                    risk_info = info
+                    break
+            
+            # Título (Razón original + Alias bonito si existe)
+            titulo_mostrar = reason
+            if risk_info: titulo_mostrar = f"• {risk_info['alias']} - (Nivel Detectado)"
+            
+            p.setFont("Helvetica-Bold", 9); p.setFillColorRGB(0.2, 0.2, 0.2)
+            p.drawString(40, y, titulo_mostrar)
+            y -= 12
+            
+            # Descripción y Riesgo (Del Índice Maestro)
+            if risk_info:
+                desc_text = f"Perfil: {risk_info['desc']}"
+                risk_text = f"RIESGO DE NEGOCIO: {risk_info['risk']}"
+                
+                # Pintamos Descripción
+                lines_d = textwrap.wrap(desc_text, width=95)
+                p.setFont("Helvetica", 9); p.setFillColorRGB(0.3, 0.3, 0.3)
+                for line in lines_d:
+                    p.drawString(55, y, line); y -= 12
+                
+                # Pintamos Riesgo (En rojo oscuro o negrita)
+                y -= 2
+                lines_r = textwrap.wrap(risk_text, width=95)
+                p.setFont("Helvetica-BoldOblique", 9); p.setFillColorRGB(0.6, 0.2, 0.2)
+                for line in lines_r:
+                    p.drawString(55, y, line); y -= 12
+            else:
+                # Si no está en el índice maestro, usamos texto genérico
+                p.setFont("Helvetica-Oblique", 8); p.setFillColorRGB(0.4, 0.4, 0.4)
+                p.drawString(55, y, "Impacto: Fricción operativa general.")
+                y -= 12
+                
+            y -= 8 # Espacio entre items
+            
+    elif friction > 0:
+        p.setFont("Helvetica", 9); p.setFillColorRGB(0,0,0)
+        p.drawString(40, y, "• Fricción basal detectada (Nivel Bajo).")
+        y -= 12
+        p.setFont("Helvetica-Oblique", 8); p.setFillColorRGB(0.4, 0.4, 0.4)
+        p.drawString(55, y, "Impacto: Pequeñas vacilaciones sin bloqueo crítico.")
+        y -= 20
+    else:
+        p.setFont("Helvetica-Oblique", 9); p.setFillColorRGB(0.5,0.5,0.5)
+        p.drawString(40, y, "Flujo operativo limpio. No se han detectado conductas limitantes.")
+        y -= 20
+
+    y -= 10
+    p.setLineWidth(1); p.setStrokeColorRGB(0.8, 0.8, 0.8); p.line(40, y, w-40, y)
+
+    # -------------------------------------------------------
+    # SECCIÓN 4: CONCLUSIÓN (CORREGIDO OVERFLOW)
+    # -------------------------------------------------------
+    y -= 30
+    if y < 150: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    p.setFillColorRGB(0,0,0); p.setFont("Helvetica-Bold", 12); p.drawString(40, y, "4. Conclusión y Recomendación")
+    y -= 25
+    
+    sorted_mejoras = sorted([(k,v) for k,v in stats.items() if v < 60], key=lambda x: x[1])
+    top_ajustes = [LABELS_ES.get(k[0], k[0]) for k in sorted_mejoras[:2]]
+    
+    conc_text = f"El perfil presenta un IRE de {ire}/100. "
+    rec_text = ""
+    
+    if ire > 75:
+        conc_text += "El perfil es sólido y sostenible (Nivel Alto). La estructura de personalidad favorece la escalabilidad del proyecto sin riesgos estructurales."
+        rec_text = "Recomendación: Mantener el equilibrio actual y potenciar las fortalezas detectadas."
+    elif ire > 50:
+        conc_text += "El perfil presenta una viabilidad operativa sólida (Nivel Competitivo). Su configuración es funcional para la etapa actual, aunque se beneficiaría de optimizaciones puntuales. "
+        if top_ajustes: conc_text += f"Es necesario trabajar el desarrollo de: {', '.join(top_ajustes)}."
+        else: conc_text += "Se recomienda reforzar la consistencia entre visión y ejecución."
+        rec_text = "Recomendación: Priorizar el plan de desarrollo competencial en las áreas señaladas."
+    else:
+        conc_text += "El nivel de viabilidad requiere atención (Nivel de Alerta). Se detectan fricciones operativas que podrían afectar la velocidad de crecimiento si no se gestionan."
+        rec_text = "Recomendación: Reevaluar el encaje del rol o activar un plan de choque urgente en las áreas críticas."
+
+    # Pintar Conclusión (Wrapped)
+    p.setFont("Helvetica", 9)
+    lines_conc = textwrap.wrap(conc_text, width=100)
+    for line in lines_conc:
+        if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
+        p.drawString(40, y, line)
+        y -= 12
+    
+    y -= 10
+    
+    # Pintar Recomendación (Wrapped - FIX OVERFLOW)
+    p.setFont("Helvetica-Bold", 9)
+    if friction > 30: 
+        rec_text += " (Foco adicional: Reducción de tiempos de deliberación)."
+    
+    # AQUÍ ESTABA EL ERROR: Usar textwrap también para la recomendación
+    lines_rec = textwrap.wrap(rec_text, width=100)
+    for line in lines_rec:
+        if y < 50: p.showPage(); draw_page_header(p, w, h); y = h - 130
+        p.drawString(40, y, line)
+        y -= 12
+        
+    y -= 40
+
+    # -------------------------------------------------------
+    # GRÁFICO RADAR
+    # -------------------------------------------------------
+    if y < 160: p.showPage(); draw_page_header(p, w, h); y = h - 130
+    draw_radar_on_pdf(p, stats, w/2, y - 80, 70)
+
+    p.showPage()
+    p.save()
+    buffer.seek(0)
+    return buffer
+
+# --- FUNCIÓN PDF DEFINITIVA (Con Fricción Detallada e Implicaciones) ---
+
+def render_oryon_dashboard():
+    inject_style("dashboard")
+    st.sidebar.markdown("### Configuración")
+    logo = st.sidebar.file_uploader("Logo", type=['png', 'jpg'])
+    
+    c_logo, c_title = st.columns([1, 5])
+    with c_logo:
+        if logo: st.image(logo, width=100)
+        else: st.markdown("## 🏢")
+    with c_title:
+        st.title("Talent Command Center")
+        st.markdown("### Monitorización de Cohorte en Tiempo Real")
+    st.divider()
+
+    # DATOS DUMMY
+    np.random.seed(42); n_candidatos = 25
+    df = pd.DataFrame({
+        'ID': [f'CND-{i:03d}' for i in range(1, n_candidatos + 1)],
+        'Sector': np.random.choice(['TECH', 'SOCIAL', 'SALUD', 'CONSULTORIA'], n_candidatos),
+        'IRE': np.random.randint(35, 98, n_candidatos),
+        'Potencial': np.random.randint(45, 95, n_candidatos),
+        'Friccion': np.random.randint(5, 75, n_candidatos)
+    })
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Candidatos", f"{n_candidatos}")
+    k2.metric("IRE Promedio", f"{int(df['IRE'].mean())}/100")
+    k3.metric("Riesgo Alto", f"{len(df[df['IRE'] < 50])}", delta_color="inverse")
+    
+    st.divider()
+
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.subheader("Matriz de Riesgo")
+        fig = px.scatter(df, x="Potencial", y="Friccion", color="Sector", size="IRE", hover_data=["ID"])
+        fig.add_hrect(y0=60, y1=100, line_width=0, fillcolor="red", opacity=0.1)
+        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='white'), height=350)
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        st.subheader("Radar Promedio")
+        fig_r = go.Figure(data=go.Scatterpolar(r=[75, 60, 85, 50, 70, 65, 55, 60], theta=['Logro', 'Riesgo', 'Innov.', 'Locus', 'Autoef.', 'Auton.', 'Ambig.', 'Estab.'], fill='toself'))
+        fig_r.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100], showticklabels=False),
+            ),
+            showlegend=False, 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            font=dict(color='white'), 
+            height=350
+        )
+        st.plotly_chart(fig_r, use_container_width=True)
+
+    st.subheader("Expedientes Detallados")
+    def color_ire(val):
+        color = '#2ECC71' if val > 75 else '#F1C40F' if val > 50 else '#E74C3C'
+        return f'color: {color}; font-weight: bold;'
+    st.dataframe(df.style.applymap(color_ire, subset=['IRE']), use_container_width=True)
+    
+    if st.button("Cerrar Sesión Corporativa"):
+        st.session_state.oryon_auth = False
+        st.rerun()
+
+# --- 4. EJECUCIÓN PRINCIPAL ---
+init_session()
+
+if st.session_state.get('oryon_auth', False):
+    render_oryon_dashboard()
+
+elif st.session_state.get('auth', False):
+    inject_style("app") 
+    
+    if not st.session_state.data_verified:
+        render_header();
+        st.markdown("#### 1. Identificación del/a Candidato/a")
+        col1, col2 = st.columns(2)
+        name = col1.text_input("Usuario/a", key="name_input")
+        age = col2.number_input("Edad", 18, 99, key="age_input")
+        col3, col4 = st.columns(2)
+        gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
+        country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
+        col5, col6 = st.columns(2)
+        situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
+        experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
+        st.markdown("<br>", unsafe_allow_html=True)
+        consent = st.checkbox("He leído y acepto la Política de Privacidad.")
+        
+        if st.button("VALIDAR DATOS Y CONTINUAR"):
+            if name and age and consent:
+                st.session_state.user_data = {"name": name, "age": age, "gender": gender, "sector": "", "experience": experience}
+                st.session_state.data_verified = True
+                st.rerun()
+            else:
+                st.error("Por favor, completa los campos obligatorios.")
+
+    elif not st.session_state.started:
+        render_header();
+        st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+        def go_sector(sec):
+            all_q = load_questions();
+            code = SECTOR_MAP.get(sec, "TECH")
+            qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
+            if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"]
+            st.session_state.data = qs;
+            st.session_state.user_data["sector"] = sec; st.session_state.started = True; st.rerun()
+        
+        c1, c2 = st.columns(2)
+        with c1: 
+            if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+            if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+            if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+            if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
+            if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
+        with c2:
+            if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+            if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
+            if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
+            if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
+            if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
+
+    elif not st.session_state.finished:
+        if st.session_state.current_step >= len(st.session_state.data): st.session_state.finished = True; st.rerun()
+        render_header(); row = st.session_state.data[st.session_state.current_step]
+        st.progress((st.session_state.current_step + 1) / len(st.session_state.data));
+        st.markdown(f"### {row['TITULO']}")
+        c_text, c_opt = st.columns([1.5, 1])
+        with c_text: st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row["NARRATIVA"]}</p></div>', unsafe_allow_html=True)
+        with c_opt:
+            st.markdown("#### Tu decisión:")
+            
+            # --- CÓDIGO NUEVO: RESPUESTAS ALEATORIAS ---
+            step = st.session_state.current_step
+            # 1. Empaquetamos Texto + Lógica (Las "Cartas")
+            options = []
+            if pd.notna(row.get('OPCION_A_TXT')) and str(row.get('OPCION_A_TXT')).strip():
+                options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
+            if pd.notna(row.get('OPCION_B_TXT')) and str(row.get('OPCION_B_TXT')).strip():
+                options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
+            if pd.notna(row.get('OPCION_C_TXT')) and str(row.get('OPCION_C_TXT')).strip():
+                options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
+            if pd.notna(row.get('OPCION_D_TXT')) and str(row.get('OPCION_D_TXT')).strip():
+                options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+
+            # 2. BARAJAMOS LAS CARTAS 🎲
+            random.shuffle(options)
+
+            # 3. PINTAMOS LOS BOTONES BARAJADOS
+            # CSS para que los botones se vean bien con texto largo
+            st.markdown("""
+            <style>
+            div.stButton > button {
+                height: auto;
+                min_height: 80px;
+                white-space: normal;
+                text-align: left;
+                padding: 15px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            for opt in options:
+                # Clave única para que Streamlit no se líe
+                btn_key = f"btn_{step}_{opt['id']}"
+                
+                if st.button(opt['txt'], key=btn_key, use_container_width=True):
+                    # AL PULSAR: Leemos la lógica que venía en ESTA carta específica
+                    parse_logic(opt['logic'])
+                    
+                    # --- RED DE SEGURIDAD (NUEVO) ---
+                    # Si por lo que sea no existe el historial, lo creamos ahora mismo
+                    if 'history' not in st.session_state:
+                        st.session_state.history = []
+                    
+                    # Ahora ya podemos guardar sin miedo
+                    st.session_state.history.append({
+                        "mes": row['MES'],
+                        "opcion": opt['id'], # Guardamos 'A' aunque saliera el tercero
+                        "texto": opt['txt']
+                    })
+                    
+                    st.session_state.current_step += 1
+                    st.rerun()
+
+    else:
+        render_header()
+        # 1. Calculamos resultados numéricos
+        ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
+        
+        # ---------------------------------------------------------
+        # 2. DIAGNÓSTICO INTELIGENTE (Cerebro SAPE)
+        # ---------------------------------------------------------
+        cerebro = cargar_cerebro_sape()
+        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+
+        # Pintamos la Caja de Diagnóstico si hay resultado
+        if diagnostico:
+            # A. Normalizar datos
+            titulo = diagnostico.get('name', 'Diagnóstico')
+            if 'risk_level' in diagnostico: nivel = diagnostico['risk_level']
+            elif 'verdict' in diagnostico: nivel = diagnostico['verdict']
+            else: nivel = "ALERTA"
+            
+            desc = diagnostico.get('description') or diagnostico.get('risk_summary') or diagnostico.get('summary')
+            raw_impact = diagnostico.get('business_impact') or diagnostico.get('business_risk') or diagnostico.get('assets')
+            impacto = raw_impact[0] if isinstance(raw_impact, list) else raw_impact
+
+            # B. Color
+            if "CRÍTICO" in nivel: color_caja = "#E74C3C" # Rojo
+            elif "ALTO" in nivel or "ALERTA" in nivel: color_caja = "#F1C40F" # Amarillo
+            else: color_caja = "#2ECC71" # Verde
+            
+            # C. Render HTML
+            st.markdown(f"""
+            <div style="padding: 20px; border-radius: 10px; border-left: 6px solid {color_caja}; background-color: #1A202C; margin-bottom: 25px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <h3 style="color: {color_caja}; margin:0; font-family: sans-serif;">{titulo}</h3>
+                <p style="color: white; font-weight: bold; margin-top: 8px;">{nivel}</p>
+                <p style="color: #DDDDDD; font-size: 15px; margin-top: 10px; line-height: 1.4;">{desc}</p>
+                <hr style="border-color: #444; margin: 15px 0;">
+                <p style="color: #AAAAAA; font-size: 14px;"><strong>Impacto/Clave:</strong> {impacto}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        # ---------------------------------------------------------
+
+        # 3. Resto del Informe Web
+        st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data['name']}")
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Índice IRE (Viabilidad)", f"{ire}/100", help="Índice de Rendimiento Emprendedor Global")
+        k2.metric("Potencial Competencial", f"{avg}/100", help="Puntuación media de las 8 competencias clave")
+        k3.metric("Nivel de Fricción", f"{friction}%", "-Bajo es mejor", delta_color="inverse", help="Porcentaje de patrones limitantes")
+        
+        st.divider()
+        c_chart, c_desc = st.columns([1.2, 1])
+        with c_chart:
+            st.subheader("Mapa de Competencias")
+            st.plotly_chart(radar_chart(), use_container_width=True)
+        with c_desc:
+            st.subheader("Diagnóstico Global")
+            diag_color = "#2ECC71" if ire > 75 else "#F1C40F" if ire > 50 else "#E74C3C"
+            st.markdown(f"""
+                <div style="padding: 20px; border-radius: 10px; border-left: 5px solid {diag_color}; background-color: #1A202C; margin-bottom: 20px;">
+                    <h3 style="color: {diag_color}; margin:0;">{get_ire_text(ire)}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+            if fric_reasons:
+                st.markdown("### ⚠️ Alertas de Comportamiento")
+                for alert in fric_reasons: st.error(alert)
+            else:
+                st.success("✅ Perfil Equilibrado: No se han detectado patrones de riesgo.")
+
+       
+       # --- BLOQUE DE CIERRE Y GUARDADO (VERSIÓN SEGURA) ---
+        
+        # 1. Recuperamos variables de forma segura (Evita NameError)
+        safe_student_id = st.session_state.get('student_id', 'UNKNOWN')
+        safe_sector = st.session_state.user_data.get('sector', 'GEN')
+        
+        # Recuperamos las variables calculadas en el bloque anterior
+        # Usamos locals().get() para que no falle si alguna no existe
+        safe_ire = locals().get('ire', 0)
+        safe_friction = locals().get('friction', 0)
+        safe_triggers = locals().get('triggers', [])
+        safe_scores = locals().get('octagon_norm', {})
+
+        # 2. Guardamos en Base de Datos
+        if 'data_saved' not in st.session_state:
+            # Recuperamos la organización de la sesión (o ponemos GENERICO si falla)
+            org_to_save = st.session_state.user_data.get('organization', 'GENERICO')
+            
+            # 2. Llamada a la función de guardado (TODO DENTRO DEL MISMO PARÉNTESIS)
+            save_result_to_db(
+                student_id=safe_student_id, 
+                sector=safe_sector, 
+                ire=safe_ire, 
+                friction=safe_friction, 
+                triggers=safe_triggers, 
+                scores=st.session_state.octagon,   # Pasamos el octógono de la sesión
+                history=st.session_state.history,  # <--- NUEVO: Pasamos el historial
+                organization=org_to_save           # <--- NUEVO: Pasamos la organización
+            )
+            st.session_state.data_saved = True
+
+        # 3. Mensaje Final
+        st.divider()
+        st.success("✅ Evaluación completada con éxito.")
+        # 1. Recuperamos el nombre de la organización de la memoria
+        org_name = st.session_state.user_data.get('organization', 'tu organización')
+        
+        # 2. Lo ponemos bonito (Primera Mayúscula) para que no salga "COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL" sino "COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL" o tal cual.
+        # Si prefieres que salga en MAYÚSCULAS tal cual viene del Excel, quita el .title()
+        
+        st.success(f"✅ Tus resultados han sido registrados y enviados al equipo de {org_name}.")
+        
+        st.markdown("""
+        <div style="background-color: #11268C; padding: 20px; border-radius: 10px; text-align: center;">
+            <h3>¡Gracias por tu participación!</h3>
+            <p>Ya puedes cerrar esta pestaña.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 4. Freno de mano (Importante: evita que se muestre el Login debajo)
+        st.stop()
+
+else:
+    # --- BLOQUE FINAL: LOGIN CON 3 CAMPOS (ORG, USER, PASS) ---
+    
+    # 1. ESTILOS CSS
     st.markdown("""
     <style>
-    /* Reset por si venimos del modo oscuro */
-    .stApp { background-color: white; }
-    h1, h2, h3, p, div, span, label { color: black; }
-    
-    /* Botones Estándar */
-    div.stButton > button:not([disabled]) {
-        background-color: #0D248D; color: white; border: 1px solid #0D248D;
+    [data-testid="stFormSubmitButton"] button {
+        background-color: #0E2283 !important;
+        border: 1px solid #0E2283 !important;
     }
-    div.stButton > button[kind="primary"] {
-        background-color: #0D248D; border-color: #0D248D; color: white;
+    [data-testid="stFormSubmitButton"] button * {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stFormSubmitButton"] button:hover {
+        background-color: #FFFFFF !important;
+        border: 1px solid #0E2283 !important;
+    }
+    [data-testid="stFormSubmitButton"] button:hover * {
+        color: #0E2283 !important;
     }
     </style>
     """, unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([1, 2, 1])
     
-    # ------------------------------------------------------------------
-    # 1️⃣ PANTALLA A: INSTRUCCIONES
-    # ------------------------------------------------------------------
+    with c2:
+        if os.path.exists("logo_original.png"): 
+            st.image("logo_original.png", use_container_width=True)
+        else:
+            st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+
+        st.markdown('### Acceso Evaluación')
+        st.info("Introduce los datos de acceso proporcionados por tu organización.")
+        
+        with st.form("login_pilot"):
+            # AHORA SON 3 CAMPOS
+            org_input = st.text_input("ORGANIZACIÓN:", placeholder="Ej: COLEGIO OFICIAL DE PSICOLOGÍA ORIENTAL")
+            student_code = st.text_input("USUARIO / CÓDIGO:", placeholder="Ej: COPAO-001")
+            user_password = st.text_input("CONTRASEÑA:", type="password")
+            
+            if st.form_submit_button("ENTRAR 🚀", use_container_width=True):
+                # Limpiamos inputs
+                org_clean = org_input.strip().upper()
+                code_clean = student_code.strip().upper()
+                
+                # --- CORRECCIÓN AQUÍ: Recogemos 3 variables (is_valid, msg, real_org) ---
+                is_valid, msg, real_org = check_credentials_from_csv(org_input, student_code, user_password)
+                
+                if not is_valid:
+                    st.error(f"❌ {msg}")
+                    
+                # 2. ANTI-REPETICIÓN
+                elif check_if_user_finished(code_clean):
+                    st.error(f"⛔ El usuario {code_clean} ya ha completado la evaluación.")
+                    
+                else:
+                    # 3. ÉXITO
+                    st.session_state.auth = True
+                    st.session_state.student_id = code_clean
+                    
+                    # Guardamos la organización validada
+                    if 'user_data' not in st.session_state:
+                        st.session_state.user_data = {}
+                    st.session_state.user_data['organization'] = real_org
+                    
+                    st.rerun()
+                    # --- AQUI EMPIEZA LA LÓGICA DEL JUEGO (FUERA DEL LOGIN) ---
+
+# Si el usuario YA está autenticado (st.session_state.auth es True)
+if st.session_state.get('auth', False):
+    
+    # 1. PANTALLA DE INSTRUCCIONES (ONBOARDING)
+    if 'instructions_seen' not in st.session_state:
+        st.session_state.instructions_seen = False
+
+    # 1. PANTALLA DE INSTRUCCIONES (ONBOARDING)
     if 'instructions_seen' not in st.session_state:
         st.session_state.instructions_seen = False
 
     if not st.session_state.instructions_seen:
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("## 📜 Guía simulador S.A.P.E.")
-        st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
+        # --- ARREGLO FONDO OSCURO ---
+        st.markdown("""
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: #0E1117;
+            color: white;
+        }
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+        }
+        .stMarkdown, .stText, h1, h2, h3 {
+            color: white !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
-        c1, c2 = st.columns(2)
-        with c1:
+        st.markdown("## 📜 Guía simulador S.A.P.E.")
+        
+        st.warning("""
+        **Bienvenido/a al simulador.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.
+        Tu objetivo no es "ganar", sino tomar decisiones coherentes con tu forma de ser.
+        """)
+        
+        col1, col2 = st.columns(2)
+        with col1:
             st.markdown("### ⚙️ Mecánica")
-            st.markdown("* 40 Meses / 40 Decisiones.\n* No hay respuestas correctas, solo consecuencias.\n* Elige lo que **realmente harías**.")
-        with c2:
-            st.markdown("### ⚠️ Reglas")
-            st.markdown("* 🚫 NO uses el botón 'Atrás'.\n* 🚫 NO refresques la página.\n* ⏳ Sin límite de tiempo.")
+            st.markdown("""
+            * Cada mes te enfrentarás a un **desafío crítico**.
+            * Tendrás **4 opciones** de respuesta.
+            * **No hay respuestas correctas**: cada decisión tiene consecuencias.
+            * Elige lo que **realmente harías**, no lo que "queda bien".
+            """)
+        with col2:
+            st.markdown("### ⚠️ Reglas de Oro")
+            st.markdown("""
+            * 🚫 **NO uses el botón 'Atrás'** del navegador.
+            * 🚫 **NO refresques la página** a mitad de la partida.
+            * ⏳ **Sin prisa:** Lee bien el contexto ya que no se contabiliza el tiempo.
+            * 🔄 **Decisión fija:** No hay opción de corrección o rectificación.
+            """)
             
         st.divider()
-        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True, type="primary"):
+        st.markdown("### 🏁 Finalización")
+        st.caption("Al terminar el mes 40, el sistema guardará tu perfil y lo enviará a la dirección académica. Recibirás feedback inmediato.")
+        
+        st.write("") 
+        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR SIMULACIÓN", use_container_width=True, type="primary"):
             st.session_state.instructions_seen = True
             st.rerun()
 
-    # ------------------------------------------------------------------
-    # 2️⃣ PANTALLA B: DATOS
-    # ------------------------------------------------------------------
-    elif not st.session_state.get('data_verified', False):
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+    # 2. SI YA VIO INSTRUCCIONES -> FLUJO NORMAL
+    else:
+        # Aquí iría el resto de tu código antiguo que borraste sin querer
+        # Como tu archivo actual termina en el login, TE FALTA TODA LA LÓGICA DE ABAJO.
+        # Voy a reconstruirte el bloque completo del juego para que lo pegues aquí.
         
-        st.markdown("#### 1. Identificación del/a Candidato/a")
-        with st.form("user_data_form"):
+        inject_style("app")
+        
+        # --- RECOGIDA DE DATOS ---
+        if not st.session_state.get('data_verified', False):
+            render_header()
+            st.markdown("#### 1. Identificación del/a Candidato/a")
             col1, col2 = st.columns(2)
-            name = col1.text_input("Nombre Completo / Alias", key="final_name_input") 
-            age = col2.number_input("Edad", 18, 99, key="final_age_input")
+            name = col1.text_input("Usuario/a", key="name_input")
+            age = col2.number_input("Edad", 18, 99, key="age_input")
             col3, col4 = st.columns(2)
-            gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="final_gender")
-            experience = col4.selectbox("Experiencia Previa", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="final_exp")
+            gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="gender_input")
+            country = col4.selectbox("País", ["España", "LATAM", "Europa", "Otros"], key="country_input")
+            col5, col6 = st.columns(2)
+            situation = col5.selectbox("Situación", ["Solo", "Con Socios", "Intraemprendimiento"], key="sit_input")
+            experience = col6.selectbox("Experiencia", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="exp_input")
             st.markdown("<br>", unsafe_allow_html=True)
             consent = st.checkbox("He leído y acepto la Política de Privacidad.")
             
-            if st.form_submit_button("VALIDAR DATOS Y CONTINUAR"):
+            if st.button("VALIDAR DATOS Y CONTINUAR"):
                 if name and age and consent:
                     if 'user_data' not in st.session_state: st.session_state.user_data = {}
                     st.session_state.user_data.update({"name": name, "age": age, "gender": gender, "experience": experience})
                     st.session_state.data_verified = True
                     st.rerun()
-                else: st.error("Por favor, completa los campos obligatorios y acepta la política.")
+                else:
+                    st.error("Por favor, completa los campos obligatorios.")
 
-    # ------------------------------------------------------------------
-    # 3️⃣ PANTALLA C: SELECCIÓN DE SECTOR
-    # ------------------------------------------------------------------
-    elif not st.session_state.started:
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-        
-        def go_sector(sec_name):
-            all_q = load_questions()
-            SECTOR_MAP = {
-                "Startup Tecnológica (Scalable)": "TECH",
-                "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "FREELANCE",
-                "Intraemprendimiento": "INTRA",
-                "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", 
-                "Consultoría / Servicios Profesionales": "CONSULTORÍA",
-                "Hostelería y Restauración": "HOSTELERÍA",
-                "Emprendimiento Social": "SOCIAL",
-                "Salud": "SALUD",
-                "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
-            }
-
-            code = SECTOR_MAP.get(sec_name, "TECH")
-            qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
-            if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"] 
-            st.session_state.data = qs
-            st.session_state.user_data["sector"] = code
-            st.session_state.started = True
-            st.rerun()
-
-        org_data = st.session_state.user_data.get('org_data', {})
-        try: allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
-        except: allowed_sectors = ["ALL"]
-        def is_locked(tag): return tag not in allowed_sectors if "ALL" not in allowed_sectors else False
-
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("RETAIL"), use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
-            if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): go_sector("Autoempleo / Freelance")
-            if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): go_sector("Intraemprendimiento")
-            if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): go_sector("Psicología Sanitaria")
-        with c2:
-            if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
-            if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): go_sector("Hostelería y Restauración")
-            if st.button("Emprendimiento Social", disabled=is_locked("SOCIAL"), use_container_width=True): go_sector("Emprendimiento Social")
-            if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): go_sector("Salud")
-            if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): go_sector("Psicología no sanitaria")
-
-    # ------------------------------------------------------------------
-    # 4️⃣ PANTALLA D: EL JUEGO ( MODO INMERSIVO OSCURO )
-    # ------------------------------------------------------------------
-    elif not st.session_state.get('finished', False):
-        if st.session_state.current_step >= len(st.session_state.data):
-            st.session_state.finished = True
-            st.rerun()
+        # --- SELECCIÓN DE SECTOR ---
+        elif not st.session_state.get('started', False):
+            render_header()
+            st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
+            def go_sector(sec):
+                all_q = load_questions()
+                # Mapeo de seguridad
+                qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == str(SECTOR_MAP.get(sec, 'TECH')).upper()]
+                if not qs: qs = [x for x in all_q if str(x.get('SECTOR','')).strip().upper() == "TECH"]
+                st.session_state.data = qs
+                st.session_state.user_data["sector"] = sec
+                st.session_state.started = True
+                st.rerun()
             
-        row = st.session_state.data[st.session_state.current_step]
-        st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
-        
-        # --- 🎨 CSS RADICAL PARA EL MODO JUEGO ---
-        st.markdown("""
-        <style>
-        .stApp { background-color: #050A1F !important; }
-        h1, h2, h3, h4, h5, h6, p, div, span, label, li { color: #FFFFFF !important; }
-        .narrative-text {
-            font-size: 1.3rem; line-height: 1.6; padding: 15px;
-            border-left: 4px solid #0D248D; background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 8px; margin-bottom: 20px;
-        }
-        div.stButton > button {
-            background-color: #0D248D !important; color: white !important;
-            border: 2px solid #0D248D !important; border-radius: 12px !important;
-            padding: 20px !important; height: auto !important; min_height: 90px !important;
-            font-size: 1.1rem !important; transition: all 0.3s ease !important;
-        }
-        div.stButton > button:hover {
-            transform: scale(1.05) !important; background-color: #1530A0 !important;
-            box-shadow: 0 0 20px rgba(21, 48, 160, 0.6) !important; border-color: white !important; z-index: 100;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        
-        st.markdown(f"### {row.get('TITULO', 'Desafío')}")
-        
-        c_text, c_opt = st.columns([1.5, 1])
-        with c_text:
-            st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
-        
-        with c_opt:
-            st.markdown("#### Tu decisión:")
-            options = []
-            if pd.notna(row.get('OPCION_A_TXT')): options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
-            if pd.notna(row.get('OPCION_B_TXT')): options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
-            if pd.notna(row.get('OPCION_C_TXT')): options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
-            if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+            c1, c2 = st.columns(2)
+            with c1: 
+                if st.button("Startup Tecnológica\n(Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+                if st.button("Pequeña y Mediana\nEmpresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+                if st.button("Autoempleo /\nFreelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+                if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
+                if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
+            with c2:
+                if st.button("Consultoría /\nServicios Profesionales", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+                if st.button("Hostelería y\nRestauración", use_container_width=True): go_sector("Hostelería y Restauración")
+                if st.button("Emprendimiento\nSocial", use_container_width=True): go_sector("Emprendimiento Social")
+                if st.button("Emprendimiento en\nServicios de Salud", use_container_width=True): go_sector("Salud")
+                if st.button("Psicología no sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
+
+        # --- JUEGO (PREGUNTAS) ---
+        elif not st.session_state.get('finished', False):
+            if st.session_state.current_step >= len(st.session_state.data):
+                st.session_state.finished = True
+                st.rerun()
+                
+            render_header()
+            row = st.session_state.data[st.session_state.current_step]
+            st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
             
-            random.shuffle(options)
-            step = st.session_state.current_step
-            for opt in options:
-                if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
-                    parse_logic(opt['logic'])
-                    if 'history' not in st.session_state: st.session_state.history = []
-                    st.session_state.history.append({"mes": row.get('MES'), "opcion": opt['id'], "texto": opt['txt']})
-                    st.session_state.current_step += 1
-                    st.rerun()
+            st.markdown(f"### {row.get('TITULO', 'Desafío')}")
+            c_text, c_opt = st.columns([1.5, 1])
+            with c_text:
+                st.markdown(f'<div class="diag-text" style="font-size:1.2rem;"><p>{row.get("NARRATIVA","")}</p></div>', unsafe_allow_html=True)
+            
+            with c_opt:
+                st.markdown("#### Tu decisión:")
+                options = []
+                # Recopilar opciones válidas
+                if pd.notna(row.get('OPCION_A_TXT')): options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
+                if pd.notna(row.get('OPCION_B_TXT')): options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
+                if pd.notna(row.get('OPCION_C_TXT')): options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
+                if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
+                
+                random.shuffle(options) # BARAJADOR
 
-    # ------------------------------------------------------------------
-    # 5️⃣ PANTALLA E: RESULTADOS (CON SEMÁFORO VISUAL)
-    # ------------------------------------------------------------------
-    else:
-        # Volver al modo blanco limpio
-        st.markdown("""
-        <style>
-        .stApp { background-color: white !important; }
-        h1, h2, h3, h4, p, li, span, div { color: black !important; }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        c1, c2, c3 = st.columns([1,1,1])
-        with c2:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+                st.markdown("""<style>div.stButton > button {height: auto; min_height: 80px; white-space: normal; text-align: left; padding: 15px;}</style>""", unsafe_allow_html=True)
 
-        # CÁLCULO DE RESULTADOS
-        ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
-        
-        cerebro = cargar_cerebro_sape()
-        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+                step = st.session_state.current_step
+                for opt in options:
+                    if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
+                        # Sumar puntos
+                        parsed = parse_logic(opt['logic'])
+                        if 'octagon' not in st.session_state: st.session_state.octagon = {}
+                        for trait, score in parsed.items():
+                            st.session_state.octagon[trait] = st.session_state.octagon.get(trait, 0) + score
+                        
+                        # Guardar historial
+                        if 'history' not in st.session_state: st.session_state.history = []
+                        st.session_state.history.append({"mes": row.get('MES'), "opcion": opt['id'], "texto": opt['txt']})
+                        
+                        st.session_state.current_step += 1
+                        st.rerun()
 
-        # CUADRO DE DIAGNÓSTICO
-        if diagnostico:
-            titulo = diagnostico.get('name', 'Diagnóstico')
-            nivel = diagnostico.get('risk_level', 'ALERTA')
-            desc = diagnostico.get('description', '')
-            color = "#E74C3C" if "CRÍTICO" in nivel else "#F1C40F" if "ALTO" in nivel else "#2ECC71"
-            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
+        # --- RESULTADOS ---
+        else:
+            render_header()
+            ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
+            
+            # Diagnóstico
+            cerebro = cargar_cerebro_sape()
+            diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
 
-        st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
-        
-        # MÉTRICAS PRINCIPALES
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Índice IRE", f"{ire}/100")
-        k2.metric("Potencial", f"{avg}/100")
-        k3.metric("Fricción", f"{friction}%", delta_color="inverse")
-        
-        st.divider()
+            if diagnostico:
+                titulo = diagnostico.get('name', 'Diagnóstico')
+                nivel = diagnostico.get('risk_level', 'ALERTA')
+                desc = diagnostico.get('description', '')
+                if "CRÍTICO" in nivel: color = "#E74C3C" 
+                elif "ALTO" in nivel: color = "#F1C40F" 
+                else: color = "#2ECC71" 
+                st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #1A202C; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
 
-        # COLUMNA IZQUIERDA: GRÁFICO DE ARAÑA
-        col_chart, col_bars = st.columns([1, 1.2])
-        
-        with col_chart:
+            # Métricas
+            st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
+            k1, k2, k3 = st.columns(3)
+            k1.metric("Índice IRE", f"{ire}/100")
+            k2.metric("Potencial", f"{avg}/100")
+            k3.metric("Fricción", f"{friction}%", delta_color="inverse")
             st.plotly_chart(radar_chart(), use_container_width=True)
 
-        # COLUMNA DERECHA: BARRAS CON SEMÁFORO (DÉFICIT - ALERTA - ÓPTIMO - EXCESO)
-        with col_bars:
-            st.markdown("### Detalle de Competencias")
-            
-            # Mapeo de nombres para mostrar
-            labels_map = {
-                "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación", "locus_of_control": "Locus de Control",
-                "emotional_stability": "Estabilidad Emocional", "achievement": "Orientación al Logro",
-                "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
-            }
-
-            for key, label_text in labels_map.items():
-                val = octagon_norm.get(key, 0)
-                
-                # --- LÓGICA DE SEMÁFORO (LA CLAVE DEL DISEÑO SÓLIDO) ---
-                if val < 25:
-                    bar_color = "#E74C3C" # ROJO (Déficit Crítico)
-                elif val < 60:
-                    bar_color = "#F1C40F" # AMARILLO (Alerta / En desarrollo)
-                elif val <= 90:
-                    bar_color = "#2ECC71" # VERDE (Óptimo)
-                else:
-                    bar_color = "#E74C3C" # ROJO (Exceso / Peligro) - ¡IMPORTANTE!
-
-                # Renderizamos la barra con HTML/CSS puro
-                st.markdown(f"""
-                <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="font-weight: 600; font-size: 0.9rem;">{label_text}</span>
-                        <span style="font-weight: 700; color: {bar_color};">{int(val)}/100</span>
-                    </div>
-                    <div style="background-color: #E2E8F0; border-radius: 10px; height: 12px; width: 100%;">
-                        <div style="background-color: {bar_color}; width: {val}%; height: 100%; border-radius: 10px; transition: width 1s ease-in-out;"></div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.divider()
-
-        # GUARDADO
-        if 'data_saved' not in st.session_state:
-            try:
-                org_name = st.session_state.user_data.get('org_data', {}).get('name', 'GENERICO')
+            # Guardado Seguro
+            if 'data_saved' not in st.session_state:
+                org_to_save = st.session_state.user_data.get('organization', 'GENERICO')
                 save_result_to_db(
-                    student_id=st.session_state.user_data.get('username', 'ANON'), 
+                    student_id=st.session_state.student_id, 
                     sector=st.session_state.user_data.get('sector', 'GEN'), 
                     ire=ire, friction=friction, triggers=triggers, 
                     scores=octagon_norm,   
                     history=st.session_state.history,  
-                    organization=org_name
+                    organization=org_to_save           
                 )
                 st.session_state.data_saved = True
-                st.success(f"✅ Resultados registrados correctamente en {org_name}.")
-            except Exception as e:
-                st.error(f"Error guardando resultados: {e}")
-        else:
-             st.success("✅ Resultados ya registrados.")
 
-        st.info("Has completado la simulación. Puedes cerrar esta ventana.")
-
-# ==========================================
-# 🎛️ BLOQUE 2: TU CONSOLA DE ADMINISTRADOR (CORREGIDA)
-# ==========================================
-def render_admin_dashboard():
-    st.title("🎛️ Consola de Mando: AUDEO HQ")
-    st.info(f"Bienvenido, {st.session_state.user_data['username']}. Modo Dios activado.")
-    
-    tab1, tab2, tab3 = st.tabs(["👥 Usuarios", "🏢 Organizaciones", "📊 Estadísticas"])
-    
-    # --- PESTAÑA 1: GESTIÓN DE USUARIOS ---
-    with tab1:
-        st.markdown("### 1️⃣ Crear Nuevo Usuario")
-        with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
-            with st.form("new_user_form"):
-                c1, c2 = st.columns(2)
-                new_user = c1.text_input("Nuevo Usuario (Login)")
-                new_pass = c2.text_input("Contraseña", type="password")
-                
-                c3, c4 = st.columns(2)
-                try:
-                    orgs_db = supabase.table("organizations").select("id").execute()
-                    lista_orgs = [o['id'] for o in orgs_db.data]
-                except: lista_orgs = ["Audeo"]
-                    
-                new_org = c3.selectbox("Asignar Organización", lista_orgs)
-                new_role = c4.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-                
-                if st.form_submit_button("💾 Crear Usuario"):
-                    try:
-                        supabase.table("users").insert({
-                            "username": new_user, "password": new_pass, "org_id": new_org, "role": new_role
-                        }).execute()
-                        st.success(f"Usuario {new_user} creado."); st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-
-        st.divider()
-        st.markdown("### 2️⃣ Editar o Borrar Usuario")
-        
-        try:
-            users_db = supabase.table("users").select("*").execute()
-            df_users = pd.DataFrame(users_db.data)
-            lista_users_ids = df_users['username'].tolist() if not df_users.empty else []
-        except: lista_users_ids = []
-
-        user_to_edit = st.selectbox("🔍 Selecciona Usuario", ["Seleccionar..."] + lista_users_ids)
-
-        if user_to_edit != "Seleccionar...":
-            user_info = df_users[df_users['username'] == user_to_edit].iloc[0]
-            st.info(f"Editando a: **{user_to_edit}**")
-            
-            with st.form("edit_user_form"):
-                col_e1, col_e2 = st.columns(2)
-                edit_pass = col_e1.text_input("Contraseña", value=user_info['password'])
-                edit_role = col_e2.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"], index=["STUDENT", "MANAGER", "ADMIN"].index(user_info['role']))
-                
-                # Manejo de error si la org antigua ya no existe
-                current_org_idx = 0
-                if user_info['org_id'] in lista_orgs:
-                    current_org_idx = lista_orgs.index(user_info['org_id'])
-                
-                edit_org = st.selectbox("Organización", lista_orgs, index=current_org_idx)
-                
-                c_btn1, c_btn2 = st.columns([1,1])
-                if c_btn1.form_submit_button("💾 GUARDAR CAMBIOS"):
-                    supabase.table("users").update({
-                        "password": edit_pass, "role": edit_role, "org_id": edit_org
-                    }).eq("username", user_to_edit).execute()
-                    st.success("Usuario actualizado."); st.rerun()
-                
-                if c_btn2.form_submit_button("🗑️ BORRAR USUARIO", type="primary"):
-                    if user_to_edit == "admin": st.error("No puedes borrar al admin.")
-                    else:
-                        supabase.table("users").delete().eq("username", user_to_edit).execute()
-                        st.success("Usuario eliminado."); st.rerun()
-
-    # --- PESTAÑA 2: GESTIÓN DE ORGANIZACIONES (AQUÍ ESTABA EL ERROR) ---
-    with tab2:
-        # Definimos la lista maestra de opciones válidas una sola vez
-        OPCIONES_VALIDAS = ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICO_SAN", "CONSULTORIA", "TURISMO", "SOCIAL", "SALUD", "PSICO_NO_SAN"]
-
-        st.markdown("### 1️⃣ Crear Nueva Organización")
-        with st.expander("➕ Desplegar Formulario de Alta", expanded=False):
-            with st.form("new_org_form"):
-                org_id = st.text_input("ID (Sin espacios, ej: UNIV_VALENCIA)")
-                org_name = st.text_input("Nombre Real (Ej: Universidad de Valencia)")
-                sectores = st.multiselect("Sectores Permitidos", OPCIONES_VALIDAS, default=["TECH"])
-                
-                if st.form_submit_button("🏢 Crear Organización"):
-                    try:
-                        supabase.table("organizations").insert({
-                            "id": org_id, "name": org_name, "active_sectors": str(sectores), "is_active": True
-                        }).execute()
-                        st.success(f"Org {org_name} creada."); st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-
-        st.divider()
-        st.markdown("### 2️⃣ Editar o Borrar Organización")
-
-        org_to_edit_id = st.selectbox("🔍 Selecciona Organización", ["Seleccionar..."] + lista_orgs)
-
-        if org_to_edit_id != "Seleccionar..." and org_to_edit_id != "Audeo":
-            try:
-                current_org_data = supabase.table("organizations").select("*").eq("id", org_to_edit_id).execute().data[0]
-                
-                # Intentamos leer la lista. Si falla, lista vacía.
-                try:
-                    raw_list = ast.literal_eval(current_org_data['active_sectors'])
-                except: raw_list = []
-
-                # --- 🛡️ FILTRO DE SEGURIDAD (LA SOLUCIÓN) ---
-                # Solo dejamos pasar los valores que existen en nuestra lista nueva.
-                # Si hay un "ALL" o un nombre viejo, se elimina para no romper el selector.
-                safe_defaults = [s for s in raw_list if s in OPCIONES_VALIDAS]
-                
-                with st.form("edit_org_form"):
-                    st.write(f"Editando: **{current_org_data['name']}**")
-                    new_name_edit = st.text_input("Nombre Real", value=current_org_data['name'])
-                    
-                    # Usamos safe_defaults en lugar de la lista cruda
-                    new_sectors_edit = st.multiselect("Sectores Permitidos", 
-                                                      OPCIONES_VALIDAS,
-                                                      default=safe_defaults)
-                    
-                    c_btn_o1, c_btn_o2 = st.columns([1,1])
-                    if c_btn_o1.form_submit_button("💾 ACTUALIZAR PERMISOS"):
-                        supabase.table("organizations").update({
-                            "name": new_name_edit,
-                            "active_sectors": str(new_sectors_edit)
-                        }).eq("id", org_to_edit_id).execute()
-                        st.success("Organización actualizada."); st.rerun()
-                    
-                    if c_btn_o2.form_submit_button("🗑️ BORRAR ORGANIZACIÓN", type="primary"):
-                        try:
-                            supabase.table("organizations").delete().eq("id", org_to_edit_id).execute()
-                            st.success("Organización eliminada."); st.rerun()
-                        except:
-                            st.error("Error: Probablemente tenga usuarios dentro. Borra los usuarios primero.")
-            except Exception as e:
-                st.error(f"Error cargando datos de la organización: {e}")
-
-    # --- PESTAÑA 3: ESTADÍSTICAS ---
-    with tab3:
-        st.subheader("📊 Vista Global")
-        try:
-            all_results = supabase.table("sape_results").select("*").execute()
-            df_res = pd.DataFrame(all_results.data)
-            if not df_res.empty:
-                m1, m2 = st.columns(2)
-                m1.metric("Total Simulaciones", len(df_res))
-                avg_ire = df_res['ire'].mean()
-                m2.metric("Promedio IRE Global", f"{avg_ire:.1f}")
-                st.write("Últimos registros:")
-                st.dataframe(df_res.tail(10))
-            else: st.info("Aún no hay partidas jugadas.")
-        except: st.warning("No se pudo cargar la tabla de resultados.")
-
-# ==========================================
-# 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
-# ==========================================
-# ==========================================
-# 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
-# ==========================================
-def main():
-    # 1. INYECTAR ESTILO LO PRIMERO (Modo Oscuro + Ocultar Barras)
-    inject_custom_css() 
-
-    # Inicialización Segura
-    if 'octagon' not in st.session_state:
-        st.session_state.octagon = {k: 50 for k in ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", "emotional_stability", "achievement", "leadership", "adaptability"]}
-    if 'flags' not in st.session_state: st.session_state.flags = {}
-    if 'history' not in st.session_state: st.session_state.history = []
-    if 'current_step' not in st.session_state: st.session_state.current_step = 0
-    if 'started' not in st.session_state: st.session_state.started = False
-    if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-
-    # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
-    # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
-    if not st.session_state.logged_in:
-        
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c2:
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            
-            # --- LÓGICA DEL LOGO CORREGIDA ---
-            # Prioridad 1: Logo Original (Color #0D248D y Negro) -> Ideal para fondo blanco
-            if os.path.exists("logo_original.png"): 
-                st.image("logo_original.png", use_container_width=True)
-            # Prioridad 2: Logo Blanco (Por si acaso falta el otro)
-            elif os.path.exists("logo_blanco.png"): 
-                # Le ponemos un fondo oscuro temporal con CSS solo a la imagen si toca usar el blanco
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            # Prioridad 3: Texto (Si no hay imágenes) -> Usamos tu color corporativo
-            else: 
-                st.markdown("<h1 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-            
-            # Subtítulo en Gris Oscuro (para que se lea en fondo blanco)
-            st.markdown("<h3 style='text-align: center; color: #333333 !important;'>Sistema de Análisis de la Personalidad Emprendedora</h3>", unsafe_allow_html=True)
-            
-            with st.form("login_form_supabase"):
-                user_in = st.text_input("USUARIO")
-                pass_in = st.text_input("CONTRASEÑA", type="password")
-                
-                submitted = st.form_submit_button("ENTRAR 🚀", use_container_width=True)
-                
-                if submitted:
-                    user_data = login_supabase(user_in, pass_in)
-                    if user_data:
-                        st.session_state.logged_in = True
-                        st.session_state.user_data = user_data
-                        st.rerun()
-                    else:
-                        st.error("❌ Usuario o contraseña incorrectos")
-
-    # B. SI YA ESTÁ LOGUEADO -> DISTRIBUIR SEGÚN ROL
-    else:
-        with st.sidebar:
-            st.write(f"👤 **{st.session_state.user_data.get('username')}**")
-            st.caption(f"Rol: {st.session_state.user_data.get('role')}")
-            if st.button("Cerrar Sesión"):
-                st.session_state.logged_in = False
-                st.session_state.user_data = {}
-                st.rerun()
-        
-        # 1. ES EL JEFE (TÚ)
-        if st.session_state.user_data.get('role') == 'ADMIN':
-            render_admin_dashboard()
-            
-        # 2. ES UN MANAGER (CLIENTE)
-        elif st.session_state.user_data.get('role') == 'MANAGER':
-            st.title("Panel de Cliente")
-            st.info("🚧 El Dashboard de gestión de talento está en construcción.")
-            
-        # 3. ES UN ALUMNO (JUGADOR)
-        else:
-            run_simulator_logic()
-
-# EJECUTAR APLICACIÓN
-if __name__ == "__main__":
-    main()
+            st.success(f"✅ Resultados enviados a {st.session_state.user_data.get('organization')}.")
