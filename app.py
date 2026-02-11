@@ -857,7 +857,7 @@ def run_simulator_logic():
         st.info("Has completado la simulación. Puedes cerrar esta ventana.")
 
 # ==========================================
-# 👑 PANEL ADMIN (VERSIÓN PRO: CON GESTIÓN DE EMPRESAS)
+# 👑 PANEL ADMIN (VERSIÓN DEFINITIVA: CARGA MASIVA + FILTROS)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
@@ -875,88 +875,155 @@ def render_admin_dashboard():
     k2.metric("📊 Simulaciones", count_results)
     k3.metric("🏢 Empresas", count_orgs)
     
-    # 2. TRES PESTAÑAS AHORA
     tab1, tab2, tab3 = st.tabs(["👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
     
-    # --- PESTAÑA 1: GESTIÓN DE USUARIOS ---
+    # --- PESTAÑA 1: USUARIOS (CARGA MASIVA) ---
     with tab1:
-        c_form, c_list = st.columns([1, 2])
+        st.markdown("### Gestión de Usuarios")
         
-        with c_form:
-            st.markdown("### Nuevo Usuario")
-            st.info("💡 Consejo: Copia el ID exacto de la pestaña 'Empresas'")
+        type_add = st.radio("Modo de alta:", ["Uno a Uno", "Carga Masiva (Excel/CSV)"], horizontal=True)
+        
+        # A) UNO A UNO
+        if type_add == "Uno a Uno":
             with st.form("new_user_admin"):
-                new_user = st.text_input("Username / Email")
-                new_pass = st.text_input("Password", value="".join(random.choices(string.ascii_letters + string.digits, k=8)))
-                new_role = st.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
-                new_org_id = st.text_input("Org ID (Debe existir)", value="GENERICO") 
+                c1, c2 = st.columns(2)
+                new_user = c1.text_input("Username / Email")
+                new_pass = c2.text_input("Password", value="1234")
+                c3, c4 = st.columns(2)
+                new_role = c3.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
+                new_org_id = c4.text_input("Org ID", value="GENERICO") 
                 
                 if st.form_submit_button("Crear Usuario"):
                     try:
                         supabase.table("users").insert({
-                            "username": new_user,
-                            "password": new_pass,
-                            "role": new_role,
-                            "org_id": new_org_id
+                            "username": new_user, "password": new_pass,
+                            "role": new_role, "org_id": new_org_id
                         }).execute()
                         st.success(f"✅ Usuario {new_user} creado.")
-                        st.rerun()
-                    except Exception as e:
-                        if "foreign key" in str(e):
-                            st.error(f"❌ Error: La empresa '{new_org_id}' NO existe. Créala primero en la pestaña EMPRESAS.")
-                        else:
-                            st.error(f"Error: {e}")
+                    except Exception as e: st.error(f"Error: {e}")
 
-        with c_list:
-            st.markdown("### Usuarios Existentes")
-            try:
-                res_users = supabase.table("users").select("*").order("created_at", desc=True).execute()
-                df_users = pd.DataFrame(res_users.data)
-                
-                cols_to_show = [c for c in ['username', 'role', 'org_id', 'created_at'] if c in df_users.columns]
-                if not df_users.empty:
-                    st.dataframe(df_users[cols_to_show], use_container_width=True)
-            except: st.info("Sin usuarios.")
+        # B) CARGA MASIVA (TU SOLICITUD)
+        else:
+            st.info("📂 Sube un archivo CSV con las columnas: `username`, `password`, `role`, `org_id`")
+            uploaded_file = st.file_uploader("Arrastra tu CSV aquí", type=["csv"])
+            
+            if uploaded_file is not None:
+                try:
+                    df_upload = pd.read_csv(uploaded_file, sep=';') # Intentamos con punto y coma primero
+                    if len(df_upload.columns) < 2: # Si falló, probamos con coma
+                        uploaded_file.seek(0)
+                        df_upload = pd.read_csv(uploaded_file, sep=',')
+                    
+                    st.write("Vista previa de datos a cargar:", df_upload.head())
+                    
+                    if st.button(f"🚀 Procesar {len(df_upload)} Usuarios"):
+                        progress_bar = st.progress(0)
+                        success_count = 0
+                        errors = []
+                        
+                        for i, row in df_upload.iterrows():
+                            try:
+                                supabase.table("users").insert({
+                                    "username": str(row['username']).strip(),
+                                    "password": str(row['password']).strip(),
+                                    "role": str(row['role']).strip().upper(),
+                                    "org_id": str(row['org_id']).strip()
+                                }).execute()
+                                success_count += 1
+                            except Exception as e:
+                                errors.append(f"Fila {i}: {e}")
+                            progress_bar.progress((i + 1) / len(df_upload))
+                        
+                        st.success(f"✅ Proceso terminado. Creados: {success_count}/{len(df_upload)}")
+                        if errors:
+                            with st.expander("Ver Errores"):
+                                for err in errors: st.write(err)
+                except Exception as e:
+                    st.error(f"Error leyendo el archivo: {e}")
 
-    # --- PESTAÑA 2: RESULTADOS ---
-    with tab2:
-        st.markdown("### Resultados Globales")
+        # LISTADO DE USUARIOS
+        st.divider()
+        st.markdown("#### Usuarios en Base de Datos")
         try:
-            res = supabase.table("sape_results").select("*").order("created_at", desc=True).execute()
-            df_res = pd.DataFrame(res.data)
-            if not df_res.empty:
-                st.dataframe(df_res, use_container_width=True)
-                csv = df_res.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Descargar CSV", csv, "resultados.csv", "text/csv")
-            else:
-                st.info("Aún no hay resultados.")
-        except: st.info("Sin datos.")
+            res_users = supabase.table("users").select("*").order("created_at", desc=True).limit(50).execute()
+            st.dataframe(pd.DataFrame(res_users.data), use_container_width=True)
+        except: pass
 
-    # --- PESTAÑA 3: GESTIÓN DE EMPRESAS (LA NUEVA JOYITA) ---
+    # --- PESTAÑA 2: RESULTADOS (FILTROS INTELIGENTES) ---
+    with tab2:
+        st.markdown("### Análisis de Resultados")
+        
+        # SELECTOR DE VISTA
+        view_mode = st.radio("Filtrar por:", ["🌍 Globales", "🏢 Por Empresa"], horizontal=True)
+        
+        try:
+            # Traemos TODOS los datos (si son miles, esto se debería paginar, pero para <1000 vale)
+            all_results = supabase.table("sape_results").select("*").execute()
+            df_res = pd.DataFrame(all_results.data)
+            
+            if not df_res.empty:
+                # LÓGICA DE FILTRADO
+                if view_mode == "🏢 Por Empresa":
+                    # Sacamos lista de empresas únicas en los resultados
+                    unique_orgs = df_res['organization'].unique()
+                    selected_org = st.selectbox("Selecciona la Empresa:", unique_orgs)
+                    # Filtramos el DataFrame
+                    df_final = df_res[df_res['organization'] == selected_org]
+                else:
+                    # Modo Global: Usamos todo
+                    df_final = df_res
+
+                # ESTADÍSTICAS DINÁMICAS (Se calculan sobre df_final)
+                st.divider()
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Total Evaluados", len(df_final))
+                m2.metric("Media IRE", f"{df_final['ire'].mean():.1f}")
+                m3.metric("Fricción Media", f"{df_final['friction'].mean():.1f}%")
+                
+                st.markdown(f"#### Detalle: {view_mode}")
+                st.dataframe(df_final, use_container_width=True)
+                
+                csv = df_final.to_csv(index=False).encode('utf-8')
+                st.download_button(f"📥 Descargar CSV ({view_mode})", csv, "resultados.csv", "text/csv")
+            else:
+                st.info("Aún no hay resultados registrados en el sistema.")
+        except Exception as e:
+            st.error(f"Error cargando resultados: {e}")
+
+    # --- PESTAÑA 3: EMPRESAS (NUEVOS CAMPOS) ---
     with tab3:
         st.markdown("### 🏢 Alta de Organizaciones")
-        st.caption("Crea aquí las empresas para que luego puedas asignarles usuarios.")
         
-        col_new_org, col_view_orgs = st.columns([1, 2])
+        col_new_org, col_view_orgs = st.columns([1, 1.5])
         
         with col_new_org:
-            with st.form("create_org_form"):
+            with st.form("create_org_form_pro"):
                 org_id_input = st.text_input("ID Empresa (Sin espacios)", placeholder="ej: ugr")
                 org_name_input = st.text_input("Nombre Completo", placeholder="ej: Universidad de Granada")
+                org_pass_input = st.text_input("Contraseña Maestra (Opcional)", type="password")
+                
+                # SELECTOR DE SECTORES
+                SECTORES_DISPONIBLES = [
+                    "TECH", "RETAIL", "FREELANCE", "INTRA", "PSICOLOGÍA_SANITARIA", 
+                    "CONSULTORÍA", "HOSTELERÍA", "SOCIAL", "SALUD", "PSICOLOGÍA_NO_SANITARIA"
+                ]
+                sectors_input = st.multiselect("Sectores Activos", SECTORES_DISPONIBLES, default=SECTORES_DISPONIBLES)
                 
                 if st.form_submit_button("💾 Guardar Empresa"):
                     if org_id_input and org_name_input:
                         try:
                             supabase.table("organizations").insert({
                                 "id": org_id_input,
-                                "name": org_name_input
+                                "name": org_name_input,
+                                "password": org_pass_input,
+                                "active_sectors": str(sectors_input) # Guardamos como texto
                             }).execute()
                             st.success(f"✅ Empresa '{org_name_input}' creada.")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
                     else:
-                        st.warning("Rellena ambos campos.")
+                        st.warning("El ID y el Nombre son obligatorios.")
 
         with col_view_orgs:
             st.markdown("### Empresas Activas")
@@ -964,11 +1031,11 @@ def render_admin_dashboard():
                 res_orgs = supabase.table("organizations").select("*").execute()
                 df_orgs = pd.DataFrame(res_orgs.data)
                 if not df_orgs.empty:
-                    st.dataframe(df_orgs, use_container_width=True)
+                    # Mostramos tabla limpia
+                    st.dataframe(df_orgs[['id', 'name', 'active_sectors']], use_container_width=True)
                 else:
                     st.info("No hay empresas creadas.")
-            except:
-                st.error("Error cargando empresas.")
+            except: pass
 
 # ==========================================
 # 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
