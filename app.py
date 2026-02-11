@@ -874,7 +874,7 @@ def render_admin_dashboard():
 
     # --- KPIs RÁPIDOS ---
     try:
-        res_users = supabase.table("sape_users").select("*", count="exact").execute()
+        res_users = supabase.table("users").select("*", count="exact").execute()
         res_results = supabase.table("sape_results").select("*", count="exact").execute()
         count_users = res_users.count
         count_results = res_results.count
@@ -917,7 +917,7 @@ def render_admin_dashboard():
                     if sec_retail and not sec_all: active_secs.append("RETAIL")
                     
                     try:
-                        supabase.table("sape_users").insert({
+                        supabase.table("users").insert({
                             "username": new_user,
                             "password": new_pass,
                             "role": new_role,
@@ -970,11 +970,11 @@ def render_admin_dashboard():
                     progress = st.progress(0)
                     for i, row in df_upload.iterrows():
                         try:
-                            supabase.table("sape_users").insert({
+                            supabase.table("users").insert({
                                 "username": row['username'],
                                 "password": str(row['password']),
                                 "role": "STUDENT",
-                                "organization": row.get('organization', 'GENERICO'),
+                                "org_id": row.get('organization', 'GENERICO'),
                                 "active_sectors": "['ALL']"
                             }).execute()
                         except: pass
