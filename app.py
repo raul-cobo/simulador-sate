@@ -976,11 +976,11 @@ def render_admin_dashboard():
         else:
             st.info("No hay empresas registradas.")
 
-# --- PESTAÑA 2: GESTIÓN DE USUARIOS (AHORA CON TABLA Y BORRADO) ---
+# --- PESTAÑA 2: GESTIÓN DE USUARIOS (VERSIÓN DEBUG) ---
     with tab2:
         c_form, c_view = st.columns([1, 1.5])
         
-        # IZQUIERDA: FORMULARIOS DE ALTA
+        # IZQUIERDA: ALTA
         with c_form:
             st.markdown("### ➕ Alta de Usuarios")
             type_add = st.radio("Método:", ["Uno a Uno", "Carga CSV"], horizontal=True)
@@ -990,8 +990,6 @@ def render_admin_dashboard():
                     new_user = st.text_input("Username / Email")
                     new_pass = st.text_input("Password", value="1234")
                     new_role = st.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-                    
-                    # Selector inteligente de empresa
                     if valid_ids: new_org_id = st.selectbox("Org ID", valid_ids)
                     else: new_org_id = st.text_input("Org ID")
                     
@@ -1017,7 +1015,6 @@ def render_admin_dashboard():
                                 uploaded.seek(0)
                                 df = pd.read_csv(uploaded, sep=',')
                             
-                            # Limpieza anti-fallos
                             df.columns = df.columns.str.replace('"','').str.strip()
                             for c in df.columns: 
                                 if df[c].dtype == object: df[c] = df[c].astype(str).str.replace('"','').str.strip()
@@ -1037,45 +1034,48 @@ def render_admin_dashboard():
                             st.rerun()
                         except Exception as e: st.error(f"Error en CSV: {e}")
 
-        # DERECHA: LISTADO Y GESTIÓN (¡LO QUE FALTABA!)
+        # DERECHA: LISTADO (MODO SEGURO)
         with c_view:
             st.markdown("### 📋 Usuarios en Base de Datos")
-            
-            # Filtros para encontrar gente rápido
             f_role = st.selectbox("Filtrar por Rol:", ["TODOS", "STUDENT", "MANAGER", "ADMIN"])
             
             try:
-                # Consulta base
+                # 1. Traemos todo sin filtros raros
                 query = supabase.table("users").select("*").order("created_at", desc=True)
                 if f_role != "TODOS": query = query.eq("role", f_role)
                 
                 res = query.execute()
+                
+                # 2. Convertimos a DataFrame
                 df_users = pd.DataFrame(res.data)
                 
                 if not df_users.empty:
-                    # Mostramos tabla limpia
-                    st.dataframe(
-                        df_users[['username', 'role', 'org_id', 'password']], 
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    # 3. MODO SEGURO: Mostramos lo que haya, sin forzar nombres de columnas
+                    # Esto evita el error si alguna columna se llama distinto
+                    st.dataframe(df_users, use_container_width=True, hide_index=True)
                     
                     st.divider()
                     
-                    # ZONA DE BORRADO
+                    # BORRADO
                     st.markdown("#### 🗑️ Eliminar Usuario")
-                    col_del_1, col_del_2 = st.columns([2, 1])
-                    user_to_del = col_del_1.selectbox("Selecciona usuario a borrar:", df_users['username'])
-                    
-                    if col_del_2.button("Borrar Definitivamente"):
-                        try:
-                            supabase.table("users").delete().eq("username", user_to_del).execute()
-                            st.warning(f"Usuario {user_to_del} eliminado.")
-                            st.rerun()
-                        except Exception as e: st.error(f"Error borrando: {e}")
+                    if 'username' in df_users.columns:
+                        col_del_1, col_del_2 = st.columns([2, 1])
+                        user_to_del = col_del_1.selectbox("Selecciona usuario:", df_users['username'])
+                        
+                        if col_del_2.button("Borrar"):
+                            try:
+                                supabase.table("users").delete().eq("username", user_to_del).execute()
+                                st.warning(f"Usuario {user_to_del} eliminado.")
+                                st.rerun()
+                            except Exception as e: st.error(f"Error borrando: {e}")
+                    else:
+                        st.error("No encuentro la columna 'username' en la base de datos.")
                 else:
                     st.info("No se encontraron usuarios.")
-            except Exception as e: st.error("Error cargando lista.")
+                    
+            except Exception as e:
+                # AQUÍ ESTÁ LA CLAVE: Mostramos el error real
+                st.error(f"💥 Error técnico detallado: {e}")
     # --- PESTAÑA 3: RESULTADOS GLOBALES ---
     with tab3:
         st.markdown("### 🌍 Resultados Globales")
