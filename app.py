@@ -976,81 +976,106 @@ def render_admin_dashboard():
         else:
             st.info("No hay empresas registradas.")
 
-    # --- PESTAÑA 2: GESTIÓN DE USUARIOS (Igual que antes) ---
+# --- PESTAÑA 2: GESTIÓN DE USUARIOS (AHORA CON TABLA Y BORRADO) ---
     with tab2:
-        st.markdown("### Gestión de Usuarios")
-        if valid_ids:
-            with st.expander("👀 Ver IDs Válidos"):
-                st.code(valid_ids, language="json")
-
-        type_add = st.radio("Modo de alta:", ["Uno a Uno", "Carga Masiva (Excel/CSV)"], horizontal=True)
+        c_form, c_view = st.columns([1, 1.5])
         
-        if type_add == "Uno a Uno":
-            with st.form("new_user_admin"):
-                c1, c2 = st.columns(2)
-                new_user = c1.text_input("Username / Email")
-                new_pass = c2.text_input("Password", value="1234")
-                c3, c4 = st.columns(2)
-                new_role = c3.selectbox("Role", ["STUDENT", "MANAGER", "ADMIN"])
-                new_org_id = c4.selectbox("Org ID", valid_ids) if valid_ids else c4.text_input("Org ID")
-                
-                if st.form_submit_button("Crear Usuario"):
-                    try:
-                        supabase.table("users").insert({"username": new_user, "password": new_pass, "role": new_role, "org_id": new_org_id}).execute()
-                        st.success(f"✅ Usuario {new_user} creado.")
-                    except Exception as e: st.error(f"Error: {e}")
-
-        else: # CARGA MASIVA
-            st.info("Formato: `username`, `password`, `role`, `org_id`")
-            uploaded_file = st.file_uploader("Arrastra tu CSV aquí", type=["csv"])
-            if uploaded_file is not None:
-                try:
-                    uploaded_file.seek(0)
-                    try: df_upload = pd.read_csv(uploaded_file, sep=';')
-                    except: 
-                        uploaded_file.seek(0)
-                        df_upload = pd.read_csv(uploaded_file, sep=',')
-
-                    if len(df_upload.columns) == 1: # Rompe-columnas
-                        col_raw = df_upload.columns[0]
-                        try:
-                            new_data = df_upload[col_raw].str.split(';', expand=True)
-                            new_header = [h.replace('"', '').replace("'", "").strip() for h in col_raw.split(';')]
-                            if len(new_header) == new_data.shape[1]:
-                                new_data.columns = new_header
-                                df_upload = new_data
-                        except: pass
-
-                    df_upload.columns = df_upload.columns.str.replace('"', '').str.replace("'", "").str.strip()
-                    for col in df_upload.columns:
-                        if df_upload[col].dtype == object:
-                            df_upload[col] = df_upload[col].astype(str).str.replace('"', '').str.replace("'", "").str.strip()
-
-                    # VALIDACIÓN EMPRESAS
-                    if 'org_id' in df_upload.columns:
-                        invalids = [o for o in df_upload['org_id'].unique() if o not in valid_ids]
-                        if invalids:
-                            st.error(f"🛑 Empresas NO válidas en CSV: {invalids}")
-                            st.stop()
-
-                    st.dataframe(df_upload.head(3), use_container_width=True)
+        # IZQUIERDA: FORMULARIOS DE ALTA
+        with c_form:
+            st.markdown("### ➕ Alta de Usuarios")
+            type_add = st.radio("Método:", ["Uno a Uno", "Carga CSV"], horizontal=True)
+            
+            if type_add == "Uno a Uno":
+                with st.form("new_user_admin"):
+                    new_user = st.text_input("Username / Email")
+                    new_pass = st.text_input("Password", value="1234")
+                    new_role = st.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
                     
-                    if st.button(f"🚀 Procesar {len(df_upload)} Usuarios"):
-                        progress_bar = st.progress(0)
-                        success_count = 0
-                        for i, row in df_upload.iterrows():
-                            try:
-                                u = str(row.get('username', '')).strip()
-                                p = str(row.get('password', '1234')).strip()
-                                r = str(row.get('role', 'STUDENT')).strip().upper()
-                                o = str(row.get('org_id', 'GENERICO')).strip()
-                                if u: 
-                                    supabase.table("users").insert({"username": u, "password": p, "role": r, "org_id": o}).execute()
-                                    success_count += 1
-                            except: pass
-                            progress_bar.progress((i + 1) / len(df_upload))
-                        st.success(f"✅ {success_count} usuarios creados.")
-                except Exception as e: st.error(f"Error: {e}")
+                    # Selector inteligente de empresa
+                    if valid_ids: new_org_id = st.selectbox("Org ID", valid_ids)
+                    else: new_org_id = st.text_input("Org ID")
+                    
+                    if st.form_submit_button("Crear Usuario"):
+                        try:
+                            supabase.table("users").insert({
+                                "username": new_user, "password": new_pass, 
+                                "role": new_role, "org_id": new_org_id
+                            }).execute()
+                            st.success(f"Usuario {new_user} creado.")
+                            st.rerun()
+                        except Exception as e: st.error(f"Error: {e}")
+
+            else: # CARGA CSV
+                st.info("CSV: `username`, `password`, `role`, `org_id`")
+                uploaded = st.file_uploader("Sube tu archivo", type=["csv"])
+                if uploaded:
+                    if st.button("Procesar Archivo"):
+                        try:
+                            uploaded.seek(0)
+                            try: df = pd.read_csv(uploaded, sep=';')
+                            except: 
+                                uploaded.seek(0)
+                                df = pd.read_csv(uploaded, sep=',')
+                            
+                            # Limpieza anti-fallos
+                            df.columns = df.columns.str.replace('"','').str.strip()
+                            for c in df.columns: 
+                                if df[c].dtype == object: df[c] = df[c].astype(str).str.replace('"','').str.strip()
+                                
+                            count = 0
+                            progress = st.progress(0)
+                            for i, r in df.iterrows():
+                                try:
+                                    supabase.table("users").insert({
+                                        "username": r['username'], "password": r['password'],
+                                        "role": r['role'].upper(), "org_id": r['org_id']
+                                    }).execute()
+                                    count += 1
+                                except: pass
+                                progress.progress((i+1)/len(df))
+                            st.success(f"✅ {count} usuarios importados.")
+                            st.rerun()
+                        except Exception as e: st.error(f"Error en CSV: {e}")
+
+        # DERECHA: LISTADO Y GESTIÓN (¡LO QUE FALTABA!)
+        with c_view:
+            st.markdown("### 📋 Usuarios en Base de Datos")
+            
+            # Filtros para encontrar gente rápido
+            f_role = st.selectbox("Filtrar por Rol:", ["TODOS", "STUDENT", "MANAGER", "ADMIN"])
+            
+            try:
+                # Consulta base
+                query = supabase.table("users").select("*").order("created_at", desc=True)
+                if f_role != "TODOS": query = query.eq("role", f_role)
+                
+                res = query.execute()
+                df_users = pd.DataFrame(res.data)
+                
+                if not df_users.empty:
+                    # Mostramos tabla limpia
+                    st.dataframe(
+                        df_users[['username', 'role', 'org_id', 'password']], 
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    st.divider()
+                    
+                    # ZONA DE BORRADO
+                    st.markdown("#### 🗑️ Eliminar Usuario")
+                    col_del_1, col_del_2 = st.columns([2, 1])
+                    user_to_del = col_del_1.selectbox("Selecciona usuario a borrar:", df_users['username'])
+                    
+                    if col_del_2.button("Borrar Definitivamente"):
+                        try:
+                            supabase.table("users").delete().eq("username", user_to_del).execute()
+                            st.warning(f"Usuario {user_to_del} eliminado.")
+                            st.rerun()
+                        except Exception as e: st.error(f"Error borrando: {e}")
+                else:
+                    st.info("No se encontraron usuarios.")
+            except Exception as e: st.error("Error cargando lista."))
 
     # --- PESTAÑA 3: RESULTADOS GLOBALES ---
     with tab3:
