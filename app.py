@@ -1119,31 +1119,39 @@ def render_admin_dashboard():
             except: pass
 
 # ==========================================
-# 🏢 PANEL CLIENTE (MANAGER) - VERSIÓN PRO
+# 🏢 PANEL CLIENTE (MANAGER) - VERSIÓN CORREGIDA
 # ==========================================
 def render_manager_dashboard():
     # 1. Recuperar datos
     user = st.session_state.user_data
-    org_id = user.get('org_id')
+    org_id = user.get('org_id') # Recuperamos el ID de la empresa
     
-    # 2. Cabecera
+    # 2. Cabecera Dinámica (LO QUE PEDÍAS)
     c1, c2 = st.columns([1, 6])
     with c1:
         if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
     with c2:
-        st.markdown(f"<h1 style='color: #0D248D;'>Área de Cliente: {org_id.upper()}</h1>", unsafe_allow_html=True)
-        st.caption(f"👋 Hola, {user.get('username')}. Seguimiento en tiempo real.")
+        # Si tiene empresa, la mostramos en mayúsculas. Si no, avisa.
+        titulo = org_id.upper() if org_id else "⚠️ SIN ORGANIZACIÓN ASIGNADA"
+        st.markdown(f"<h1 style='color: #0D248D;'>Panel de Control: {titulo}</h1>", unsafe_allow_html=True)
+        st.caption(f"👋 Hola, {user.get('username')}.")
     st.divider()
 
+    # 3. BLOQUEO DE SEGURIDAD (Si org_id es None, no seguimos)
+    if not org_id or org_id == "None":
+        st.error("❌ ERROR DE CONFIGURACIÓN DE USUARIO")
+        st.warning("Este usuario Manager no tiene una Organización asignada en la base de datos.")
+        st.info("Solución: Entra como ADMIN, borra este usuario y créalo de nuevo seleccionando una empresa válida.")
+        return # Paramos aquí para que no explote el resto del código
+
+    # 4. Lógica de Negocio (Solo se ejecuta si hay org_id)
     try:
-        # A. Datos
         users_resp = supabase.table("users").select("*").eq("org_id", org_id).eq("role", "STUDENT").execute()
         df_users = pd.DataFrame(users_resp.data)
         
         results_resp = supabase.table("sape_results").select("*").eq("organization", org_id).execute()
         df_results = pd.DataFrame(results_resp.data)
         
-        # B. Cruce
         if not df_users.empty:
             if not df_results.empty:
                 res_clean = df_results[['student_id', 'ire', 'friction', 'octagon', 'created_at']].copy()
@@ -1152,11 +1160,9 @@ def render_manager_dashboard():
                 df_final = df_users.copy()
                 for c in ['ire', 'friction', 'octagon', 'created_at']: df_final[c] = None
                 
-            # C. Estado
             df_final['Estado'] = df_final['created_at'].apply(lambda x: "✅ Completado" if pd.notnull(x) else "❌ Pendiente")
             df_final['Fecha'] = pd.to_datetime(df_final['created_at']).dt.strftime('%d/%m/%Y %H:%M')
             
-            # D. KPIs
             total = len(df_final)
             completed = len(df_final[df_final['Estado'] == "✅ Completado"])
             avg_ire = df_final['ire'].mean() if completed > 0 else 0
@@ -1166,21 +1172,16 @@ def render_manager_dashboard():
             k2.metric("Completados", f"{completed} ({int(completed/total*100) if total else 0}%)")
             k3.metric("Nota Media (IRE)", f"{avg_ire:.1f}")
             
-            # E. Pestañas
             tab1, tab2, tab3 = st.tabs(["🚦 SEGUIMIENTO", "📊 GRUPO", "⭐ TALENTO"])
             
-            with tab1: # TABLA
+            with tab1: 
                 filtro = st.radio("Ver:", ["Todos", "Pendientes", "Completados"], horizontal=True)
                 df_view = df_final
                 if filtro == "Pendientes": df_view = df_final[df_final['Estado'] == "❌ Pendiente"]
                 elif filtro == "Completados": df_view = df_final[df_final['Estado'] == "✅ Completado"]
-                
-                st.dataframe(
-                    df_view[['username', 'Estado', 'ire', 'friction', 'Fecha']],
-                    use_container_width=True
-                )
+                st.dataframe(df_view[['username', 'Estado', 'ire', 'friction', 'Fecha']], use_container_width=True)
 
-            with tab2: # GRÁFICOS
+            with tab2:
                 if completed > 0:
                     try:
                         valid_octs = df_final['octagon'].dropna().apply(lambda x: eval(x) if isinstance(x, str) else x).tolist()
@@ -1192,14 +1193,14 @@ def render_manager_dashboard():
                     except: pass
                 else: st.info("Faltan datos.")
 
-            with tab3: # MAPA
+            with tab3:
                 if completed > 0:
                     fig = px.scatter(df_final[df_final['Estado']=="✅ Completado"], x="ire", y="friction", color="ire", hover_data=["username"], text="username", color_continuous_scale="RdYlGn", title="Mapa de Talento")
                     fig.add_hrect(y0=80, y1=100, line_width=0, fillcolor="red", opacity=0.1)
                     st.plotly_chart(fig, use_container_width=True)
                 else: st.info("Faltan datos.")
 
-        else: st.warning("No hay alumnos en esta empresa.")
+        else: st.warning(f"No hay alumnos registrados en {org_id}.")
             
     except Exception as e: st.error(f"Error: {e}")
 
