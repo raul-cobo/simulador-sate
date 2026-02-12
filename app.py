@@ -1076,6 +1076,47 @@ def render_admin_dashboard():
                     
             except Exception as e: 
                 st.error(f"💥 Error mostrando tabla: {e}")
+    # --- PESTAÑA 3: RESULTADOS GLOBALES ---
+    with tab3:
+        st.markdown("### 🌍 Resultados Globales")
+        try:
+            all_res = supabase.table("sape_results").select("*").execute()
+            df = pd.DataFrame(all_res.data)
+            if not df.empty:
+                st.dataframe(df, use_container_width=True)
+                st.download_button("📥 CSV Global", df.to_csv(index=False).encode('utf-8'), "global.csv", "text/csv")
+            else: st.info("Sin datos.")
+        except: pass
+
+    # --- PESTAÑA 4: EMPRESAS ---
+    with tab4:
+        st.markdown("### 🏢 Gestión de Empresas")
+        c1, c2 = st.columns([1, 1.5])
+        with c1:
+            with st.form("new_org"):
+                oid = st.text_input("ID (sin espacios)").strip()
+                oname = st.text_input("Nombre").strip()
+                opass = st.text_input("Password", type="password").strip()
+                sects = st.multiselect("Sectores", ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICOLOGÍA_SANITARIA", "CONSULTORÍA", "HOSTELERÍA", "SOCIAL", "SALUD", "PSICOLOGÍA_NO_SANITARIA"], default=["TECH"])
+                if st.form_submit_button("Guardar"):
+                    try:
+                        supabase.table("organizations").insert({"id": oid, "name": oname, "password": opass, "active_sectors": str(sects)}).execute()
+                        st.success("Creada.")
+                        st.rerun()
+                    except Exception as e: st.error(f"Error: {e}")
+        with c2:
+            try:
+                res = supabase.table("organizations").select("*").execute()
+                df = pd.DataFrame(res.data)
+                if not df.empty:
+                    st.dataframe(df[['id', 'name']], use_container_width=True)
+                    to_del = st.selectbox("Borrar empresa:", df['id'])
+                    if st.button("🗑️ Eliminar Empresa"):
+                        try:
+                            supabase.table("organizations").delete().eq("id", to_del).execute()
+                            st.rerun()
+                        except: st.error("No se puede borrar si tiene usuarios.")
+            except: pass
 
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - FINAL
