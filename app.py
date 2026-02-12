@@ -863,12 +863,12 @@ def render_admin_dashboard():
     st.title("👑 Panel de Administración")
     
     try:
-        # KPIs Básicos
+        # KPIs Básicos (Conexión segura)
         count_users = supabase.table("users").select("*", count="exact").execute().count
         count_results = supabase.table("sape_results").select("*", count="exact").execute().count
         count_orgs = supabase.table("organizations").select("*", count="exact").execute().count
         
-        # Recuperar IDs válidos de empresas
+        # Recuperar IDs válidos de empresas para los selectores
         res_orgs = supabase.table("organizations").select("id").execute()
         valid_ids = [o['id'] for o in res_orgs.data]
     except: 
@@ -907,13 +907,16 @@ def render_admin_dashboard():
                             df_final['ire'] = None
 
                         df_final['Estado'] = df_final['fecha'].apply(lambda x: "✅ Hecho" if pd.notnull(x) else "❌ Pendiente")
-                        st.dataframe(df_final[['username', 'role', 'Estado', 'ire', 'fecha']], use_container_width=True)
+                        
+                        # Mostramos tabla limpia
+                        cols_show = ['username', 'role', 'Estado', 'ire', 'fecha']
+                        st.dataframe(df_final[[c for c in cols_show if c in df_final.columns]], use_container_width=True)
                     else:
-                        st.info("Esta empresa no tiene usuarios.")
+                        st.info("Esta empresa no tiene usuarios asignados.")
                 except Exception as e: st.error(f"Error: {e}")
         else: st.warning("No hay empresas creadas.")
 
-    # --- PESTAÑA 2: USUARIOS (CORREGIDO: SIN FECHAS NI ORDEN) ---
+    # --- PESTAÑA 2: USUARIOS (SIN ERRORES DE FECHA) ---
     with tab2:
         c1, c2 = st.columns([1, 1.5])
         with c1: # ALTA
@@ -932,10 +935,10 @@ def render_admin_dashboard():
                         st.rerun()
                     except Exception as e: st.error(f"Error: {e}")
 
-        with c2: # LISTADO (A PRUEBA DE BOMBAS)
+        with c2: # LISTADO BLINDADO
             st.markdown("### 📋 Listado Completo")
             try:
-                # Consulta simple sin ordenar por created_at para que no falle
+                # Consulta simple SIN ordenar por created_at (esto arregla el error)
                 res = supabase.table("users").select("*").execute()
                 df = pd.DataFrame(res.data)
                 
@@ -968,8 +971,9 @@ def render_admin_dashboard():
                 oid = st.text_input("ID (sin espacios)").strip()
                 oname = st.text_input("Nombre").strip()
                 if st.form_submit_button("Crear Empresa"):
-                    supabase.table("organizations").insert({"id": oid, "name": oname}).execute()
-                    st.rerun()
+                    if oid and oname:
+                        supabase.table("organizations").insert({"id": oid, "name": oname}).execute()
+                        st.rerun()
         with c2:
             try:
                 res = supabase.table("organizations").select("*").execute()
@@ -977,7 +981,7 @@ def render_admin_dashboard():
             except: pass
 
 # ==========================================
-# 🏢 PANEL CLIENTE (MANAGER) - CORREGIDO
+# 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
 # ==========================================
 def render_manager_dashboard():
     user = st.session_state.user_data
@@ -988,29 +992,30 @@ def render_manager_dashboard():
     with c1:
         if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
     with c2:
-        # Título dinámico
-        titulo = org_id.upper() if (org_id and org_id != "None") else "⚠️ SIN EMPRESA"
+        # Título dinámico: Muestra el nombre de la empresa O avisa del error
+        titulo = org_id.upper() if (org_id and org_id != "None") else "⚠️ ERROR: SIN EMPRESA"
         st.markdown(f"<h1 style='color: #0D248D;'>Panel de Control: {titulo}</h1>", unsafe_allow_html=True)
         st.caption(f"👋 Hola, {user.get('username')}")
     st.divider()
 
-    # BLOQUEO SI NO HAY EMPRESA
+    # BLOQUEO DE SEGURIDAD
     if not org_id or org_id == "None":
-        st.error("❌ ERROR: Tu usuario no tiene una organización asignada.")
-        st.info("Pide al Administrador que borre tu usuario y lo cree de nuevo asignando una empresa válida.")
+        st.error("❌ ERROR DE CONFIGURACIÓN")
+        st.warning("Tu usuario no tiene una organización asignada correctamente.")
+        st.info("Por favor, contacta con el Administrador para que corrija tu usuario (campo org_id).")
         return
 
     # DASHBOARD
     try:
-        # Datos
+        # 1. Cargar Datos
         df_users = pd.DataFrame(supabase.table("users").select("*").eq("org_id", org_id).eq("role", "STUDENT").execute().data)
         df_res = pd.DataFrame(supabase.table("sape_results").select("*").eq("organization", org_id).execute().data)
         
         if df_users.empty:
-            st.warning("No hay alumnos registrados en tu organización.")
+            st.warning("No hay alumnos registrados en tu organización todavía.")
             return
 
-        # Cruce
+        # 2. Cruce de Datos
         if not df_res.empty:
             df_res = df_res[['student_id', 'ire', 'friction', 'octagon', 'created_at']]
             df_final = pd.merge(df_users, df_res, left_on='username', right_on='student_id', how='left')
@@ -1021,16 +1026,16 @@ def render_manager_dashboard():
         df_final['Estado'] = df_final['created_at'].apply(lambda x: "✅ Completado" if pd.notnull(x) else "❌ Pendiente")
         df_final['Fecha'] = pd.to_datetime(df_final['created_at']).dt.strftime('%d/%m/%Y')
 
-        # KPIs
+        # 3. KPIs
         hechos = len(df_final[df_final['Estado'] == "✅ Completado"])
         avg_ire = df_final['ire'].mean() if hechos > 0 else 0
         
         k1, k2, k3 = st.columns(3)
-        k1.metric("Alumnos", len(df_final))
+        k1.metric("Alumnos Total", len(df_final))
         k2.metric("Completados", f"{hechos}")
         k3.metric("Nota Media", f"{avg_ire:.1f}")
 
-        # Pestañas
+        # 4. Pestañas
         t1, t2, t3 = st.tabs(["🚦 Seguimiento", "📊 Grupo", "⭐ Talento"])
         
         with t1:
@@ -1039,139 +1044,59 @@ def render_manager_dashboard():
         with t2:
             if hechos > 0:
                 try:
-                    # Radar
                     valid = df_final['octagon'].dropna().apply(lambda x: eval(x) if isinstance(x, str) else x).tolist()
                     if valid:
                         avg = {}
                         for k in valid[0].keys(): avg[k] = sum(d.get(k,0) for d in valid)/len(valid)
                         st.plotly_chart(radar_chart(avg, "Media Clase"), use_container_width=True)
                 except: pass
-            else: st.info("Faltan datos.")
+            else: st.info("Faltan datos para la gráfica.")
 
         with t3:
             if hechos > 0:
                 fig = px.scatter(df_final[df_final['Estado']=="✅ Completado"], x="ire", y="friction", color="ire", hover_data=["username"], title="Mapa Talento")
                 st.plotly_chart(fig, use_container_width=True)
-            else: st.info("Faltan datos.")
+            else: st.info("Faltan datos para el mapa.")
 
     except Exception as e: st.error(f"Error cargando datos: {e}")
 
 # ==========================================
-# 🚀 BLOQUE 3: EL ROUTER PRINCIPAL (MAIN)
+# 🚀 MAIN (ROUTER)
 # ==========================================
 def main():
-    # 1. INYECTAR ESTILO LO PRIMERO (Modo Oscuro + Ocultar Barras)
-    inject_custom_css() 
-
-    # Inicialización Segura
-    if 'octagon' not in st.session_state:
-        st.session_state.octagon = {k: 50 for k in ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", "emotional_stability", "achievement", "leadership", "adaptability"]}
-    if 'flags' not in st.session_state: st.session_state.flags = {}
-    if 'history' not in st.session_state: st.session_state.history = []
-    if 'current_step' not in st.session_state: st.session_state.current_step = 0
-    if 'started' not in st.session_state: st.session_state.started = False
+    inject_custom_css()
     if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+    if 'user_data' not in st.session_state: st.session_state.user_data = {}
 
-    # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
-    # A. SI NO ESTÁ LOGUEADO -> PANTALLA DE LOGIN
     if not st.session_state.logged_in:
-        
-        c1, c2, c3 = st.columns([1, 2, 1])
+        c1, c2, c3 = st.columns([1, 1, 1])
         with c2:
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            
-            # --- LÓGICA DEL LOGO CORREGIDA ---
-            # Prioridad 1: Logo Original (Color #0D248D y Negro) -> Ideal para fondo blanco
-            if os.path.exists("logo_original.png"): 
-                st.image("logo_original.png", use_container_width=True)
-            # Prioridad 2: Logo Blanco (Por si acaso falta el otro)
-            elif os.path.exists("logo_blanco.png"): 
-                # Le ponemos un fondo oscuro temporal con CSS solo a la imagen si toca usar el blanco
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            # Prioridad 3: Texto (Si no hay imágenes) -> Usamos tu color corporativo
-            else: 
-                st.markdown("<h1 style='text-align: center; color: #0D248D !important;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-            
-            # Subtítulo en Gris Oscuro (para que se lea en fondo blanco)
-            st.markdown("<h3 style='text-align: center; color: #333333 !important;'>Sistema de Análisis de la Personalidad Emprendedora</h3>", unsafe_allow_html=True)
-            
-            with st.form("login_form_supabase"):
-                user_in = st.text_input("USUARIO")
-                pass_in = st.text_input("CONTRASEÑA", type="password")
-                
-                submitted = st.form_submit_button("ENTRAR 🚀", use_container_width=True)
-                
-                if submitted:
-                    user_data = login_supabase(user_in, pass_in)
-                    if user_data:
-                        st.session_state.logged_in = True
-                        st.session_state.user_data = user_data
-                        st.rerun()
-                    else:
-                        st.error("❌ Usuario o contraseña incorrectos")
-
-    # B. SI YA ESTÁ LOGUEADO -> DISTRIBUIR SEGÚN ROL
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+            st.markdown("<h2 style='text-align: center; color: #0D248D;'>ACCESO CORPORATIVO</h2>", unsafe_allow_html=True)
+            with st.form("login_form"):
+                u = st.text_input("Usuario")
+                p = st.text_input("Contraseña", type="password")
+                if st.form_submit_button("ENTRAR", use_container_width=True):
+                    try:
+                        res = supabase.table("users").select("*").eq("username", u).eq("password", p).execute()
+                        if res.data:
+                            st.session_state.logged_in = True
+                            st.session_state.user_data = res.data[0]
+                            st.rerun()
+                        else: st.error("❌ Credenciales incorrectas")
+                    except Exception as e: st.error(f"Error de conexión: {e}")
     else:
         with st.sidebar:
             st.write(f"👤 **{st.session_state.user_data.get('username')}**")
-            st.caption(f"Rol: {st.session_state.user_data.get('role')}")
             if st.button("Cerrar Sesión"):
                 st.session_state.logged_in = False
                 st.session_state.user_data = {}
                 st.rerun()
-        
-        # 1. ES EL JEFE (TÚ)
-        if st.session_state.user_data.get('role') == 'ADMIN':
-            render_admin_dashboard()
-            
-       # 2. ES UN MANAGER (CLIENTE)
-        elif st.session_state.user_data.get('role') == 'MANAGER':
-            
-            # LOGO CORPORATIVO TAMBIÉN AQUÍ
-            c1, c2 = st.columns([1, 6])
-            with c1:
-                if os.path.exists("logo_original.png"): st.image("logo_original.png")
-            with c2:
-                org_name = st.session_state.user_data.get('organization', 'Tu Organización')
-                st.markdown(f"<h1 style='color: #0D248D;'>Panel de Control: {org_name}</h1>", unsafe_allow_html=True)
-            
-            st.divider()
 
-            # TRAER SOLO DATOS DE SU EMPRESA
-            try:
-                my_org = st.session_state.user_data.get('organization')
-                response = supabase.table("sape_results").select("*").eq("organization", my_org).execute()
-                df = pd.DataFrame(response.data)
-                
-                if not df.empty:
-                    # Métricas Resumen
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Participantes", len(df))
-                    m2.metric("Media IRE", f"{df['ire'].mean():.1f}")
-                    m3.metric("Fricción Media", f"{df['friction'].mean():.1f}%")
-                    
-                    st.markdown("### 📋 Detalle de Evaluados")
-                    st.dataframe(
-                        df[['student_id', 'sector', 'ire', 'friction', 'created_at']], 
-                        use_container_width=True
-                    )
-                    
-                    # Gráfico simple de distribución
-                    if 'ire' in df.columns:
-                        fig = px.histogram(df, x="ire", nbins=10, title="Distribución de Puntuaciones IRE", color_discrete_sequence=['#0D248D'])
-                        st.plotly_chart(fig, use_container_width=True)
+        role = st.session_state.user_data.get('role')
+        if role == 'ADMIN': render_admin_dashboard()
+        elif role == 'MANAGER': render_manager_dashboard()
+        else: run_simulator_logic()
 
-                else:
-                    st.info(f"👋 Hola. Aún no hay resultados registrados para **{my_org}**.")
-                    
-            except Exception as e:
-                st.error(f"Error conectando con base de datos: {e}")
-            
-        # 3. ES UN ALUMNO (JUGADOR)
-        else:
-            run_simulator_logic()
-
-# EJECUTAR APLICACIÓN
 if __name__ == "__main__":
     main()
