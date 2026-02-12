@@ -1075,8 +1075,7 @@ def render_admin_dashboard():
                         except Exception as e: st.error(f"Error borrando: {e}")
                 else:
                     st.info("No se encontraron usuarios.")
-            except Exception as e: st.error("Error cargando lista."))
-
+            except Exception as e: st.error("Error cargando lista.")
     # --- PESTAÑA 3: RESULTADOS GLOBALES ---
     with tab3:
         st.markdown("### 🌍 Resultados Globales")
