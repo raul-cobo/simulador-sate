@@ -976,7 +976,7 @@ def render_admin_dashboard():
         else:
             st.info("No hay empresas registradas.")
 
-# --- PESTAÑA 2: GESTIÓN DE USUARIOS (VERSIÓN DEBUG) ---
+# --- PESTAÑA 2: GESTIÓN DE USUARIOS (VERSIÓN FINAL SIN ERRORES) ---
     with tab2:
         c_form, c_view = st.columns([1, 1.5])
         
@@ -990,8 +990,12 @@ def render_admin_dashboard():
                     new_user = st.text_input("Username / Email")
                     new_pass = st.text_input("Password", value="1234")
                     new_role = st.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-                    if valid_ids: new_org_id = st.selectbox("Org ID", valid_ids)
-                    else: new_org_id = st.text_input("Org ID")
+                    
+                    # Intentamos usar valid_ids si existen, si no texto libre
+                    if 'valid_ids' in locals() and valid_ids: 
+                        new_org_id = st.selectbox("Org ID", valid_ids)
+                    else: 
+                        new_org_id = st.text_input("Org ID")
                     
                     if st.form_submit_button("Crear Usuario"):
                         try:
@@ -1034,89 +1038,44 @@ def render_admin_dashboard():
                             st.rerun()
                         except Exception as e: st.error(f"Error en CSV: {e}")
 
-        # DERECHA: LISTADO (MODO SEGURO)
+        # DERECHA: LISTADO (SIN FILTROS DE FECHA)
         with c_view:
             st.markdown("### 📋 Usuarios en Base de Datos")
             f_role = st.selectbox("Filtrar por Rol:", ["TODOS", "STUDENT", "MANAGER", "ADMIN"])
             
             try:
-                # 1. Traemos todo sin filtros raros
-                query = supabase.table("users").select("*").order("created_at", desc=True)
+                # 1. Consulta SIMPLE (Sin .order() para evitar errores de columnas)
+                query = supabase.table("users").select("*")
                 if f_role != "TODOS": query = query.eq("role", f_role)
                 
                 res = query.execute()
-                
-                # 2. Convertimos a DataFrame
                 df_users = pd.DataFrame(res.data)
                 
                 if not df_users.empty:
-                    # 3. MODO SEGURO: Mostramos lo que haya, sin forzar nombres de columnas
-                    # Esto evita el error si alguna columna se llama distinto
+                    # 2. Mostramos la tabla tal cual viene
                     st.dataframe(df_users, use_container_width=True, hide_index=True)
                     
                     st.divider()
                     
-                    # BORRADO
+                    # 3. Borrado
                     st.markdown("#### 🗑️ Eliminar Usuario")
                     if 'username' in df_users.columns:
                         col_del_1, col_del_2 = st.columns([2, 1])
                         user_to_del = col_del_1.selectbox("Selecciona usuario:", df_users['username'])
                         
-                        if col_del_2.button("Borrar"):
+                        if col_del_2.button("Borrar Usuario"):
                             try:
                                 supabase.table("users").delete().eq("username", user_to_del).execute()
                                 st.warning(f"Usuario {user_to_del} eliminado.")
                                 st.rerun()
                             except Exception as e: st.error(f"Error borrando: {e}")
                     else:
-                        st.error("No encuentro la columna 'username' en la base de datos.")
+                        st.warning("No veo la columna 'username'.")
                 else:
                     st.info("No se encontraron usuarios.")
                     
-            except Exception as e:
-                # AQUÍ ESTÁ LA CLAVE: Mostramos el error real
-                st.error(f"💥 Error técnico detallado: {e}")
-    # --- PESTAÑA 3: RESULTADOS GLOBALES ---
-    with tab3:
-        st.markdown("### 🌍 Resultados Globales")
-        try:
-            all_res = supabase.table("sape_results").select("*").execute()
-            df = pd.DataFrame(all_res.data)
-            if not df.empty:
-                st.dataframe(df, use_container_width=True)
-                st.download_button("📥 CSV Global", df.to_csv(index=False).encode('utf-8'), "global.csv", "text/csv")
-            else: st.info("Sin datos.")
-        except: pass
-
-    # --- PESTAÑA 4: EMPRESAS ---
-    with tab4:
-        st.markdown("### 🏢 Gestión de Empresas")
-        c1, c2 = st.columns([1, 1.5])
-        with c1:
-            with st.form("new_org"):
-                oid = st.text_input("ID (sin espacios)").strip()
-                oname = st.text_input("Nombre").strip()
-                opass = st.text_input("Password", type="password").strip()
-                sects = st.multiselect("Sectores", ["TECH", "RETAIL", "FREELANCE", "INTRA", "PSICOLOGÍA_SANITARIA", "CONSULTORÍA", "HOSTELERÍA", "SOCIAL", "SALUD", "PSICOLOGÍA_NO_SANITARIA"], default=["TECH"])
-                if st.form_submit_button("Guardar"):
-                    try:
-                        supabase.table("organizations").insert({"id": oid, "name": oname, "password": opass, "active_sectors": str(sects)}).execute()
-                        st.success("Creada.")
-                        st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-        with c2:
-            try:
-                res = supabase.table("organizations").select("*").execute()
-                df = pd.DataFrame(res.data)
-                if not df.empty:
-                    st.dataframe(df[['id', 'name']], use_container_width=True)
-                    to_del = st.selectbox("Borrar empresa:", df['id'])
-                    if st.button("🗑️ Eliminar Empresa"):
-                        try:
-                            supabase.table("organizations").delete().eq("id", to_del).execute()
-                            st.rerun()
-                        except: st.error("No se puede borrar si tiene usuarios.")
-            except: pass
+            except Exception as e: 
+                st.error(f"💥 Error mostrando tabla: {e}")
 
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - FINAL
