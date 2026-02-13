@@ -658,11 +658,11 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
-    # ----------------------------------------------------
-    # PANTALLA 5: RESULTADOS (INFORME FINAL PRO)
+ # ----------------------------------------------------
+    # PANTALLA 5: RESULTADOS (CON BARRAS MULTICOLOR)
     # ----------------------------------------------------
     else:
-        # 1. Recuperamos fondo blanco para el informe (mejor para leer/imprimir)
+        # 1. Recuperamos fondo blanco para el informe
         st.markdown("""
         <style>
             .stApp { background-color: #FFFFFF !important; }
@@ -679,27 +679,13 @@ def run_simulator_logic():
             }
             .metric-value { font-size: 2.5rem; font-weight: 700; color: #0D248D; }
             .metric-label { font-size: 1rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-            
-            /* Barras de Progreso Personalizadas */
-            .skill-bar-bg {
-                background-color: #E9ECEF;
-                border-radius: 8px;
-                height: 10px;
-                width: 100%;
-                margin-top: 5px;
-            }
-            .skill-bar-fill {
-                height: 100%;
-                border-radius: 8px;
-                transition: width 1s ease-in-out;
-            }
         </style>
         """, unsafe_allow_html=True)
 
         # 2. Cálculos
         ire, avg, fric, _, _, _, scores, _ = calculate_results()
         
-        # 3. Cabecera del Informe
+        # 3. Cabecera
         c_logo, c_info = st.columns([1, 4])
         with c_logo:
             if os.path.exists("logo_original.png"): st.image("logo_original.png", width=120)
@@ -710,12 +696,10 @@ def run_simulator_logic():
 
         st.markdown("---")
 
-        # 4. KPIs Principales (Tarjetas)
+        # 4. KPIs Principales
         k1, k2, k3 = st.columns(3)
-        
-        # Colores dinámicos según puntuación
         color_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
-        color_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71" # Fricción es al revés: menos es mejor
+        color_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71"
         
         with k1:
             st.markdown(f"""
@@ -723,14 +707,12 @@ def run_simulator_logic():
                 <div class="metric-label">Índice Resiliencia (IRE)</div>
                 <div class="metric-value" style="color: {color_ire}">{int(ire)}/100</div>
             </div>""", unsafe_allow_html=True)
-            
         with k2:
              st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Potencial Competencial</div>
                 <div class="metric-value">{int(avg)}/100</div>
             </div>""", unsafe_allow_html=True)
-             
         with k3:
              st.markdown(f"""
             <div class="metric-card">
@@ -738,7 +720,7 @@ def run_simulator_logic():
                 <div class="metric-value" style="color: {color_fric}">{int(fric)}%</div>
             </div>""", unsafe_allow_html=True)
 
-        st.write("") # Espacio
+        st.write("")
 
         # 5. Gráfico y Desglose
         col_radar, col_skills = st.columns([1, 1], gap="large")
@@ -746,58 +728,59 @@ def run_simulator_logic():
         with col_radar:
             st.markdown("### 🕸️ Mapa de Talento")
             st.plotly_chart(radar_chart(), use_container_width=True)
-            
-            # Pequeño diagnóstico automático
             if ire > 75: diag = "Tu perfil muestra una **alta alineación** con las exigencias del emprendimiento."
             elif ire > 50: diag = "Tienes una base sólida, pero hay **áreas de fricción** que debes trabajar."
-            else: diag = "Se detectan **riesgos significativos** en la toma de decisiones. Recomendamos formación."
+            else: diag = "Se detectan **riesgos significativos** en la toma de decisiones."
             st.info(diag)
 
         with col_skills:
             st.markdown("### 📊 Competencias Clave")
             
-            # Diccionario para traducir claves a Español bonito
             LABELS = {
-                "risk_propensity": "Propensión al Riesgo",
-                "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación",
-                "locus_of_control": "Locus de Control",
-                "emotional_stability": "Estabilidad Emocional",
-                "achievement": "Orientación al Logro",
-                "leadership": "Liderazgo",
-                "adaptability": "Adaptabilidad"
+                "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
+                "innovativeness": "Innovación", "locus_of_control": "Locus de Control",
+                "emotional_stability": "Estabilidad Emocional", "achievement": "Orientación al Logro",
+                "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
             }
             
-            # Pintar barras
             for key, val in scores.items():
                 nombre = LABELS.get(key, key.capitalize())
-                # Color de la barra según valor
-                bar_color = "#2ECC71" if val >= 70 else "#F1C40F" if val >= 40 else "#E74C3C"
+                
+                # --- MAGIA AQUÍ: Barra Multicolor superpuesta ---
+                # Explicación: 
+                # 1. Capa Fondo: Un gradiente lineal fijo que tiene los 4 tramos de color.
+                # 2. Capa Frente (Máscara): Un div gris que tapa la barra desde la derecha según el % que falte.
+                
+                inverse_width = 100 - val # Lo que falta para llegar a 100 (la máscara)
                 
                 st.markdown(f"""
                 <div style="margin-bottom: 15px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                        <span style="font-weight:600; font-size:0.9rem;">{nombre}</span>
-                        <span style="font-weight:700; color:{bar_color}">{int(val)}%</span>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span style="font-weight:600; font-size:0.9rem; color: #333;">{nombre}</span>
+                        <span style="font-weight:700; color: #333;">{int(val)}%</span>
                     </div>
-                    <div class="skill-bar-bg">
-                        <div class="skill-bar-fill" style="width: {val}%; background-color: {bar_color};"></div>
+                    
+                    <div style="width: 100%; height: 12px; background-color: #E9ECEF; border-radius: 6px; position: relative; overflow: hidden;">
+                        
+                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                            background: linear-gradient(to right, 
+                                #E74C3C 0%, #E74C3C 25%, 
+                                #F1C40F 25%, #F1C40F 60%, 
+                                #2ECC71 60%, #2ECC71 90%, 
+                                #E74C3C 90%, #E74C3C 100%);">
+                        </div>
+                        
+                        <div style="position: absolute; top: 0; right: 0; width: {inverse_width}%; height: 100%; background-color: #E9ECEF;"></div>
+                        
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # 6. Guardado Automático
         if 'saved' not in st.session_state:
             save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
             st.session_state.saved = True
-            st.success("✅ Resultados guardados exitosamente en tu expediente.")
+            st.success("✅ Resultados guardados.")
         
-        # Botón para repetir (opcional, solo para demos)
-        if st.button("🔄 Reiniciar Simulación"):
-            for k in st.session_state.keys():
-                del st.session_state[k]
-            st.rerun()
-
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
 # ==========================================
