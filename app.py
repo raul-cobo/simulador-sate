@@ -658,37 +658,39 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
- # ----------------------------------------------------
-    # PANTALLA 5: RESULTADOS (CON BARRAS MULTICOLOR)
+# ----------------------------------------------------
+    # PANTALLA 5: RESULTADOS (SOLO ESTE BLOQUE)
     # ----------------------------------------------------
     else:
-        # 1. Recuperamos fondo blanco para el informe
+        # 1. ESTILOS ESPECÍFICOS PARA EL INFORME (Fondo blanco, tarjetas, etc.)
         st.markdown("""
         <style>
             .stApp { background-color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, li, span, div { color: #050A1F !important; }
+            h1, h2, h3, h4, p, li, span, div, label { color: #050A1F !important; }
             
-            /* Tarjetas de Métricas */
+            /* Tarjetas de KPIs */
             .metric-card {
                 background-color: #F8F9FA;
                 border: 1px solid #E9ECEF;
-                border-radius: 10px;
+                border-radius: 12px;
                 padding: 20px;
                 text-align: center;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                transition: transform 0.2s;
             }
-            .metric-value { font-size: 2.5rem; font-weight: 700; color: #0D248D; }
-            .metric-label { font-size: 1rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+            .metric-card:hover { transform: translateY(-5px); }
+            .metric-value { font-size: 2.5rem; font-weight: 800; color: #0D248D; margin: 10px 0; }
+            .metric-label { font-size: 0.9rem; color: #666; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; }
         </style>
         """, unsafe_allow_html=True)
 
-        # 2. Cálculos
+        # 2. CÁLCULOS
         ire, avg, fric, _, _, _, scores, _ = calculate_results()
         
-        # 3. Cabecera
+        # 3. CABECERA
         c_logo, c_info = st.columns([1, 4])
         with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", width=120)
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", width=130)
             else: st.markdown("## 🧬 AUDEO")
         with c_info:
             st.markdown(f"# Informe de Perfil Emprendedor")
@@ -696,16 +698,18 @@ def run_simulator_logic():
 
         st.markdown("---")
 
-        # 4. KPIs Principales
+        # 4. TARJETAS DE MÉTRICAS (KPIs)
         k1, k2, k3 = st.columns(3)
-        color_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
-        color_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71"
+        
+        # Colores para los números
+        c_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
+        c_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71" # Fricción al revés
         
         with k1:
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Índice Resiliencia (IRE)</div>
-                <div class="metric-value" style="color: {color_ire}">{int(ire)}/100</div>
+                <div class="metric-value" style="color: {c_ire}">{int(ire)}/100</div>
             </div>""", unsafe_allow_html=True)
         with k2:
              st.markdown(f"""
@@ -717,24 +721,26 @@ def run_simulator_logic():
              st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Nivel de Fricción</div>
-                <div class="metric-value" style="color: {color_fric}">{int(fric)}%</div>
+                <div class="metric-value" style="color: {c_fric}">{int(fric)}%</div>
             </div>""", unsafe_allow_html=True)
 
-        st.write("")
+        st.write("") # Separador
 
-        # 5. Gráfico y Desglose
-        col_radar, col_skills = st.columns([1, 1], gap="large")
+        # 5. GRÁFICO Y BARRAS DE COMPETENCIAS
+        col_radar, col_skills = st.columns([1, 1.2], gap="large")
         
         with col_radar:
             st.markdown("### 🕸️ Mapa de Talento")
             st.plotly_chart(radar_chart(), use_container_width=True)
+            
+            # Diagnóstico texto
             if ire > 75: diag = "Tu perfil muestra una **alta alineación** con las exigencias del emprendimiento."
             elif ire > 50: diag = "Tienes una base sólida, pero hay **áreas de fricción** que debes trabajar."
-            else: diag = "Se detectan **riesgos significativos** en la toma de decisiones."
+            else: diag = "Se detectan **riesgos significativos**. Recomendamos formación antes de emprender."
             st.info(diag)
 
         with col_skills:
-            st.markdown("### 📊 Competencias Clave")
+            st.markdown("### 📊 Detalle de Competencias")
             
             LABELS = {
                 "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
@@ -746,21 +752,18 @@ def run_simulator_logic():
             for key, val in scores.items():
                 nombre = LABELS.get(key, key.capitalize())
                 
-                # --- MAGIA AQUÍ: Barra Multicolor superpuesta ---
-                # Explicación: 
-                # 1. Capa Fondo: Un gradiente lineal fijo que tiene los 4 tramos de color.
-                # 2. Capa Frente (Máscara): Un div gris que tapa la barra desde la derecha según el % que falte.
-                
-                inverse_width = 100 - val # Lo que falta para llegar a 100 (la máscara)
+                # --- LÓGICA DE LA BARRA MULTICOLOR ---
+                # Calculamos cuánto falta para llegar a 100 (la "máscara" gris)
+                mask_width = 100 - val 
                 
                 st.markdown(f"""
-                <div style="margin-bottom: 15px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span style="font-weight:600; font-size:0.9rem; color: #333;">{nombre}</span>
+                <div style="margin-bottom: 18px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="font-weight:600; font-size:0.95rem; color: #333;">{nombre}</span>
                         <span style="font-weight:700; color: #333;">{int(val)}%</span>
                     </div>
                     
-                    <div style="width: 100%; height: 12px; background-color: #E9ECEF; border-radius: 6px; position: relative; overflow: hidden;">
+                    <div style="width: 100%; height: 14px; background-color: #E9ECEF; border-radius: 7px; position: relative; overflow: hidden; border: 1px solid #ddd;">
                         
                         <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;
                             background: linear-gradient(to right, 
@@ -770,16 +773,19 @@ def run_simulator_logic():
                                 #E74C3C 90%, #E74C3C 100%);">
                         </div>
                         
-                        <div style="position: absolute; top: 0; right: 0; width: {inverse_width}%; height: 100%; background-color: #E9ECEF;"></div>
+                        <div style="position: absolute; top: 0; right: 0; width: {mask_width}%; height: 100%; background-color: #E9ECEF;"></div>
+                        
+                        <div style="position: absolute; top: 0; right: {mask_width}%; width: 2px; height: 100%; background-color: rgba(0,0,0,0.2);"></div>
                         
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
+        # 6. GUARDAR DATOS (Solo una vez)
         if 'saved' not in st.session_state:
             save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
             st.session_state.saved = True
-            st.success("✅ Resultados guardados.")
+            st.success("✅ Resultados guardados en tu expediente.")
         
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
