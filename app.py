@@ -490,6 +490,37 @@ def calculate_results():
     
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
 
+def radar_chart():
+    """Genera el gráfico de araña"""
+    data = st.session_state.get('octagon', {})
+    if not data: return go.Figure()
+    
+    # Usamos los datos normalizados de calculate_results si es posible, si no, raw
+    # Para simplificar, recalculamos rápido normalización visual
+    categories = list(data.keys())
+    values = [50 + (v*4) for v in data.values()] # Normalización visual rápida
+    values = [max(0, min(100, v)) for v in values] # Clamp 0-100
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(r=values, theta=categories, fill='toself', name='Tú'))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False)
+    return fig
+
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
+    """Guarda en Supabase"""
+    try:
+        supabase.table("sape_results").insert({
+            "student_id": student_id,
+            "sector": sector,
+            "ire": ire,
+            "friction": friction,
+            "octagon": str(scores),
+            "organization": organization,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+    except Exception as e:
+        print(f"Error guardando: {e}")
+
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
 # ==========================================
