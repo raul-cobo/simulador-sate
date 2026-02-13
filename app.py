@@ -449,89 +449,32 @@ def save_result_to_db(student_id, sector, ire, friction, triggers, scores, histo
         print(f"Error guardando: {e}")
 
 # ==========================================
-# 🎮 3. INTERFAZ SIMULADOR (DISEÑO PRO)
+# 🎮 3. INTERFAZ SIMULADOR (CON TRADUCTOR)
 # ==========================================
 def run_simulator_logic():
-    # --- CSS PERSONALIZADO PARA EL JUEGO ---
-    st.markdown("""
-    <style>
-        /* Fondo General */
-        .stApp { background-color: #050A1F; }
-        
-        /* Textos en Blanco */
-        h1, h2, h3, h4, p, div, span, label, li { color: white !important; }
-        
-        /* Caja de Narrativa (Izquierda) */
-        .narrative-box {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-left: 5px solid #0D248D;
-            padding: 30px;
-            border-radius: 15px;
-            font-size: 1.2rem;
-            line-height: 1.6;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-
-        /* ESTILO DE LOS BOTONES DE RESPUESTA (Derecha) */
-        div.stButton > button {
-            background-color: #02040a !important; /* Azul muy oscuro/negro */
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-radius: 20px !important; /* Esquinas muy redondeadas */
-            padding: 25px 20px !important;
-            font-size: 16px !important;
-            font-weight: 500 !important;
-            width: 100%;
-            height: auto;
-            white-space: normal !important; /* Permite texto en varias lineas */
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-            margin-bottom: 10px;
-        }
-
-        /* EFECTO HOVER (Al pasar el ratón) */
-        div.stButton > button:hover {
-            transform: scale(1.05) !important; /* Crece un poco (1.2 puede romper el layout, 1.05 es elegante) */
-            background-color: #0D248D !important; /* Se ilumina en azul corporativo */
-            border-color: white !important;
-            box-shadow: 0 0 15px rgba(13, 36, 141, 0.6) !important;
-            z-index: 10; /* Se pone por encima */
-        }
-        
-        /* Ocultar elementos extraños de Streamlit */
-        div[data-testid="stVerticalBlock"] { gap: 1rem; }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("<style>.stApp { background-color: white; }</style>", unsafe_allow_html=True)
     
-    # Inicialización de variables (Igual que antes)
+    # Inicialización de variables
     keys = ['instructions_seen', 'data_verified', 'started', 'finished', 'current_step', 'history', 'user_data', 'octagon']
     for k in keys:
         if k not in st.session_state: 
             st.session_state[k] = {} if k in ['history', 'user_data', 'octagon'] else (False if k != 'current_step' else 0)
     if isinstance(st.session_state.history, dict): st.session_state.history = []
 
-    # ----------------------------------------------------
     # PANTALLA 1: Bienvenida
-    # ----------------------------------------------------
     if not st.session_state.instructions_seen:
-        # Logo centrado para la intro
         c1, c2, c3 = st.columns([1, 2, 1]) 
         with c2:
-            if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
-            elif os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            else: st.markdown("<h1 style='text-align: center;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-            
-        st.markdown("<div style='text-align: center; margin-top: 20px; font-size: 1.2rem;'>Bienvenido/a al simulador S.A.P.E.</div>", unsafe_allow_html=True)
-        st.markdown("---")
-        if st.button("✅ COMENZAR EXPERIENCIA", use_container_width=True):
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+        st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a.")
+        if st.button("✅ COMENZAR", use_container_width=True):
             st.session_state.instructions_seen = True
             st.rerun()
 
-    # ----------------------------------------------------
-    # PANTALLA 2: Datos Personales
-    # ----------------------------------------------------
+    # PANTALLA 2: Datos
     elif not st.session_state.data_verified:
-        st.markdown("### 👤 Identificación")
+        st.markdown("#### 1. Identificación")
         with st.form("user_data_form"):
             name = st.text_input("Nombre", value=st.session_state.user_data.get('username', '')) 
             if st.form_submit_button("CONTINUAR"):
@@ -539,13 +482,11 @@ def run_simulator_logic():
                 st.session_state.data_verified = True
                 st.rerun()
 
-    # ----------------------------------------------------
-    # PANTALLA 3: Selección de Sector
-    # ----------------------------------------------------
+    # PANTALLA 3: Sector
     elif not st.session_state.started:
-        st.markdown(f"### 🚀 Selecciona tu Sector:")
+        st.markdown(f"#### 2. Selecciona tu Sector:")
         
-        # 1. Recuperar permisos
+        # 1. Recuperar permisos (Sectores activos de la empresa)
         user_org = st.session_state.user_data.get('org_id')
         allowed = []
         try:
@@ -558,18 +499,26 @@ def run_simulator_logic():
                     except: allowed = []
         except: allowed = []
 
+        # 2. Mapa de Botones (CÓDIGO ADMIN -> TEXTO BOTÓN)
         BUTTON_MAP = {
-            "TECH": "Startup Tecnológica", "RETAIL": "Pequeña Empresa (PYME)",
-            "FREELANCE": "Autoempleo", "INTRA": "Intraemprendimiento",
-            "PSICOLOGÍA_SANITARIA": "Psicología Sanitaria", "CONSULTORÍA": "Consultoría",
-            "HOSTELERÍA": "Hostelería", "SOCIAL": "Social",
-            "SALUD": "Salud", "PSICOLOGÍA_NO_SANITARIA": "Psicología No Sanitaria"
+            "TECH": "Startup Tecnológica", 
+            "RETAIL": "Pequeña Empresa (PYME)",
+            "FREELANCE": "Autoempleo", 
+            "INTRA": "Intraemprendimiento",
+            "PSICOLOGÍA_SANITARIA": "Psicología Sanitaria", 
+            "CONSULTORÍA": "Consultoría",
+            "HOSTELERÍA": "Hostelería", 
+            "SOCIAL": "Social",
+            "SALUD": "Salud", 
+            "PSICOLOGÍA_NO_SANITARIA": "Psicología No Sanitaria"
         }
 
+        # 3. TRADUCTOR (CÓDIGO ADMIN -> CÓDIGO EN EL CSV) 
+        # Esto es lo que arregla el error "No encontrado"
         CSV_TRANSLATOR = {
-            "RETAIL": ["PYME", "PEQUEÑA EMPRESA", "RETAIL"],
+            "RETAIL": ["PYME", "PEQUEÑA EMPRESA", "RETAIL"],     # Si busca RETAIL, acepta PYME
             "FREELANCE": ["AUTOEMPLEO", "FREELANCE", "AUTONOMO"],
-            "CONSULTORÍA": ["CONSULTORIA", "CONSULTORÍA"],
+            "CONSULTORÍA": ["CONSULTORIA", "CONSULTORÍA"],       # Arregla acentos
             "HOSTELERÍA": ["HOSTELERIA", "HOSTELERÍA", "TURISMO"],
             "TECH": ["TECH", "STARTUP", "TECNOLOGIA"],
             "PSICOLOGÍA_SANITARIA": ["PSICOLOGIA_SANITARIA", "PSICOLOGÍA_SANITARIA"],
@@ -579,17 +528,22 @@ def run_simulator_logic():
         all_q = load_questions() 
 
         def go(label, code_admin):
+            # Buscar sinónimos válidos para este código
             valid_names = CSV_TRANSLATOR.get(code_admin, [code_admin])
+            
+            # Filtramos preguntas que coincidan con ALGUNO de los nombres válidos
             qs = []
             for row in all_q:
                 sector_csv = str(row.get('SECTOR','')).strip().replace('"','').upper()
                 if sector_csv in valid_names or sector_csv == code_admin:
                     qs.append(row)
+            
             if not qs:
+                # Intento final parcial
                 qs = [x for x in all_q if code_admin in str(x.get('SECTOR','')).upper()]
 
             if not qs:
-                st.error(f"⚠️ No hay preguntas para: {code_admin}")
+                st.error(f"⚠️ No hay preguntas para: {code_admin} (Buscado en CSV como: {valid_names})")
                 return
             
             st.session_state.data = qs
@@ -606,9 +560,7 @@ def run_simulator_logic():
                     if st.button(BUTTON_MAP[code], key=code, use_container_width=True):
                         go(BUTTON_MAP[code], code)
 
-    # ----------------------------------------------------
-    # PANTALLA 4: EL JUEGO (MAQUETACIÓN SOLICITADA)
-    # ----------------------------------------------------
+    # PANTALLA 4: Juego
     elif not st.session_state.finished:
         if not st.session_state.data:
             st.error("Error de datos."); st.session_state.started = False; st.rerun()
@@ -617,69 +569,33 @@ def run_simulator_logic():
             st.session_state.finished = True; st.rerun()
             
         row = st.session_state.data[st.session_state.current_step]
-        
-        # Barra de progreso fina arriba
         st.progress((st.session_state.current_step+1)/len(st.session_state.data))
-
-        # CABECERA: Logo Izquierda + Título Pregunta
-        # Usamos columnas para alinear logo y título si quieres, o logo arriba solo.
-        # Usuario pidió "Logo blanco situado arriba a la izquierda".
         
-        col_logo, col_header = st.columns([1, 5])
-        with col_logo:
-            if os.path.exists("logo_blanco.png"): 
-                st.image("logo_blanco.png", use_container_width=True)
-            else:
-                st.markdown("🧬 **AUDEO**")
+        st.markdown("""<style>.stApp {background-color: #050A1F !important;} p,h1,h2,h3,div,span {color:white !important}</style>""", unsafe_allow_html=True)
         
-        with col_header:
-             st.markdown(f"<h2 style='margin-top:0; padding-top:0;'>{row.get('TITULO','Desafío')}</h2>", unsafe_allow_html=True)
-             st.markdown(f"<span style='opacity:0.7'>Mes {row.get('MES', st.session_state.current_step + 1)}</span>", unsafe_allow_html=True)
-
-        st.markdown("---") # Separador sutil
-
-        # LAYOUT PRINCIPAL: 55% NARRATIVA | 45% OPCIONES
-        c_narrativa, c_opciones = st.columns([0.55, 0.45], gap="large")
+        st.markdown(f"### {row.get('TITULO','')}")
+        st.write(row.get('NARRATIVA',''))
         
-        # IZQUIERDA: Narrativa
-        with c_narrativa:
-            st.markdown(f"""
-            <div class="narrative-box">
-                {row.get('NARRATIVA','')}
-            </div>
-            """, unsafe_allow_html=True)
+        opts = []
+        for c in ['A','B','C','D']:
+            txt = row.get(f'OPCION_{c}_TXT')
+            if txt and str(txt).strip():
+                opts.append({'t': txt, 'l': row.get(f'OPCION_{c}_LOGIC'), 'id': c})
+        
+        random.shuffle(opts)
+        for o in opts:
+            if st.button(o['t'], key=f"{st.session_state.current_step}_{o['id']}", use_container_width=True):
+                parse_logic(o['l'])
+                st.session_state.history.append({'op': o['id'], 'txt': o['t']})
+                st.session_state.current_step += 1
+                st.rerun()
 
-        # DERECHA: Botones
-        with c_opciones:
-            # Preparamos opciones
-            opts = []
-            for c in ['A','B','C','D']:
-                txt = row.get(f'OPCION_{c}_TXT')
-                if txt and str(txt).strip():
-                    opts.append({'t': txt, 'l': row.get(f'OPCION_{c}_LOGIC'), 'id': c})
-            random.shuffle(opts)
-            
-            # Pintamos botones uno debajo de otro
-            for o in opts:
-                # El estilo ya está definido en el CSS de arriba
-                if st.button(o['t'], key=f"{st.session_state.current_step}_{o['id']}", use_container_width=True):
-                    parse_logic(o['l'])
-                    st.session_state.history.append({'op': o['id'], 'txt': o['t']})
-                    st.session_state.current_step += 1
-                    st.rerun()
-
-    # ----------------------------------------------------
     # PANTALLA 5: Resultados
-    # ----------------------------------------------------
     else:
         st.markdown("""<style>.stApp {background-color: white !important;} p,h1,h2,h3,div,span {color:black !important}</style>""", unsafe_allow_html=True)
         ire, avg, fric, _, _, _, scores, _ = calculate_results()
         
-        c1, c2, c3 = st.columns([1,1,1])
-        with c2: 
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", width=150)
-            
-        st.title(f"Informe: {st.session_state.user_data.get('name')}")
+        st.title(f"Resultados: {st.session_state.user_data.get('name')}")
         k1, k2, k3 = st.columns(3)
         k1.metric("IRE", ire); k2.metric("Potencial", avg); k3.metric("Fricción", fric)
         st.plotly_chart(radar_chart(), use_container_width=True)
@@ -687,7 +603,7 @@ def run_simulator_logic():
         if 'saved' not in st.session_state:
             save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
             st.session_state.saved = True
-            st.success("Resultados guardados correctamente en la base de datos.")
+            st.success("Guardado.")
 
 # ==========================================
 # 👑 PANEL ADMIN (CON GESTIÓN DE SECTORES)
