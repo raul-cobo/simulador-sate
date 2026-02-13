@@ -387,32 +387,47 @@ def diagnosticar_usuario_python(octagon, cerebro):
         "risk_level": "MEDIO"
     }
 
+# ==========================================
+# 🧠 CÁLCULOS MATEMÁTICOS (CORREGIDO)
+# ==========================================
 def calculate_results():
     """Calcula IRE, Fricción y normaliza puntuaciones"""
     oct_raw = st.session_state.get('octagon', {})
     
-    # 1. Normalización simple (0-100)
-    # Asumimos un rango teórico de -20 a +20 por dimensión tras 12 preguntas
+    # 1. DEFINIMOS LAS CLAVES EXACTAS DEL CSV
+    # Estas son las que realmente existen en tu archivo SATE_V4
+    valid_keys = [
+        "risk_propensity",      # Propensión al Riesgo
+        "ambiguity_tolerance",  # Tolerancia a la Ambigüedad
+        "innovativeness",       # Innovación
+        "locus_control",        # Locus de Control (¡Sin 'of'!)
+        "emotional_stability",  # Estabilidad Emocional
+        "achievement",          # Orientación al Logro
+        "self_efficacy",        # Autoeficacia (Antes Leadership)
+        "autonomy"              # Autonomía (Antes Adaptability)
+    ]
+    
     octagon_norm = {}
-    valid_keys = ["risk_propensity", "ambiguity_tolerance", "innovativeness", "locus_of_control", 
-                  "emotional_stability", "achievement", "leadership", "adaptability"]
     
     for k in valid_keys:
         raw = oct_raw.get(k, 0)
-        # Transformación lineal: -10 es 0, +10 es 100 (aprox)
+        # MATEMÁTICA DE NORMALIZACIÓN
+        # Partimos de 50. Cada punto suma/resta 4.
+        # Rango estimado: -12.5 a +12.5 -> 0 a 100
         norm = 50 + (raw * 4) 
+        
+        # Clamp (Limitar entre 0 y 100 para que no rompa la gráfica)
         octagon_norm[k] = max(0, min(100, norm))
 
-    # 2. Cálculo del IRE (Índice de Resiliencia Emprendedora)
-    # Promedio de las competencias clave
+    # 2. CÁLCULO DEL IRE (PROMEDIO)
     if octagon_norm:
         avg = sum(octagon_norm.values()) / len(octagon_norm)
     else:
         avg = 50
     
-    ire = avg # En este modelo simplificado, el IRE es el promedio competencial
+    ire = avg 
     
-    # 3. Fricción (Inverso del IRE con factor de aleatoriedad para demo)
+    # 3. FRICCIÓN (Inverso del IRE)
     friction = max(0, 100 - ire)
     
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
