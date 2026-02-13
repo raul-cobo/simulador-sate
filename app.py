@@ -388,80 +388,107 @@ def diagnosticar_usuario_python(octagon, cerebro):
     }
 
 # ==========================================
-# 🧠 CÁLCULOS MATEMÁTICOS (CORREGIDO)
+# 🧠 CÁLCULOS MATEMÁTICOS (100% REAL BASADO EN 40 MESES)
 # ==========================================
-def calculate_results():
-    """Calcula IRE, Fricción y normaliza puntuaciones"""
-    oct_raw = st.session_state.get('octagon', {})
+
+def get_max_potential_for_row(row, valid_keys):
+    """
+    Analiza una sola pregunta (fila) y devuelve cuánto es lo MÁXIMO 
+    que se podía sumar a cada rasgo en esa pregunta concreta.
+    """
+    row_maxes = {k: 0 for k in valid_keys}
     
-    # 1. DEFINIMOS LAS CLAVES EXACTAS DEL CSV
-    # Estas son las que realmente existen en tu archivo SATE_V4
+    # Revisamos las 4 opciones (A, B, C, D)
+    for char in ['A', 'B', 'C', 'D']:
+        logic_str = row.get(f'OPCION_{char}_LOGIC')
+        if not logic_str or pd.isna(logic_str): continue
+        
+        # Parseamos la lógica de esta opción
+        # Ej: "risk_propensity 3 | achievement -1"
+        parts = str(logic_str).split('|')
+        for p in parts:
+            p = p.strip()
+            if not p: continue
+            try:
+                # Separamos clave y valor
+                # "risk_propensity 3" -> key="risk_propensity", val=3.0
+                if ' ' in p:
+                    key, val = p.rsplit(' ', 1)
+                    key = key.strip()
+                    val = float(val)
+                    
+                    # Si esta opción da más puntos que las anteriores para este rasgo, actualizamos el máximo de esta pregunta
+                    if key in row_maxes:
+                        if val > row_maxes[key]:
+                            row_maxes[key] = val
+            except: pass
+            
+    return row_maxes
+
+def calculate_results():
+    """Calcula porcentajes reales basados en el máximo posible del cuestionario"""
+    
+    # 1. CLAVES VÁLIDAS (Tal cual están en tu CSV SATE_V4)
     valid_keys = [
         "risk_propensity",      # Propensión al Riesgo
         "ambiguity_tolerance",  # Tolerancia a la Ambigüedad
         "innovativeness",       # Innovación
-        "locus_control",        # Locus de Control (¡Sin 'of'!)
+        "locus_control",        # Locus de Control
         "emotional_stability",  # Estabilidad Emocional
         "achievement",          # Orientación al Logro
-        "self_efficacy",        # Autoeficacia (Antes Leadership)
-        "autonomy"              # Autonomía (Antes Adaptability)
+        "self_efficacy",        # Autoeficacia
+        "autonomy"              # Autonomía
     ]
     
+    # Puntuaciones del usuario (Lo que ha sumado jugando)
+    user_scores = st.session_state.get('octagon', {})
+    
+    # 2. CALCULAR EL 100% TEÓRICO (El Máximo Posible)
+    # Recorremos TODAS las preguntas cargadas en el juego
+    all_questions = st.session_state.get('data', [])
+    total_max_possibles = {k: 0 for k in valid_keys}
+    
+    for row in all_questions:
+        # Obtenemos lo máximo que se podía sacar en ESTA pregunta
+        row_maxs = get_max_potential_for_row(row, valid_keys)
+        # Lo sumamos al acumulador total
+        for k in valid_keys:
+            total_max_possibles[k] += row_maxs[k]
+
+    # 3. CÁLCULO DE PORCENTAJES
     octagon_norm = {}
     
     for k in valid_keys:
-        raw = oct_raw.get(k, 0)
-        # MATEMÁTICA DE NORMALIZACIÓN
-        # Partimos de 50. Cada punto suma/resta 4.
-        # Rango estimado: -12.5 a +12.5 -> 0 a 100
-        norm = 50 + (raw * 4) 
+        u_val = user_scores.get(k, 0)      # Puntos del usuario
+        max_val = total_max_possibles.get(k, 0) # Puntos máximos posibles en el juego
         
-        # Clamp (Limitar entre 0 y 100 para que no rompa la gráfica)
-        octagon_norm[k] = max(0, min(100, norm))
+        if max_val > 0:
+            # Regla de tres simple: (Usuario / Máximo) * 100
+            percentage = (u_val / max_val) * 100
+        else:
+            # Si el juego no permitía sumar puntos en este rasgo (max=0),
+            # le damos 0% (o 50% neutro si prefieres, pero 0 es más honesto si no se ha evaluado)
+            percentage = 0
+            
+        # Clamp (Asegurar que está entre 0 y 100)
+        octagon_norm[k] = max(0, min(100, percentage))
 
-    # 2. CÁLCULO DEL IRE (PROMEDIO)
+    # 4. CÁLCULO DEL IRE (Promedio de los porcentajes)
     if octagon_norm:
         avg = sum(octagon_norm.values()) / len(octagon_norm)
     else:
-        avg = 50
+        avg = 0
     
     ire = avg 
     
-    # 3. FRICCIÓN (Inverso del IRE)
+    # 5. FRICCIÓN (Inverso del IRE)
     friction = max(0, 100 - ire)
     
+    # (Opcional) Debug para ver si suma bien:
+    # print("Usuario:", user_scores)
+    # print("Máximos Posibles:", total_max_possibles)
+    
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
-
-def radar_chart():
-    """Genera el gráfico de araña"""
-    data = st.session_state.get('octagon', {})
-    if not data: return go.Figure()
-    
-    # Usamos los datos normalizados de calculate_results si es posible, si no, raw
-    # Para simplificar, recalculamos rápido normalización visual
-    categories = list(data.keys())
-    values = [50 + (v*4) for v in data.values()] # Normalización visual rápida
-    values = [max(0, min(100, v)) for v in values] # Clamp 0-100
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=values, theta=categories, fill='toself', name='Tú'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False)
-    return fig
-
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
-    """Guarda en Supabase"""
-    try:
-        supabase.table("sape_results").insert({
-            "student_id": student_id,
-            "sector": sector,
-            "ire": ire,
-            "friction": friction,
-            "octagon": str(scores),
-            "organization": organization,
-            "created_at": datetime.now().isoformat()
-        }).execute()
-    except Exception as e:
-        print(f"Error guardando: {e}")
 
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
