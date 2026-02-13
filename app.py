@@ -674,16 +674,14 @@ def run_simulator_logic():
                     st.rerun()
 
 # ----------------------------------------------------
-    # PANTALLA 5: RESULTADOS (CORREGIDO HTML)
+    # PANTALLA 5: RESULTADOS (MATEMÁTICAS Y ETIQUETAS CORRECTAS)
     # ----------------------------------------------------
     else:
-        # 1. ESTILOS ESPECÍFICOS PARA EL INFORME
+        # 1. ESTILOS
         st.markdown("""
         <style>
             .stApp { background-color: #FFFFFF !important; }
             h1, h2, h3, h4, p, li, span, div, label { color: #050A1F !important; }
-            
-            /* Tarjetas de Métricas */
             .metric-card {
                 background-color: #F8F9FA;
                 border: 1px solid #E9ECEF;
@@ -708,24 +706,20 @@ def run_simulator_logic():
         with c_info:
             st.markdown(f"# Informe de Perfil Emprendedor")
             st.markdown(f"**Usuario:** {st.session_state.user_data.get('name', 'Anónimo')} | **Sector:** {st.session_state.user_data.get('sector', 'General')}")
-
         st.markdown("---")
 
-        # 4. TARJETAS
+        # 4. KPIs
         k1, k2, k3 = st.columns(3)
         c_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
         c_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71"
         
-        with k1:
-            st.markdown(f"""<div class="metric-card"><div class="metric-label">Índice Resiliencia (IRE)</div><div class="metric-value" style="color: {c_ire}">{int(ire)}/100</div></div>""", unsafe_allow_html=True)
-        with k2:
-             st.markdown(f"""<div class="metric-card"><div class="metric-label">Potencial Competencial</div><div class="metric-value">{int(avg)}/100</div></div>""", unsafe_allow_html=True)
-        with k3:
-             st.markdown(f"""<div class="metric-card"><div class="metric-label">Nivel de Fricción</div><div class="metric-value" style="color: {c_fric}">{int(fric)}%</div></div>""", unsafe_allow_html=True)
+        with k1: st.markdown(f"""<div class="metric-card"><div class="metric-label">Índice Resiliencia (IRE)</div><div class="metric-value" style="color: {c_ire}">{int(ire)}/100</div></div>""", unsafe_allow_html=True)
+        with k2: st.markdown(f"""<div class="metric-card"><div class="metric-label">Potencial Competencial</div><div class="metric-value">{int(avg)}/100</div></div>""", unsafe_allow_html=True)
+        with k3: st.markdown(f"""<div class="metric-card"><div class="metric-label">Nivel de Fricción</div><div class="metric-value" style="color: {c_fric}">{int(fric)}%</div></div>""", unsafe_allow_html=True)
 
         st.write("") 
 
-        # 5. GRÁFICO Y BARRAS (Aquí estaba el problema, ahora está corregido)
+        # 5. GRÁFICO Y BARRAS
         col_radar, col_skills = st.columns([1, 1.2], gap="large")
         
         with col_radar:
@@ -739,18 +733,22 @@ def run_simulator_logic():
         with col_skills:
             st.markdown("### 📊 Detalle de Competencias")
             
+            # DICCIONARIO CORREGIDO (COINCIDE CON CSV)
             LABELS = {
-                "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación", "locus_of_control": "Locus de Control",
-                "emotional_stability": "Estabilidad Emocional", "achievement": "Orientación al Logro",
-                "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
+                "risk_propensity": "Propensión al Riesgo", 
+                "ambiguity_tolerance": "Tolerancia Ambigüedad",
+                "innovativeness": "Innovación", 
+                "locus_control": "Locus de Control",       # Corregido
+                "emotional_stability": "Estabilidad Emocional", 
+                "achievement": "Orientación al Logro",
+                "self_efficacy": "Autoeficacia",           # Corregido (Antes Liderazgo)
+                "autonomy": "Autonomía"                    # Corregido (Antes Adaptabilidad)
             }
             
             for key, val in scores.items():
                 nombre = LABELS.get(key, key.capitalize())
                 mask_width = 100 - val 
                 
-                # IMPORTANTE: Todo el bloque HTML está dentro de una sola f-string y con unsafe_allow_html=True
                 barra_html = f"""
                 <div style="margin-bottom: 18px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
@@ -766,16 +764,11 @@ def run_simulator_logic():
                 """
                 st.markdown(barra_html, unsafe_allow_html=True)
 
-        # 6. GUARDAR DATOS
+        # 6. GUARDAR
         if 'saved' not in st.session_state:
             save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
             st.session_state.saved = True
             st.success("✅ Resultados guardados en tu expediente.")
-        
-        if st.button("🔄 Reiniciar Simulación"):
-            for k in st.session_state.keys():
-                del st.session_state[k]
-            st.rerun()
         
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
