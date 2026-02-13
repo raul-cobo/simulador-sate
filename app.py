@@ -219,9 +219,10 @@ def init_session():
         st.session_state.user_data = {}
 
 # ==========================================
-# 📂 1. CARGA DE PREGUNTAS (VERSIÓN ÚNICA Y LIMPIA)
+# 📂 1. CARGA DE PREGUNTAS Y MOTOR MATEMÁTICO (BLOQUE MAESTRO v7.0)
 # ==========================================
-@st.cache_data(ttl=0) # ttl=0 para que recargue si cambias el Excel
+# --- A. CARGA DE DATOS ---
+@st.cache_data(ttl=0)
 def load_questions():
     file_path = "SATE_V4.csv"
     if not os.path.exists(file_path):
@@ -229,76 +230,67 @@ def load_questions():
         return []
 
     try:
-        # Leemos el CSV con separador de punto y coma (;)
+        # Leemos CSV con ;
         df = pd.read_csv(file_path, sep=";", encoding="utf-8-sig", dtype=str, engine='python')
-        
-        # Limpieza de nombres de columnas (quita espacios extra)
-        df.columns = df.columns.str.strip()
-        
+        # Limpieza agresiva de nombres de columnas
+        df.columns = df.columns.str.replace('"', '').str.replace("'", "").str.strip()
         # Convertimos a lista de diccionarios
         return df.to_dict('records')
-        
     except Exception as e:
-        st.error(f"❌ Error leyendo el archivo SATE_V4.csv: {e}")
+        st.error(f"❌ Error leyendo CSV: {e}")
         return []
 
-# ==========================================
-# 🧠 MOTOR MATEMÁTICO NORMALIZADO (NUCLEAR) v6.0
-# ==========================================
-import re
+# --- B. CONFIGURACIÓN DE CLAVES ---
+# Mapa de normalización: 'locuscontrol' -> 'locus_control'
+OFFICIAL_KEYS = [
+    "risk_propensity", "ambiguity_tolerance", "innovativeness", 
+    "locus_control", "emotional_stability", "achievement", 
+    "self_efficacy", "autonomy"
+]
 
 def normalize_key(k):
-    """
-    Elimina guiones, espacios y mayúsculas para comparar 'a lo bruto'.
-    Ej: 'Locus_Control ' -> 'locuscontrol'
-    """
+    """Quita todo lo que no sea letra/número para comparar (SOLUCIÓN NUCLEAR)"""
     if not k: return ""
-    # Quita todo lo que no sea letra o número y pasa a minúsculas
     return re.sub(r'[^a-zA-Z0-9]', '', str(k)).lower()
 
-def get_official_key_map():
-    """Mapa de claves sucias -> Clave Oficial limpia"""
-    # Estas son las claves OFICIALES que usamos en el código
-    official_keys = [
-        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
-        "locus_control", "emotional_stability", "achievement", 
-        "self_efficacy", "autonomy"
-    ]
-    # Creamos un diccionario: {'riskpropensity': 'risk_propensity', ...}
-    return {normalize_key(k): k for k in official_keys}
+def get_key_map():
+    return {normalize_key(k): k for k in OFFICIAL_KEYS}
 
+def parse_val_key(p):
+    """Extrae (clave, valor) de un string tipo 'risk 3' de forma robusta"""
+    try:
+        tokens = p.split()
+        if len(tokens) >= 2:
+            val = float(tokens[-1])
+            raw_key = " ".join(tokens[:-1]) # Todo lo anterior es la clave
+            norm_key = normalize_key(raw_key)
+            return norm_key, val
+    except: pass
+    return None, None
+
+# --- C. FUNCIONES DE CÁLCULO ---
 def parse_logic(logic_string):
-    """Lee la lógica usando comparación normalizada"""
+    """Lee lógica y suma puntos al usuario"""
     if not logic_string or pd.isna(logic_string): return
     
     clean_str = str(logic_string).replace('"', '').replace("'", "")
     parts = clean_str.split('|')
     
     if 'octagon' not in st.session_state: st.session_state.octagon = {}
-    
-    key_map = get_official_key_map()
+    key_map = get_key_map()
     
     for p in parts:
         p = p.strip()
         if not p: continue
-        try:
-            tokens = p.split()
-            if len(tokens) >= 2:
-                val = float(tokens[-1])
-                # La clave es todo lo anterior. La normalizamos.
-                raw_key = " ".join(tokens[:-1])
-                norm_key = normalize_key(raw_key)
-                
-                # Buscamos si esa clave normalizada existe en nuestro mapa oficial
-                if norm_key in key_map:
-                    official_key = key_map[norm_key]
-                    st.session_state.octagon[official_key] = st.session_state.octagon.get(official_key, 0) + val
-        except: pass
+        norm_key, val = parse_val_key(p)
+        if norm_key and norm_key in key_map:
+            official_key = key_map[norm_key]
+            st.session_state.octagon[official_key] = st.session_state.octagon.get(official_key, 0) + val
 
-def get_max_potential_for_row(row, official_keys):
-    """Calcula máximo posible usando normalización"""
-    row_maxes = {k: 0 for k in official_keys}
-    key_map = get_official_key_map()
+def get_max_potential_for_row(row, valid_keys):
+    """Calcula máximo posible por pregunta"""
+    row_maxes = {k: 0 for k in valid_keys}
+    key_map = get_key_map()
     
     for char in ['A', 'B', 'C', 'D']:
         logic_str = row.get(f'OPCION_{char}_LOGIC')
@@ -310,48 +302,34 @@ def get_max_potential_for_row(row, official_keys):
         for p in parts:
             p = p.strip()
             if not p: continue
-            try:
-                tokens = p.split()
-                if len(tokens) >= 2:
-                    val = float(tokens[-1])
-                    raw_key = " ".join(tokens[:-1])
-                    norm_key = normalize_key(raw_key)
-                    
-                    if norm_key in key_map:
-                        off_key = key_map[norm_key]
-                        # Solo sumamos si es positivo (potencial de ganancia)
-                        if val > row_maxes[off_key]:
-                            row_maxes[off_key] = val
-            except: pass
+            norm_key, val = parse_val_key(p)
+            
+            if norm_key and norm_key in key_map:
+                off_key = key_map[norm_key]
+                # Solo si es positivo cuenta para el máximo posible
+                if val > row_maxes[off_key]:
+                    row_maxes[off_key] = val
             
     return row_maxes
 
 def calculate_results():
-    """Calcula porcentajes con la nueva lógica normalizada"""
-    
-    # 1. Claves Oficiales
-    valid_keys = [
-        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
-        "locus_control", "emotional_stability", "achievement", 
-        "self_efficacy", "autonomy"
-    ]
-    
+    """Calcula porcentajes REALES con Saturación (0.8)"""
     user_scores = st.session_state.get('octagon', {})
     
-    # 2. Calcular Máximos (Normalizados)
+    # Calcular Máximos
     all_questions = st.session_state.get('data', [])
-    total_max_possibles = {k: 0 for k in valid_keys}
+    total_max_possibles = {k: 0 for k in OFFICIAL_KEYS}
     
     for row in all_questions:
-        row_maxs = get_max_potential_for_row(row, valid_keys)
-        for k in valid_keys:
+        row_maxs = get_max_potential_for_row(row, OFFICIAL_KEYS)
+        for k in OFFICIAL_KEYS:
             total_max_possibles[k] += row_maxs[k]
 
-    # 3. Saturación y Porcentajes
-    SATURATION_FACTOR = 0.8 
+    # Saturación
+    SATURATION_FACTOR = 0.80
     octagon_norm = {}
     
-    for k in valid_keys:
+    for k in OFFICIAL_KEYS:
         u_val = user_scores.get(k, 0)
         max_val = total_max_possibles.get(k, 0)
         
@@ -360,24 +338,22 @@ def calculate_results():
             percentage = (u_val / saturated_max) * 100
         else:
             percentage = 0
-        
         octagon_norm[k] = max(0, min(100, percentage))
 
-    # 4. KPIs
+    # KPIs
     if octagon_norm:
         avg = sum(octagon_norm.values()) / len(octagon_norm)
-    else:
-        avg = 0
+    else: avg = 0
     ire = avg
     friction = max(0, 100 - ire)
     
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {
-        "raw_user": user_scores, 
-        "max_possible": total_max_possibles
+        "raw_user": user_scores, "max_possible": total_max_possibles
     }
 
+# --- D. GRÁFICOS Y GUARDADO ---
 def radar_chart():
-    """Genera el gráfico"""
+    """Gráfico con etiquetas visuales"""
     _, _, _, _, _, _, scores, _ = calculate_results()
     if not scores: return go.Figure()
     
