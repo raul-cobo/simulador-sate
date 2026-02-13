@@ -342,52 +342,190 @@ def load_questions():
         return []
 
 # ==========================================
-# 🧠 2. LÓGICA DE JUEGO Y CÁLCULOS
+# 🧠 MOTOR MATEMÁTICO BLINDADO (v3.0)
 # ==========================================
+
 def parse_logic(logic_string):
-    """Interpreta strings como: 'risk_propensity 3 | achievement -1'"""
+    """
+    Lee la lógica del CSV y suma puntos.
+    MEJORA: Usa .split() sin argumentos para ignorar espacios múltiples/tabuladores.
+    """
     if not logic_string or pd.isna(logic_string): return
     
-    parts = str(logic_string).split('|')
+    # Limpieza previa básica
+    clean_str = str(logic_string).replace('"', '').replace("'", "")
+    parts = clean_str.split('|')
+    
     if 'octagon' not in st.session_state: st.session_state.octagon = {}
     
     for p in parts:
         p = p.strip()
         if not p: continue
         try:
-            # Separamos por el último espacio (ej: "risk_propensity" y "3")
-            key, val = p.rsplit(' ', 1)
-            key = key.strip()
-            val = float(val)
-            st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
+            # DIVISIÓN ROBUSTA: "locus_control   3" -> ['locus_control', '3']
+            tokens = p.split()
+            
+            if len(tokens) >= 2:
+                # El último token es el número, el anterior (o unión de anteriores) es la clave
+                val = float(tokens[-1])
+                key = " ".join(tokens[:-1]).strip() # Por si la clave tuviera espacios (no debería)
+                
+                # Acumulamos
+                st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
         except: pass
 
-def cargar_cerebro_sape():
-    """Define los arquetipos psicológicos"""
-    return {
-        "HUSTLER": {"risk_propensity": 8, "achievement": 8, "locus_control": 5},
-        "VISIONARY": {"innovativeness": 9, "ambiguity_tolerance": 8, "autonomy": 7},
-        "MANAGER": {"emotional_stability": 8, "leadership": 7, "self_efficacy": 6},
-        "SOCIAL": {"adaptability": 8, "emotional_stability": 6, "leadership": 5}
+def get_max_potential_for_row(row, valid_keys):
+    """Calcula el máximo posible por pregunta usando la misma lógica robusta"""
+    row_maxes = {k: 0 for k in valid_keys}
+    
+    for char in ['A', 'B', 'C', 'D']:
+        logic_str = row.get(f'OPCION_{char}_LOGIC')
+        if not logic_str or pd.isna(logic_str): continue
+        
+        clean_str = str(logic_str).replace('"', '').replace("'", "")
+        parts = clean_str.split('|')
+        
+        for p in parts:
+            p = p.strip()
+            if not p: continue
+            try:
+                tokens = p.split()
+                if len(tokens) >= 2:
+                    val = float(tokens[-1])
+                    key = " ".join(tokens[:-1]).strip()
+                    
+                    if key in row_maxes:
+                        # Si esta opción da más puntos, actualizamos el máximo
+                        if val > row_maxes[key]:
+                            row_maxes[key] = val
+            except: pass
+            
+    return row_maxes
+
+def calculate_results():
+    """
+    Calcula porcentajes REALES con nombres exactos del CSV.
+    """
+    
+    # 1. LISTA MAESTRA DE CLAVES (Tal cual aparecen en el CSV SATE_V4)
+    valid_keys = [
+        "risk_propensity",      # Riesgo
+        "ambiguity_tolerance",  # Ambigüedad
+        "innovativeness",       # Innovación
+        "locus_control",        # Locus (SIN 'of')
+        "emotional_stability",  # Estabilidad
+        "achievement",          # Logro
+        "self_efficacy",        # Autoeficacia (Liderazgo)
+        "autonomy"              # Autonomía (Adaptabilidad)
+    ]
+    
+    user_scores = st.session_state.get('octagon', {})
+    
+    # 2. CALCULAR EL 100% TEÓRICO (La "Nota Máxima" del examen)
+    all_questions = st.session_state.get('data', [])
+    total_max_possibles = {k: 0 for k in valid_keys}
+    
+    for row in all_questions:
+        row_maxs = get_max_potential_for_row(row, valid_keys)
+        for k in valid_keys:
+            total_max_possibles[k] += row_maxs[k]
+
+    # 3. CÁLCULO DE PORCENTAJES CON SATURACIÓN
+    # Factor 0.8: Si sacas el 80% de los puntos posibles, tienes un 100 de nota.
+    SATURATION_FACTOR = 0.8 
+    
+    octagon_norm = {}
+    
+    for k in valid_keys:
+        u_val = user_scores.get(k, 0)               # Puntos Usuario
+        max_val = total_max_possibles.get(k, 0)     # Puntos Máximos
+        
+        if max_val > 0:
+            saturated_max = max_val * SATURATION_FACTOR
+            percentage = (u_val / saturated_max) * 100
+        else:
+            percentage = 0 
+            
+        octagon_norm[k] = max(0, min(100, percentage))
+
+    # 4. KPI GLOBALES
+    if octagon_norm:
+        avg = sum(octagon_norm.values()) / len(octagon_norm)
+    else:
+        avg = 0
+    
+    ire = avg 
+    friction = max(0, 100 - ire)
+    
+    # Devolvemos también los diccionarios raw para el depurador
+    return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {
+        "raw_user": user_scores,
+        "max_possible": total_max_possibles
     }
 
-def diagnosticar_usuario_python(octagon, cerebro):
-    """Compara al usuario con los arquetipos"""
-    best_match = None
-    min_dist = float('inf')
+def radar_chart():
+    """Genera el gráfico con etiquetas bonitas"""
+    # Obtenemos los datos calculados
+    _, _, _, _, _, _, scores, _ = calculate_results()
     
-    # Normalizamos el octágono del usuario para comparar
-    user_profile = {k: v for k, v in octagon.items()}
+    if not scores: return go.Figure()
     
-    # Aquí iría una lógica más compleja, pero para demo devolvemos un genérico
-    # si no hay coincidencia exacta.
-    return {
-        "name": "PERFIL EMPRENDEDOR",
-        "description": "Basado en tus decisiones, muestras un equilibrio entre riesgo y control.",
-        "risk_level": "MEDIO"
+    # DICCIONARIO VISUAL (Solo afecta a lo que ve el usuario)
+    LABELS = {
+        "risk_propensity": "Propensión al riesgo", 
+        "ambiguity_tolerance": "Tolerancia a la ambigüedad",
+        "innovativeness": "Innovación", 
+        "locus_control": "Locus de control",
+        "emotional_stability": "Estabilidad emocional", 
+        "achievement": "Orientación al logro",
+        "self_efficacy": "Autoeficacia",
+        "autonomy": "Autonomía"
     }
+    
+    categories = [LABELS.get(k, k) for k in scores.keys()]
+    values = list(scores.values())
+    
+    categories.append(categories[0])
+    values.append(values[0])
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Tu Perfil',
+        line_color='#0D248D',
+        fillcolor='rgba(13, 36, 141, 0.2)'
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10, color="gray")),
+            angularaxis=dict(tickfont=dict(size=12, color="black", weight="bold"))
+        ),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=20, b=20),
+        height=350,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
+    return fig
 
-# ==========================================
+def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
+    try:
+        supabase.table("sape_results").insert({
+            "student_id": student_id,
+            "sector": sector,
+            "ire": ire,
+            "friction": friction,
+            "octagon": json.dumps(scores),
+            "organization": organization,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+    except Exception as e:
+        print(f"Error guardando: {e}")
+
+## ==========================================
 # 🧠 CÁLCULOS MATEMÁTICOS (100% REAL BASADO EN 40 MESES)
 # ==========================================
 
@@ -423,50 +561,6 @@ def get_max_potential_for_row(row, valid_keys):
                             row_maxes[key] = val
             except: pass
             
-    return row_maxes
-
-# ==========================================
-# 🧠 MOTOR MATEMÁTICO Y LÓGICO (CORREGIDO: LIDERAZGO Y ADAPTABILIDAD)
-# ==========================================
-
-def parse_logic(logic_string):
-    """Interpreta strings del CSV y suma puntos."""
-    if not logic_string or pd.isna(logic_string): return
-    
-    parts = str(logic_string).split('|')
-    if 'octagon' not in st.session_state: st.session_state.octagon = {}
-    
-    for p in parts:
-        p = p.strip()
-        if not p: continue
-        try:
-            if ' ' in p:
-                key, val = p.rsplit(' ', 1)
-                key = key.strip()
-                val = float(val)
-                st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
-        except: pass
-
-def get_max_potential_for_row(row, valid_keys):
-    """Mira cuánto era lo máximo posible a sumar en una pregunta"""
-    row_maxes = {k: 0 for k in valid_keys}
-    
-    for char in ['A', 'B', 'C', 'D']:
-        logic_str = row.get(f'OPCION_{char}_LOGIC')
-        if not logic_str or pd.isna(logic_str): continue
-        
-        parts = str(logic_str).split('|')
-        for p in parts:
-            p = p.strip()
-            if not p: continue
-            try:
-                if ' ' in p:
-                    key, val = p.rsplit(' ', 1)
-                    key = key.strip()
-                    val = float(val)
-                    if key in row_maxes and val > row_maxes[key]:
-                        row_maxes[key] = val
-            except: pass
     return row_maxes
 
 # ==========================================
