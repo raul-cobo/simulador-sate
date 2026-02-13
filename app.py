@@ -7,14 +7,14 @@ import io
 import math
 import textwrap
 import json
-import ast  # <--- YA ESTÁ AQUÍ ARRIBA, DONDE DEBE ESTAR
+import ast 
 from datetime import datetime
 import plotly.graph_objects as go
 from PIL import Image
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from supabase import create_client # <--- TAMBIÉN AQUÍ ARRIBA
+from supabase import create_client
 
 # --- 🎨 CONFIGURACIÓN VISUAL (SÓLO OCULTAR MENÚS) ---
 def inject_custom_css():
@@ -544,8 +544,20 @@ def diagnosticar_usuario_python(octagon, cerebro):
 # 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
 # ==========================================
 def run_simulator_logic():
-    """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
     
+    """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
+    st.markdown("<style>.stApp { background-color: white; }</style>", unsafe_allow_html=True)
+    
+    if 'instructions_seen' not in st.session_state: st.session_state.instructions_seen = False
+    if 'data_verified' not in st.session_state: st.session_state.data_verified = False
+    if 'started' not in st.session_state: st.session_state.started = False
+    if 'finished' not in st.session_state: st.session_state.finished = False
+    if 'current_step' not in st.session_state: st.session_state.current_step = 0
+    if 'history' not in st.session_state: st.session_state.history = []
+    # -----------------------------------------------
+
+    if not st.session_state.instructions_seen:
+        c1, c2, c3 = st.columns([1, 2, 1]) 
     # ==========================================================
     # 🎨 1. ESTILO BASE (Para pantallas Blancas: A, B, C y E)
     # ==========================================================
