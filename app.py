@@ -365,7 +365,7 @@ def parse_logic(logic_string):
 def cargar_cerebro_sape():
     """Define los arquetipos psicológicos"""
     return {
-        "HUSTLER": {"risk_propensity": 8, "achievement": 8, "locus_of_control": 5},
+        "HUSTLER": {"risk_propensity": 8, "achievement": 8, "locus_control": 5},
         "VISIONARY": {"innovativeness": 9, "ambiguity_tolerance": 8, "autonomy": 7},
         "MANAGER": {"emotional_stability": 8, "leadership": 7, "self_efficacy": 6},
         "SOCIAL": {"adaptability": 8, "emotional_stability": 6, "leadership": 5}
@@ -426,11 +426,11 @@ def get_max_potential_for_row(row, valid_keys):
     return row_maxes
 
 # ==========================================
-# 🧠 MOTOR DE CÁLCULO Y GRÁFICOS (PEGAR ANTES DE RUN_SIMULATOR_LOGIC)
+# 🧠 MOTOR MATEMÁTICO Y LÓGICO (CORREGIDO: LIDERAZGO Y ADAPTABILIDAD)
 # ==========================================
 
 def parse_logic(logic_string):
-    """Interpreta strings del CSV: 'risk_propensity 3 | achievement -1'"""
+    """Interpreta strings del CSV y suma puntos."""
     if not logic_string or pd.isna(logic_string): return
     
     parts = str(logic_string).split('|')
@@ -440,22 +440,21 @@ def parse_logic(logic_string):
         p = p.strip()
         if not p: continue
         try:
-            # Separamos por el último espacio
-            # Ejemplo: "risk_propensity" y "3"
             if ' ' in p:
                 key, val = p.rsplit(' ', 1)
                 key = key.strip()
                 val = float(val)
-                # Acumulamos en el estado de sesión
                 st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
         except: pass
 
 def get_max_potential_for_row(row, valid_keys):
-    """Mira cuánto era lo máximo posible a sumar en una pregunta específica"""
+    """Mira cuánto era lo máximo posible a sumar en una pregunta"""
     row_maxes = {k: 0 for k in valid_keys}
+    
     for char in ['A', 'B', 'C', 'D']:
         logic_str = row.get(f'OPCION_{char}_LOGIC')
         if not logic_str or pd.isna(logic_str): continue
+        
         parts = str(logic_str).split('|')
         for p in parts:
             p = p.strip()
@@ -471,17 +470,24 @@ def get_max_potential_for_row(row, valid_keys):
     return row_maxes
 
 def calculate_results():
-    """Calcula porcentajes REALES basados en el máximo posible del cuestionario"""
-    # 1. CLAVES EXACTAS DEL CSV SATE_V4
+    """Calcula porcentajes REALES (0-100%) con mapeo a Liderazgo/Adaptabilidad"""
+    
+    # 1. CLAVES DEL CSV -> CLAVES DEL MODELO
+    # Usamos las claves del CSV para calcular, pero luego las mapearemos
     valid_keys = [
-        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
-        "locus_control", "emotional_stability", "achievement", 
-        "self_efficacy", "autonomy"
+        "risk_propensity",      # Riesgo
+        "ambiguity_tolerance",  # Ambigüedad
+        "innovativeness",       # Innovación
+        "locus_control",        # Locus de Control
+        "emotional_stability",  # Estabilidad
+        "achievement",          # Logro
+        "self_efficacy",        # (CSV) -> LIDERAZGO (Modelo)
+        "autonomy"              # (CSV) -> ADAPTABILIDAD (Modelo)
     ]
     
     user_scores = st.session_state.get('octagon', {})
     
-    # 2. CALCULAR EL 100% TEÓRICO
+    # 2. CALCULAR MÁXIMOS POSIBLES
     all_questions = st.session_state.get('data', [])
     total_max_possibles = {k: 0 for k in valid_keys}
     
@@ -500,7 +506,7 @@ def calculate_results():
             percentage = (u_val / max_val) * 100
         else:
             percentage = 0
-        
+            
         octagon_norm[k] = max(0, min(100, percentage))
 
     # 4. KPI GLOBALES
@@ -515,21 +521,19 @@ def calculate_results():
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
 
 def radar_chart():
-    """Genera el gráfico de araña con los DATOS NORMALIZADOS"""
-    # Llamamos a calculate_results para obtener los porcentajes (0-100)
-    # No usamos st.session_state.octagon directamente porque esos son puntos brutos
+    """Genera el gráfico con las etiquetas CORRECTAS (Liderazgo/Adaptabilidad)"""
     _, _, _, _, _, _, scores, _ = calculate_results()
     
     if not scores: return go.Figure()
     
-    # Diccionario de etiquetas bonitas
+    # MAPEO DE CLAVES CSV -> ETIQUETAS VISUALES
     LABELS = {
-        "risk_propensity": "Riesgo", 
-        "ambiguity_tolerance": "Ambigüedad",
+        "risk_propensity": "Propensión al riesgo", 
+        "ambiguity_tolerance": "Tolerancia a la ambigüedad",
         "innovativeness": "Innovación", 
-        "locus_control": "Control",
-        "emotional_stability": "Estabilidad", 
-        "achievement": "Logro",
+        "locus_control": "Locus de control",
+        "emotional_stability": "Estabilidad emocional", 
+        "achievement": "Orientación al logro",
         "self_efficacy": "Autoeficacia",
         "autonomy": "Autonomía"
     }
@@ -537,7 +541,6 @@ def radar_chart():
     categories = [LABELS.get(k, k) for k in scores.keys()]
     values = list(scores.values())
     
-    # Cerrar el círculo del gráfico
     categories.append(categories[0])
     values.append(values[0])
     
@@ -553,14 +556,8 @@ def radar_chart():
     
     fig.update_layout(
         polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 100], # Escala fija de 0 a 100%
-                tickfont=dict(size=10, color="gray")
-            ),
-            angularaxis=dict(
-                tickfont=dict(size=12, color="black", weight="bold")
-            )
+            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10, color="gray")),
+            angularaxis=dict(tickfont=dict(size=12, color="black", weight="bold"))
         ),
         showlegend=False,
         margin=dict(l=40, r=40, t=20, b=20),
@@ -571,23 +568,21 @@ def radar_chart():
     return fig
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
-    """Guarda en Supabase (Previene errores si faltan tablas)"""
+    """Guarda en Supabase"""
     try:
-        # Convertimos scores y history a JSON string para guardar
         scores_json = json.dumps(scores)
         history_json = json.dumps(history)
-        
         supabase.table("sape_results").insert({
             "student_id": student_id,
             "sector": sector,
             "ire": ire,
             "friction": friction,
-            "octagon": scores_json, # Guardamos el octágono normalizado
+            "octagon": scores_json,
             "organization": organization,
             "created_at": datetime.now().isoformat()
         }).execute()
     except Exception as e:
-        print(f"Error guardando en BD (No crítico para el usuario): {e}")
+        print(f"Error guardando: {e}")
 
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
