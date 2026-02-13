@@ -541,13 +541,13 @@ def diagnosticar_usuario_python(octagon, cerebro):
         return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
 
 # ==========================================
-# 🎮 INTERFAZ SIMULADOR (VERSIÓN CORREGIDA)
+# 🎮 INTERFAZ SIMULADOR (CONECTADO A PERMISOS)
 # ==========================================
 def run_simulator_logic():
     # 1. Estilo y limpieza visual
     st.markdown("<style>.stApp { background-color: white; }</style>", unsafe_allow_html=True)
     
-    # 2. 🛡️ INICIALIZACIÓN SEGURA DE VARIABLES (El arreglo clave)
+    # 2. Inicialización de variables
     if 'instructions_seen' not in st.session_state: st.session_state.instructions_seen = False
     if 'data_verified' not in st.session_state: st.session_state.data_verified = False
     if 'started' not in st.session_state: st.session_state.started = False
@@ -556,9 +556,8 @@ def run_simulator_logic():
     if 'history' not in st.session_state: st.session_state.history = []
     if 'user_data' not in st.session_state: st.session_state.user_data = {}
     if 'octagon' not in st.session_state: st.session_state.octagon = {}
-    if 'flags' not in st.session_state: st.session_state.flags = {}
 
-    # 3. Lógica del Juego
+    # 3. PANTALLA 1: BIENVENIDA
     if not st.session_state.instructions_seen:
         c1, c2, c3 = st.columns([1, 2, 1]) 
         with c2:
@@ -570,11 +569,11 @@ def run_simulator_logic():
             st.session_state.instructions_seen = True
             st.rerun()
 
+    # 4. PANTALLA 2: DATOS PERSONALES
     elif not st.session_state.get('data_verified', False):
         st.markdown("#### 1. Identificación")
         with st.form("user_data_form"):
             c1, c2 = st.columns(2)
-            # Recuperamos nombre si ya existe en user_data (del login)
             default_name = st.session_state.user_data.get('username', '')
             name = c1.text_input("Nombre", value=default_name) 
             age = c2.number_input("Edad", 18, 99)
@@ -584,41 +583,84 @@ def run_simulator_logic():
                     st.session_state.data_verified = True
                     st.rerun()
 
+    # 5. PANTALLA 3: SELECCIÓN DE SECTOR (¡AQUÍ ESTÁ LA MAGIA! 🎩)
     elif not st.session_state.started:
-        st.markdown(f"#### 2. Selecciona el Sector:")
-        def go_sector(sec_name):
-            all_q = load_questions()
-            SECTOR_MAP = {
-                "Startup Tecnológica (Scalable)": "TECH", "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "FREELANCE", "Intraemprendimiento": "INTRA",
-                "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", "Consultoría / Servicios Profesionales": "CONSULTORÍA",
-                "Hostelería y Restauración": "HOSTELERÍA", "Emprendimiento Social": "SOCIAL",
-                "Salud": "SALUD", "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
-            }
-            target_code = SECTOR_MAP.get(sec_name, "TECH")
-            qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == target_code]
-            if not qs: qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == "TECH"]
+        st.markdown(f"#### 2. Selecciona tu Sector:")
+        
+        # A. Recuperar permisos de la empresa del usuario
+        user_org_id = st.session_state.user_data.get('org_id')
+        allowed_sectors = []
+        
+        try:
+            # Consultamos a Supabase qué sectores tiene activos esta empresa
+            resp = supabase.table("organizations").select("active_sectors").eq("id", user_org_id).execute()
+            if resp.data:
+                raw_sectors = resp.data[0].get('active_sectors', '[]')
+                # Parseo robusto (lee tanto JSON como strings de Python)
+                if raw_sectors:
+                    try:
+                        allowed_sectors = json.loads(raw_sectors)
+                    except:
+                        try:
+                            allowed_sectors = ast.literal_eval(raw_sectors)
+                        except:
+                            allowed_sectors = []
+        except:
+            allowed_sectors = [] # Si falla, lista vacía
+
+        # B. Mapa de Botones: CÓDIGO -> ETIQUETA VISIBLE
+        # Estos códigos deben coincidir con los que guarda el Admin
+        BUTTON_MAP = {
+            "TECH": "Startup Tecnológica (Scalable)",
+            "RETAIL": "Pequeña y Mediana Empresa (PYME)",
+            "FREELANCE": "Autoempleo / Freelance",
+            "INTRA": "Intraemprendimiento",
+            "PSICOLOGÍA_SANITARIA": "Psicología Sanitaria",
+            "CONSULTORÍA": "Consultoría / Servicios",
+            "HOSTELERÍA": "Hostelería y Turismo",
+            "SOCIAL": "Emprendimiento Social",
+            "SALUD": "Salud y Bienestar",
+            "PSICOLOGÍA_NO_SANITARIA": "Psicología No Sanitaria"
+        }
+
+        # C. Función para iniciar el juego
+        def go_sector(label_name, code_internal):
+            all_q = load_questions() # Carga todas las preguntas
+            # Filtramos preguntas por el código interno (ej: TECH)
+            qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == code_internal]
+            
+            # Fallback: Si no hay preguntas de ese sector, cargamos TECH por defecto para no romper
+            if not qs: 
+                qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == "TECH"]
+            
             st.session_state.data = qs
-            st.session_state.user_data["sector"] = target_code
+            st.session_state.user_data["sector"] = code_internal
             st.session_state.started = True
             st.rerun()
 
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Startup Tecnológica (Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-            if st.button("Pequeña Empresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
-            if st.button("Autoempleo / Freelance", use_container_width=True): go_sector("Autoempleo / Freelance")
-            if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
-            if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
-        with c2:
-            if st.button("Consultoría / Servicios", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
-            if st.button("Hostelería y Turismo", use_container_width=True): go_sector("Hostelería y Restauración")
-            if st.button("Emprendimiento Social", use_container_width=True): go_sector("Emprendimiento Social")
-            if st.button("Salud y Bienestar", use_container_width=True): go_sector("Salud")
-            if st.button("Psicología No Sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
+        # D. Renderizar Botones dinámicamente
+        if not allowed_sectors:
+            st.error("⚠️ Tu organización no tiene sectores habilitados. Contacta con tu manager.")
+        else:
+            # Crear columnas para los botones (grid de 2 columnas)
+            cols = st.columns(2)
+            found_any = False
+            
+            # Iteramos solo sobre los sectores permitidos que existen en nuestro mapa
+            valid_buttons = [code for code in allowed_sectors if code in BUTTON_MAP]
+            
+            for i, code in enumerate(valid_buttons):
+                found_any = True
+                label = BUTTON_MAP[code]
+                with cols[i % 2]: # Alternar columnas izquierda/derecha
+                    if st.button(label, use_container_width=True):
+                        go_sector(label, code)
+            
+            if not found_any:
+                 st.warning("Hay sectores asignados pero no coinciden con los disponibles en el sistema.")
 
+    # 6. PANTALLA 4: EL JUEGO (PREGUNTAS)
     elif not st.session_state.get('finished', False):
-        # Verificar que hay preguntas cargadas
         if 'data' not in st.session_state or not st.session_state.data:
             st.error("Error cargando preguntas. Vuelve a seleccionar sector.")
             st.session_state.started = False
@@ -631,7 +673,6 @@ def run_simulator_logic():
         row = st.session_state.data[st.session_state.current_step]
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
-        # Estilo oscuro para el juego
         st.markdown("""
         <style>
         .stApp { background-color: #050A1F !important; }
@@ -667,8 +708,8 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
+    # 7. PANTALLA 5: RESULTADOS
     else:
-        # PANTALLA DE RESULTADOS
         st.markdown("""<style>.stApp { background-color: white !important; } h1,h2,h3,p {color: black !important;}</style>""", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1,1,1])
         with c2:
