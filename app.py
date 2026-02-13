@@ -469,11 +469,17 @@ def get_max_potential_for_row(row, valid_keys):
             except: pass
     return row_maxes
 
+# ==========================================
+# 🧠 CÁLCULOS (CON FACTOR DE SATURACIÓN PARA DESCARRILADORES)
+# ==========================================
 def calculate_results():
-    """Calcula porcentajes REALES (0-100%) con mapeo a Liderazgo/Adaptabilidad"""
+    """
+    Calcula porcentajes REALES aplicando un FACTOR DE SATURACIÓN.
+    Si el usuario alcanza el 80% del máximo posible, ya se le da el 100%.
+    Esto facilita que aparezcan los 'descarriladores' (>90%).
+    """
     
-    # 1. CLAVES DEL CSV -> CLAVES DEL MODELO
-    # Usamos las claves del CSV para calcular, pero luego las mapearemos
+    # 1. CLAVES EXACTAS DEL CSV
     valid_keys = [
         "risk_propensity",      # Riesgo
         "ambiguity_tolerance",  # Ambigüedad
@@ -481,13 +487,13 @@ def calculate_results():
         "locus_control",        # Locus de Control
         "emotional_stability",  # Estabilidad
         "achievement",          # Logro
-        "self_efficacy",        # (CSV) -> LIDERAZGO (Modelo)
-        "autonomy"              # (CSV) -> ADAPTABILIDAD (Modelo)
+        "self_efficacy",        # Autoeficacia (Liderazgo)
+        "autonomy"              # Autonomía (Adaptabilidad)
     ]
     
     user_scores = st.session_state.get('octagon', {})
     
-    # 2. CALCULAR MÁXIMOS POSIBLES
+    # 2. CALCULAR EL MÁXIMO TEÓRICO
     all_questions = st.session_state.get('data', [])
     total_max_possibles = {k: 0 for k in valid_keys}
     
@@ -496,17 +502,28 @@ def calculate_results():
         for k in valid_keys:
             total_max_possibles[k] += row_maxs[k]
 
-    # 3. CÁLCULO DE PORCENTAJES
+    # 3. CÁLCULO DE PORCENTAJES CON SATURACIÓN
+    # ---------------------------------------------------------
+    SATURATION_FACTOR = 0.80  # <--- LA CLAVE MÁGICA
+    # Significa que si obtienes el 80% de los puntos posibles, 
+    # tu nota ya será de 100/100.
+    # ---------------------------------------------------------
+
     octagon_norm = {}
+    
     for k in valid_keys:
         u_val = user_scores.get(k, 0)
         max_val = total_max_possibles.get(k, 0)
         
         if max_val > 0:
-            percentage = (u_val / max_val) * 100
+            # El nuevo "100%" es el 80% del máximo real
+            saturated_max = max_val * SATURATION_FACTOR
+            
+            percentage = (u_val / saturated_max) * 100
         else:
             percentage = 0
             
+        # Clamp: Aseguramos que no pase de 100 ni baje de 0
         octagon_norm[k] = max(0, min(100, percentage))
 
     # 4. KPI GLOBALES
