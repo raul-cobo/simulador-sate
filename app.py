@@ -718,11 +718,14 @@ def run_simulator_logic():
             st.success("✅ Resultados guardados.")
 
 # ==========================================
-# 👑 PANEL ADMIN (VERSIÓN FINAL BLINDADA)
+# 👑 PANEL ADMIN (CON GESTIÓN DE SECTORES)
 # ==========================================
 def render_admin_dashboard():
     st.title("👑 Panel de Administración")
     
+    # Lista de sectores disponibles (extraídos del mapa global)
+    AVAILABLE_SECTORS = list(set(SECTOR_MAP.values()))
+
     try:
         # KPIs Básicos (Conexión segura)
         count_users = supabase.table("users").select("*", count="exact").execute().count
@@ -730,11 +733,13 @@ def render_admin_dashboard():
         count_orgs = supabase.table("organizations").select("*", count="exact").execute().count
         
         # Recuperar IDs válidos de empresas para los selectores
-        res_orgs = supabase.table("organizations").select("id").execute()
+        res_orgs = supabase.table("organizations").select("id", "name", "active_sectors").execute()
         valid_ids = [o['id'] for o in res_orgs.data]
+        org_data_list = res_orgs.data # Guardamos toda la data para usarla abajo
     except: 
         count_users = count_results = count_orgs = 0
         valid_ids = []
+        org_data_list = []
 
     k1, k2, k3 = st.columns(3)
     k1.metric("👥 Usuarios", count_users)
@@ -777,7 +782,7 @@ def render_admin_dashboard():
                 except Exception as e: st.error(f"Error: {e}")
         else: st.warning("No hay empresas creadas.")
 
-    # --- PESTAÑA 2: USUARIOS (SIN ERRORES DE FECHA) ---
+    # --- PESTAÑA 2: USUARIOS ---
     with tab2:
         c1, c2 = st.columns([1, 1.5])
         with c1: # ALTA
@@ -799,13 +804,11 @@ def render_admin_dashboard():
         with c2: # LISTADO BLINDADO
             st.markdown("### 📋 Listado Completo")
             try:
-                # Consulta simple SIN ordenar por created_at (esto arregla el error)
                 res = supabase.table("users").select("*").execute()
                 df = pd.DataFrame(res.data)
                 
                 if not df.empty:
                     st.dataframe(df, use_container_width=True)
-                    
                     st.divider()
                     st.markdown("#### 🗑️ Borrar Usuario")
                     if 'username' in df.columns:
@@ -824,22 +827,82 @@ def render_admin_dashboard():
             st.dataframe(pd.DataFrame(res.data), use_container_width=True)
         except: pass
 
-    # --- PESTAÑA 4: EMPRESAS ---
+    # --- PESTAÑA 4: EMPRESAS Y SECTORES (MODIFICADO) ---
     with tab4:
-        c1, c2 = st.columns(2)
-        with c1:
+        col_create, col_edit = st.columns(2)
+        
+        # 1. CREAR EMPRESA
+        with col_create:
+            st.markdown("### ➕ Nueva Empresa")
             with st.form("new_org"):
-                oid = st.text_input("ID (sin espacios)").strip()
-                oname = st.text_input("Nombre").strip()
+                oid = st.text_input("ID (sin espacios, ej: UGR)").strip()
+                oname = st.text_input("Nombre (ej: Universidad de Granada)").strip()
+                # Multiselector para elegir sectores iniciales
+                initial_sectors = st.multiselect("Sectores Habilitados", AVAILABLE_SECTORS, default=AVAILABLE_SECTORS)
+                
                 if st.form_submit_button("Crear Empresa"):
                     if oid and oname:
-                        supabase.table("organizations").insert({"id": oid, "name": oname}).execute()
-                        st.rerun()
-        with c2:
-            try:
-                res = supabase.table("organizations").select("*").execute()
-                st.dataframe(pd.DataFrame(res.data))
-            except: pass
+                        try:
+                            # Guardamos los sectores como una cadena JSON
+                            sectors_json = json.dumps(initial_sectors)
+                            supabase.table("organizations").insert({
+                                "id": oid, 
+                                "name": oname,
+                                "active_sectors": sectors_json
+                            }).execute()
+                            st.success(f"Empresa {oname} creada correctamente.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error creando empresa: {e}")
+                    else:
+                        st.warning("El ID y el Nombre son obligatorios.")
+
+        # 2. EDITAR SECTORES DE EMPRESA EXISTENTE
+        with col_edit:
+            st.markdown("### ✏️ Configurar Sectores")
+            if org_data_list:
+                # Selector de empresa a editar
+                org_options = {org['id']: org['name'] for org in org_data_list}
+                selected_org_id = st.selectbox("Selecciona Empresa a Editar:", list(org_options.keys()), format_func=lambda x: f"{x} ({org_options[x]})")
+                
+                # Buscamos los datos actuales de esa empresa
+                current_org = next((item for item in org_data_list if item["id"] == selected_org_id), None)
+                
+                if current_org:
+                    # Intentamos parsear los sectores actuales desde JSON
+                    current_active = []
+                    raw_sectors = current_org.get('active_sectors', '[]')
+                    if raw_sectors:
+                        try:
+                            if isinstance(raw_sectors, list):
+                                current_active = raw_sectors
+                            else:
+                                current_active = json.loads(raw_sectors)
+                        except:
+                            current_active = []
+
+                    st.info(f"Editando permisos para: **{current_org['name']}**")
+                    
+                    # Formulario de edición
+                    with st.form("edit_sectors_form"):
+                        new_sectors = st.multiselect(
+                            "Sectores Permitidos:", 
+                            options=AVAILABLE_SECTORS, 
+                            default=[s for s in current_active if s in AVAILABLE_SECTORS]
+                        )
+                        
+                        if st.form_submit_button("Guardar Cambios de Sectores"):
+                            try:
+                                updated_json = json.dumps(new_sectors)
+                                supabase.table("organizations").update({
+                                    "active_sectors": updated_json
+                                }).eq("id", selected_org_id).execute()
+                                st.success("✅ Sectores actualizados.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error actualizando: {e}")
+            else:
+                st.info("No hay empresas para editar.")
 
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
