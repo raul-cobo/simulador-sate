@@ -609,7 +609,19 @@ def run_simulator_logic():
                     st.session_state.history.append({'op': o['id'], 'txt': o['t']})
                     st.session_state.current_step += 1
                     st.rerun()
+def run_simulator_logic():
+    # --- 🚨 PEGAR ESTO JUSTO AQUÍ, AL PRINCIPIO DE LA FUNCIÓN ---
+    # CHIVATO VISUAL GIGANTE
+    puntos = st.session_state.get('octagon', {})
+    locus = points_locus = puntos.get('locus_control', 0)
+    logro = points_logro = puntos.get('achievement', 0)
+    
+    st.error(f"🕵️‍♂️ CHIVATO EN VIVO | Locus: {locus} | Logro: {logro}")
+    # ------------------------------------------------------------
 
+    # Aquí sigue tu código normal...
+    if 'month' not in st.session_state: st.session_state.month = 1
+    # ...
 # ----------------------------------------------------
     # PANTALLA 5: RESULTADOS (MATEMÁTICAS Y ETIQUETAS CORRECTAS)
     # ----------------------------------------------------
@@ -827,49 +839,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# ==========================================
-# 🕵️‍♂️ CÓDIGO CHIVATO: PUNTUACIONES BRUTAS
-# (Pegar al final de app.py)
-# ==========================================
-with st.sidebar:
-    st.markdown("---")
-    st.header("🕵️‍♂️ CHIVATO DE PUNTOS")
-    
-    if st.checkbox("Ver Puntos Reales (Sin Cocinar)"):
-        # 1. Recuperamos la memoria cruda
-        raw_scores = st.session_state.get('octagon', {})
-        
-        if not raw_scores:
-            st.warning("📭 Todavía no has acumulado puntos. Juega un poco.")
-        else:
-            st.markdown("### 🥩 Puntos Brutos Acumulados")
-            st.markdown("*(Esto es lo que has sumado opción a opción)*")
-            
-            # Definimos las claves que nos interesan para el orden
-            keys_of_interest = [
-                "risk_propensity", "ambiguity_tolerance", "innovativeness", 
-                "locus_control", "emotional_stability", "achievement", 
-                "self_efficacy", "autonomy"
-            ]
-            
-            # Mostramos cada una
-            total_acumulado = 0
-            for k in keys_of_interest:
-                # Buscamos la clave tal cual, o normalizada si hace falta
-                val = raw_scores.get(k, 0)
-                
-                # Icono según valor
-                icon = "🟢" if val > 0 else "⚪" if val == 0 else "🔴"
-                
-                # Mostramos la línea
-                st.code(f"{icon} {k}: {val} pts")
-                total_acumulado += val
-            
-            st.write(f"**Total Puntos:** {total_acumulado}")
-            
-            st.info("""
-            **Interpretación:**
-            - Si **Locus de Control** sale con **0 pts**, significa que el código NO ha sumado nada (o has elegido opciones que no daban puntos).
-            - Si sale con **números negativos**, es que has restado.
-            - Si sale con **números positivos**, ¡EL CÓDIGO FUNCIONA! El problema estaría entonces en la fórmula del gráfico (0-100%).
-            """)
