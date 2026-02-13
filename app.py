@@ -827,3 +827,53 @@ def main():
 
 if __name__ == "__main__":
     main()
+# ==========================================
+# 🕵️‍♂️ ESCÁNER DE DATOS (PEGAR AL FINAL DEL ARCHIVO PARA DIAGNÓSTICO)
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.header("🕵️‍♂️ ESCÁNER DE LOCUS")
+
+# 1. Recuperamos el sector actual
+current_sector = st.session_state.user_data.get('sector', 'TECH') # Por defecto TECH si no hay nada
+st.sidebar.write(f"**Analizando Sector:** {current_sector}")
+
+# 2. Buscamos oportunidades de puntos en el CSV
+if st.sidebar.button("ESCANEAR EXCEL AHORA"):
+    # Cargamos datos frescos
+    try:
+        df_debug = pd.read_csv("SATE_V4.csv", sep=";", encoding="utf-8-sig", dtype=str, engine='python')
+        # Filtramos por el sector del usuario
+        df_sector = df_debug[df_debug['SECTOR'] == current_sector]
+        
+        found_positive = False
+        total_puntos = 0
+        
+        st.sidebar.write(f"📝 Preguntas en sector: {len(df_sector)}")
+        
+        for idx, row in df_sector.iterrows():
+            # Revisamos las 4 opciones
+            for char in ['A', 'B', 'C', 'D']:
+                logic = str(row.get(f'OPCION_{char}_LOGIC', ''))
+                # Normalizamos para buscar "locus"
+                if "locus" in logic.lower().replace("_", "").replace(" ", ""):
+                    # Extraemos el número
+                    import re
+                    # Busca cualquier número (ej: 3, -2, 4.5)
+                    nums = re.findall(r'-?\d+', logic)
+                    if nums:
+                        val = float(nums[-1]) # Asumimos que el número está al final
+                        icon = "🟢" if val > 0 else "🔴"
+                        st.sidebar.code(f"{icon} Fila {idx} Opción {char}: {val} pts\nLogic: {logic}")
+                        
+                        if val > 0:
+                            found_positive = True
+                            total_puntos += val
+                            
+        if not found_positive:
+            st.sidebar.error("🚨 ¡ALERTA! En este sector, Locus de Control NUNCA suma puntos positivos. Solo resta o no existe.")
+            st.sidebar.info("Solución: El código funciona bien, pero debes editar el Excel para que alguna opción dé Locus positivo (ej: 'locus_control 3').")
+        else:
+            st.sidebar.success(f"✅ Se han encontrado {total_puntos} puntos posibles de Locus. El fallo está en el código.")
+            
+    except Exception as e:
+        st.sidebar.error(f"Error leyendo archivo: {e}")
