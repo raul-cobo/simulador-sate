@@ -90,82 +90,6 @@ def login_supabase(username, password):
         st.error(f"Error en login: {e}")
         return None
 
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization="GENERICO"):
-    """Guarda TODO: Rasgos individuales y las respuestas crudas para estadística"""
-    if supabase:
-        try:
-            # Preparamos los triggers
-            triggers_list = list(triggers) if isinstance(triggers, set) else triggers
-            
-            # Recuperamos organización
-            if organization == "GENERICO" and 'user_data' in st.session_state:
-                organization = st.session_state.user_data.get('organization', 'GENERICO')
-
-            data = {
-                "student_id": student_id,
-                "sector": sector,
-                "organization": organization,
-                "created_at": datetime.now().isoformat(),
-
-                # METRICAS GLOBALES
-                "ire_score": float(ire),
-                "friction_score": float(friction),
-                "triggers": triggers_list,
-                
-                # EL OCTÓGONO (Para sacar descarriladores después)
-                "achievement": scores.get('achievement', 0),
-                "risk_propensity": scores.get('risk_propensity', 0),
-                "innovativeness": scores.get('innovativeness', 0),
-                "locus_control": scores.get('locus_control', 0),
-                "self_efficacy": scores.get('self_efficacy', 0),
-                "autonomy": scores.get('autonomy', 0),
-                "ambiguity_tolerance": scores.get('ambiguity_tolerance', 0),
-                "emotional_stability": scores.get('emotional_stability', 0),
-                
-                # LA JOYA DE LA CORONA (Para Validez y Fiabilidad)
-                "raw_answers": history, # Guarda qué respondió en cada mes
-                "raw_scores": scores    # Respaldo JSON
-            }
-            
-            supabase.table("sape_results").insert(data).execute()
-            print("✅ Datos completos guardados en Supabase")
-            
-        except Exception as e:
-            print(f"❌ Error guardando: {e}")
-
-# --- CONFIGURACIÓN DE CALIBRACIÓN ---
-SCORE_MULTIPLIER = 1.5  # <--- SUBIDO A 1.5
-
-# Límites matemáticos (Mínimo y Máximo posible) calculados con x1.5
-# Esto permite que el IRE se escale de 0 a 100 real en cada sector.
-SECTOR_LIMITS = {
-    'TECH': {'min': 5.05, 'max': 61.35},
-    'CONSULTORIA': {'min': 4.46, 'max': 63.54},
-    'PYME': {'min': 8.12, 'max': 64.25},
-    'HOSTELERIA': {'min': 5.05, 'max': 68.96},
-    'AUTOEMPLEO': {'min': 9.21, 'max': 68.10},
-    'SOCIAL': {'min': 10.31, 'max': 62.42},
-    'INTRA': {'min': 8.60, 'max': 60.32},
-    'SALUD': {'min': 11.10, 'max': 61.82},
-    'PSICOLOGIA_SANITARIA': {'min': 12.72, 'max': 57.93},
-    'PSICOLOGÍA_NO_SANITARIA': {'min': 11.18, 'max': 62.69}
-}
-
-# --- GESTIÓN DE PDF AVANZADA ---
-try:
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.utils import ImageReader
-    from reportlab.lib import colors
-    PDF_AVAILABLE = True
-except ImportError:
-    PDF_AVAILABLE = False
-
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Audeo", page_icon="🧬", layout="wide")
-
-# --- 2. FUNCIONES DE INTERFAZ (MOVIDAS AL PRINCIPIO PARA EVITAR ERRORES) ---
-
 def render_header():
     """Dibuja la cabecera en la aplicación Streamlit"""
     c1, c2 = st.columns([1.5, 6])
@@ -342,17 +266,17 @@ def load_questions():
         return []
 
 # ==========================================
-# 🧠 MOTOR MATEMÁTICO BLINDADO (v3.0)
+# 🧠 MOTOR MATEMÁTICO Y GRÁFICO (BLOQUE MAESTRO v5.0)
 # ==========================================
 
 def parse_logic(logic_string):
     """
     Lee la lógica del CSV y suma puntos.
-    MEJORA: Usa .split() sin argumentos para ignorar espacios múltiples/tabuladores.
+    Versión robusta: ignora espacios extra y tabuladores.
     """
     if not logic_string or pd.isna(logic_string): return
     
-    # Limpieza previa básica
+    # Limpieza básica de comillas
     clean_str = str(logic_string).replace('"', '').replace("'", "")
     parts = clean_str.split('|')
     
@@ -366,9 +290,10 @@ def parse_logic(logic_string):
             tokens = p.split()
             
             if len(tokens) >= 2:
-                # El último token es el número, el anterior (o unión de anteriores) es la clave
+                # El último trozo es el número
                 val = float(tokens[-1])
-                key = " ".join(tokens[:-1]).strip() # Por si la clave tuviera espacios (no debería)
+                # Todo lo anterior es la clave (por si hubiera espacios raros)
+                key = " ".join(tokens[:-1]).strip()
                 
                 # Acumulamos
                 st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
@@ -395,7 +320,6 @@ def get_max_potential_for_row(row, valid_keys):
                     key = " ".join(tokens[:-1]).strip()
                     
                     if key in row_maxes:
-                        # Si esta opción da más puntos, actualizamos el máximo
                         if val > row_maxes[key]:
                             row_maxes[key] = val
             except: pass
@@ -405,18 +329,18 @@ def get_max_potential_for_row(row, valid_keys):
 def calculate_results():
     """
     Calcula porcentajes REALES con nombres exactos del CSV.
+    Incluye factor de saturación (0.8) para permitir descarriladores.
     """
-    
-    # 1. LISTA MAESTRA DE CLAVES (Tal cual aparecen en el CSV SATE_V4)
+    # 1. LISTA MAESTRA DE CLAVES (Tal cual aparecen en el CSV)
     valid_keys = [
         "risk_propensity",      # Riesgo
         "ambiguity_tolerance",  # Ambigüedad
         "innovativeness",       # Innovación
-        "locus_control",        # Locus (SIN 'of')
+        "locus_control",        # Locus
         "emotional_stability",  # Estabilidad
         "achievement",          # Logro
-        "self_efficacy",        # Autoeficacia (Liderazgo)
-        "autonomy"              # Autonomía (Adaptabilidad)
+        "self_efficacy",        # Autoeficacia
+        "autonomy"              # Autonomía
     ]
     
     user_scores = st.session_state.get('octagon', {})
@@ -437,8 +361,8 @@ def calculate_results():
     octagon_norm = {}
     
     for k in valid_keys:
-        u_val = user_scores.get(k, 0)               # Puntos Usuario
-        max_val = total_max_possibles.get(k, 0)     # Puntos Máximos
+        u_val = user_scores.get(k, 0)      # Puntos del usuario
+        max_val = total_max_possibles.get(k, 0) # Puntos máximos posibles
         
         if max_val > 0:
             saturated_max = max_val * SATURATION_FACTOR
@@ -457,20 +381,19 @@ def calculate_results():
     ire = avg 
     friction = max(0, 100 - ire)
     
-    # Devolvemos también los diccionarios raw para el depurador
+    # Retornamos los datos crudos al final para el depurador ("chivato")
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {
         "raw_user": user_scores,
         "max_possible": total_max_possibles
     }
 
 def radar_chart():
-    """Genera el gráfico con etiquetas bonitas"""
-    # Obtenemos los datos calculados
+    """Genera el gráfico con TUS ETIQUETAS"""
     _, _, _, _, _, _, scores, _ = calculate_results()
     
     if not scores: return go.Figure()
     
-    # DICCIONARIO VISUAL (Solo afecta a lo que ve el usuario)
+    # TUS ETIQUETAS EXACTAS
     LABELS = {
         "risk_propensity": "Propensión al riesgo", 
         "ambiguity_tolerance": "Tolerancia a la ambigüedad",
@@ -485,6 +408,7 @@ def radar_chart():
     categories = [LABELS.get(k, k) for k in scores.keys()]
     values = list(scores.values())
     
+    # Cerrar el círculo visualmente
     categories.append(categories[0])
     values.append(values[0])
     
@@ -523,178 +447,7 @@ def save_result_to_db(student_id, sector, ire, friction, triggers, scores, histo
             "created_at": datetime.now().isoformat()
         }).execute()
     except Exception as e:
-        print(f"Error guardando: {e}")
-
-## ==========================================
-# 🧠 CÁLCULOS MATEMÁTICOS (100% REAL BASADO EN 40 MESES)
-# ==========================================
-
-def get_max_potential_for_row(row, valid_keys):
-    """
-    Analiza una sola pregunta (fila) y devuelve cuánto es lo MÁXIMO 
-    que se podía sumar a cada rasgo en esa pregunta concreta.
-    """
-    row_maxes = {k: 0 for k in valid_keys}
-    
-    # Revisamos las 4 opciones (A, B, C, D)
-    for char in ['A', 'B', 'C', 'D']:
-        logic_str = row.get(f'OPCION_{char}_LOGIC')
-        if not logic_str or pd.isna(logic_str): continue
-        
-        # Parseamos la lógica de esta opción
-        # Ej: "risk_propensity 3 | achievement -1"
-        parts = str(logic_str).split('|')
-        for p in parts:
-            p = p.strip()
-            if not p: continue
-            try:
-                # Separamos clave y valor
-                # "risk_propensity 3" -> key="risk_propensity", val=3.0
-                if ' ' in p:
-                    key, val = p.rsplit(' ', 1)
-                    key = key.strip()
-                    val = float(val)
-                    
-                    # Si esta opción da más puntos que las anteriores para este rasgo, actualizamos el máximo de esta pregunta
-                    if key in row_maxes:
-                        if val > row_maxes[key]:
-                            row_maxes[key] = val
-            except: pass
-            
-    return row_maxes
-
-# ==========================================
-# 🧠 CÁLCULOS (CON FACTOR DE SATURACIÓN PARA DESCARRILADORES)
-# ==========================================
-def calculate_results():
-    """
-    Calcula porcentajes REALES aplicando un FACTOR DE SATURACIÓN.
-    Si el usuario alcanza el 80% del máximo posible, ya se le da el 100%.
-    Esto facilita que aparezcan los 'descarriladores' (>90%).
-    """
-    
-    # 1. CLAVES EXACTAS DEL CSV
-    valid_keys = [
-        "risk_propensity",      # Riesgo
-        "ambiguity_tolerance",  # Ambigüedad
-        "innovativeness",       # Innovación
-        "locus_control",        # Locus de Control
-        "emotional_stability",  # Estabilidad
-        "achievement",          # Logro
-        "self_efficacy",        # Autoeficacia (Liderazgo)
-        "autonomy"              # Autonomía (Adaptabilidad)
-    ]
-    
-    user_scores = st.session_state.get('octagon', {})
-    
-    # 2. CALCULAR EL MÁXIMO TEÓRICO
-    all_questions = st.session_state.get('data', [])
-    total_max_possibles = {k: 0 for k in valid_keys}
-    
-    for row in all_questions:
-        row_maxs = get_max_potential_for_row(row, valid_keys)
-        for k in valid_keys:
-            total_max_possibles[k] += row_maxs[k]
-
-    # 3. CÁLCULO DE PORCENTAJES CON SATURACIÓN
-    # ---------------------------------------------------------
-    SATURATION_FACTOR = 0.80  # <--- LA CLAVE MÁGICA
-    # Significa que si obtienes el 80% de los puntos posibles, 
-    # tu nota ya será de 100/100.
-    # ---------------------------------------------------------
-
-    octagon_norm = {}
-    
-    for k in valid_keys:
-        u_val = user_scores.get(k, 0)
-        max_val = total_max_possibles.get(k, 0)
-        
-        if max_val > 0:
-            # El nuevo "100%" es el 80% del máximo real
-            saturated_max = max_val * SATURATION_FACTOR
-            
-            percentage = (u_val / saturated_max) * 100
-        else:
-            percentage = 0
-            
-        # Clamp: Aseguramos que no pase de 100 ni baje de 0
-        octagon_norm[k] = max(0, min(100, percentage))
-
-    # 4. KPI GLOBALES
-    if octagon_norm:
-        avg = sum(octagon_norm.values()) / len(octagon_norm)
-    else:
-        avg = 0
-    
-    ire = avg 
-    friction = max(0, 100 - ire)
-    
-    return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
-
-def radar_chart():
-    """Genera el gráfico con las etiquetas CORRECTAS (Liderazgo/Adaptabilidad)"""
-    _, _, _, _, _, _, scores, _ = calculate_results()
-    
-    if not scores: return go.Figure()
-    
-    # MAPEO DE CLAVES CSV -> ETIQUETAS VISUALES
-    LABELS = {
-        "risk_propensity": "Propensión al riesgo", 
-        "ambiguity_tolerance": "Tolerancia a la ambigüedad",
-        "innovativeness": "Innovación", 
-        "locus_control": "Locus de control",
-        "emotional_stability": "Estabilidad emocional", 
-        "achievement": "Orientación al logro",
-        "self_efficacy": "Autoeficacia",
-        "autonomy": "Autonomía"
-    }
-    
-    categories = [LABELS.get(k, k) for k in scores.keys()]
-    values = list(scores.values())
-    
-    categories.append(categories[0])
-    values.append(values[0])
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill='toself',
-        name='Tu Perfil',
-        line_color='#0D248D',
-        fillcolor='rgba(13, 36, 141, 0.2)'
-    ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10, color="gray")),
-            angularaxis=dict(tickfont=dict(size=12, color="black", weight="bold"))
-        ),
-        showlegend=False,
-        margin=dict(l=40, r=40, t=20, b=20),
-        height=350,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)"
-    )
-    return fig
-
-def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
-    """Guarda en Supabase"""
-    try:
-        scores_json = json.dumps(scores)
-        history_json = json.dumps(history)
-        supabase.table("sape_results").insert({
-            "student_id": student_id,
-            "sector": sector,
-            "ire": ire,
-            "friction": friction,
-            "octagon": scores_json,
-            "organization": organization,
-            "created_at": datetime.now().isoformat()
-        }).execute()
-    except Exception as e:
-        print(f"Error guardando: {e}")
-
+        print(f"Error guardando en BD: {e}")
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
 # ==========================================
