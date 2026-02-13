@@ -541,167 +541,89 @@ def diagnosticar_usuario_python(octagon, cerebro):
         return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
 
 # ==========================================
-# 🧩 BLOQUE 1: LÓGICA DEL SIMULADOR (EL JUEGO)
+# 🎮 INTERFAZ SIMULADOR (VERSIÓN CORREGIDA)
 # ==========================================
 def run_simulator_logic():
-    
-    """Contiene toda la lógica del juego para usuarios normales (STUDENT)"""
+    # 1. Estilo y limpieza visual
     st.markdown("<style>.stApp { background-color: white; }</style>", unsafe_allow_html=True)
     
+    # 2. 🛡️ INICIALIZACIÓN SEGURA DE VARIABLES (El arreglo clave)
     if 'instructions_seen' not in st.session_state: st.session_state.instructions_seen = False
     if 'data_verified' not in st.session_state: st.session_state.data_verified = False
     if 'started' not in st.session_state: st.session_state.started = False
     if 'finished' not in st.session_state: st.session_state.finished = False
     if 'current_step' not in st.session_state: st.session_state.current_step = 0
     if 'history' not in st.session_state: st.session_state.history = []
-    # -----------------------------------------------
+    if 'user_data' not in st.session_state: st.session_state.user_data = {}
+    if 'octagon' not in st.session_state: st.session_state.octagon = {}
+    if 'flags' not in st.session_state: st.session_state.flags = {}
 
+    # 3. Lógica del Juego
     if not st.session_state.instructions_seen:
         c1, c2, c3 = st.columns([1, 2, 1]) 
-    # ==========================================================
-    # 🎨 1. ESTILO BASE (Para pantallas Blancas: A, B, C y E)
-    # ==========================================================
-    st.markdown("""
-    <style>
-    /* Reset por si venimos del modo oscuro */
-    .stApp { background-color: white; }
-    h1, h2, h3, p, div, span, label { color: black; }
-    
-    /* Botones Estándar */
-    div.stButton > button:not([disabled]) {
-        background-color: #0D248D; color: white; border: 1px solid #0D248D;
-    }
-    div.stButton > button[kind="primary"] {
-        background-color: #0D248D; border-color: #0D248D; color: white;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # ------------------------------------------------------------------
-    # 1️⃣ PANTALLA A: INSTRUCCIONES
-    # ------------------------------------------------------------------
-    if 'instructions_seen' not in st.session_state:
-        st.session_state.instructions_seen = False
-
-    if not st.session_state.instructions_seen:
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        st.markdown("## 📜 Guía simulador S.A.P.E.")
-        st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.")
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("### ⚙️ Mecánica")
-            st.markdown("* 40 Meses / 40 Decisiones.\n* No hay respuestas correctas, solo consecuencias.\n* Elige lo que **realmente harías**.")
         with c2:
-            st.markdown("### ⚠️ Reglas")
-            st.markdown("* 🚫 NO uses el botón 'Atrás'.\n* 🚫 NO refresques la página.\n* ⏳ Sin límite de tiempo.")
-            
-        st.divider()
-        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True, type="primary"):
+            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
+            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
+        st.markdown("## 📜 Guía simulador S.A.P.E.")
+        st.info("**Bienvenido/a.** Estás a punto de asumir el rol de fundador/a.")
+        if st.button("✅ HE LEÍDO LAS REGLAS. COMENZAR", use_container_width=True):
             st.session_state.instructions_seen = True
             st.rerun()
 
-    # ------------------------------------------------------------------
-    # 2️⃣ PANTALLA B: DATOS
-    # ------------------------------------------------------------------
     elif not st.session_state.get('data_verified', False):
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown("#### 1. Identificación del/a Candidato/a")
+        st.markdown("#### 1. Identificación")
         with st.form("user_data_form"):
-            col1, col2 = st.columns(2)
-            name = col1.text_input("Nombre Completo / Alias", key="final_name_input") 
-            age = col2.number_input("Edad", 18, 99, key="final_age_input")
-            col3, col4 = st.columns(2)
-            gender = col3.selectbox("Género", ["Masculino", "Femenino", "Prefiero no decirlo"], key="final_gender")
-            experience = col4.selectbox("Experiencia Previa", ["Primer emprendimiento", "Con éxito previo", "Sin éxito previo"], key="final_exp")
-            st.markdown("<br>", unsafe_allow_html=True)
-            consent = st.checkbox("He leído y acepto la Política de Privacidad.")
-            
-            if st.form_submit_button("VALIDAR DATOS Y CONTINUAR"):
-                if name and age and consent:
-                    if 'user_data' not in st.session_state: st.session_state.user_data = {}
-                    st.session_state.user_data.update({"name": name, "age": age, "gender": gender, "experience": experience})
+            c1, c2 = st.columns(2)
+            # Recuperamos nombre si ya existe en user_data (del login)
+            default_name = st.session_state.user_data.get('username', '')
+            name = c1.text_input("Nombre", value=default_name) 
+            age = c2.number_input("Edad", 18, 99)
+            if st.form_submit_button("CONTINUAR"):
+                if name:
+                    st.session_state.user_data.update({"name": name, "age": age})
                     st.session_state.data_verified = True
                     st.rerun()
-                else: st.error("Por favor, completa los campos obligatorios y acepta la política.")
 
-    # ------------------------------------------------------------------
-    # 3️⃣ PANTALLA C: SELECCIÓN DE SECTOR
-    # ------------------------------------------------------------------
     elif not st.session_state.started:
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
-            elif os.path.exists("logo_blanco.png"): 
-                st.markdown('<style>img {background-color: #0D248D; padding: 10px; border-radius: 10px;}</style>', unsafe_allow_html=True)
-                st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: #0D248D;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        st.markdown(f"#### 2. Selecciona el Sector del Proyecto:")
-        
+        st.markdown(f"#### 2. Selecciona el Sector:")
         def go_sector(sec_name):
             all_q = load_questions()
             SECTOR_MAP = {
-                "Startup Tecnológica (Scalable)": "TECH",
-                "Pequeña y Mediana Empresa (PYME)": "RETAIL",
-                "Autoempleo / Freelance": "FREELANCE",
-                "Intraemprendimiento": "INTRA",
-                "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", 
-                "Consultoría / Servicios Profesionales": "CONSULTORÍA",
-                "Hostelería y Restauración": "HOSTELERÍA",
-                "Emprendimiento Social": "SOCIAL",
-                "Salud": "SALUD",
-                "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
+                "Startup Tecnológica (Scalable)": "TECH", "Pequeña y Mediana Empresa (PYME)": "RETAIL",
+                "Autoempleo / Freelance": "FREELANCE", "Intraemprendimiento": "INTRA",
+                "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", "Consultoría / Servicios Profesionales": "CONSULTORÍA",
+                "Hostelería y Restauración": "HOSTELERÍA", "Emprendimiento Social": "SOCIAL",
+                "Salud": "SALUD", "Psicología no sanitaria": "PSICOLOGÍA_NO_SANITARIA"
             }
-
-            code = SECTOR_MAP.get(sec_name, "TECH")
-            qs = [x for x in all_q if x['SECTOR'].strip().upper() == code]
-            if not qs: qs = [x for x in all_q if x['SECTOR'].strip().upper() == "TECH"] 
+            target_code = SECTOR_MAP.get(sec_name, "TECH")
+            qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == target_code]
+            if not qs: qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == "TECH"]
             st.session_state.data = qs
-            st.session_state.user_data["sector"] = code
+            st.session_state.user_data["sector"] = target_code
             st.session_state.started = True
             st.rerun()
 
-        org_data = st.session_state.user_data.get('org_data', {})
-        try: allowed_sectors = ast.literal_eval(org_data.get('active_sectors', "['ALL']"))
-        except: allowed_sectors = ["ALL"]
-        def is_locked(tag): return tag not in allowed_sectors if "ALL" not in allowed_sectors else False
-
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Startup Tecnológica\n(Scalable)", disabled=is_locked("TECH"), use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
-            if st.button("Pequeña Empresa\n(PYME)", disabled=is_locked("RETAIL"), use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
-            if st.button("Autoempleo / Freelance", disabled=is_locked("FREELANCE"), use_container_width=True): go_sector("Autoempleo / Freelance")
-            if st.button("Intraemprendimiento", disabled=is_locked("INTRA"), use_container_width=True): go_sector("Intraemprendimiento")
-            if st.button("Psicología Sanitaria", disabled=is_locked("PSICO_SAN"), use_container_width=True): go_sector("Psicología Sanitaria")
+            if st.button("Startup Tecnológica (Scalable)", use_container_width=True): go_sector("Startup Tecnológica (Scalable)")
+            if st.button("Pequeña Empresa (PYME)", use_container_width=True): go_sector("Pequeña y Mediana Empresa (PYME)")
+            if st.button("Autoempleo / Freelance", use_container_width=True): go_sector("Autoempleo / Freelance")
+            if st.button("Intraemprendimiento", use_container_width=True): go_sector("Intraemprendimiento")
+            if st.button("Psicología Sanitaria", use_container_width=True): go_sector("Psicología Sanitaria")
         with c2:
-            if st.button("Consultoría / Servicios", disabled=is_locked("CONSULTORIA"), use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
-            if st.button("Hostelería y Turismo", disabled=is_locked("TURISMO"), use_container_width=True): go_sector("Hostelería y Restauración")
-            if st.button("Emprendimiento Social", disabled=is_locked("SOCIAL"), use_container_width=True): go_sector("Emprendimiento Social")
-            if st.button("Salud y Bienestar", disabled=is_locked("SALUD"), use_container_width=True): go_sector("Salud")
-            if st.button("Psicología No Sanitaria", disabled=is_locked("PSICO_NO_SAN"), use_container_width=True): go_sector("Psicología no sanitaria")
+            if st.button("Consultoría / Servicios", use_container_width=True): go_sector("Consultoría / Servicios Profesionales")
+            if st.button("Hostelería y Turismo", use_container_width=True): go_sector("Hostelería y Restauración")
+            if st.button("Emprendimiento Social", use_container_width=True): go_sector("Emprendimiento Social")
+            if st.button("Salud y Bienestar", use_container_width=True): go_sector("Salud")
+            if st.button("Psicología No Sanitaria", use_container_width=True): go_sector("Psicología no sanitaria")
 
-    # ------------------------------------------------------------------
-    # 4️⃣ PANTALLA D: EL JUEGO ( MODO INMERSIVO OSCURO )
-    # ------------------------------------------------------------------
     elif not st.session_state.get('finished', False):
+        # Verificar que hay preguntas cargadas
+        if 'data' not in st.session_state or not st.session_state.data:
+            st.error("Error cargando preguntas. Vuelve a seleccionar sector.")
+            st.session_state.started = False
+            st.rerun()
+            
         if st.session_state.current_step >= len(st.session_state.data):
             st.session_state.finished = True
             st.rerun()
@@ -709,164 +631,91 @@ def run_simulator_logic():
         row = st.session_state.data[st.session_state.current_step]
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
-        # --- 🎨 CSS RADICAL PARA EL MODO JUEGO ---
+        # Estilo oscuro para el juego
         st.markdown("""
         <style>
         .stApp { background-color: #050A1F !important; }
-        h1, h2, h3, h4, h5, h6, p, div, span, label, li { color: #FFFFFF !important; }
+        h1, h2, h3, h4, p, div, span, label, li { color: #FFFFFF !important; }
         .narrative-text {
             font-size: 1.3rem; line-height: 1.6; padding: 15px;
             border-left: 4px solid #0D248D; background-color: rgba(255, 255, 255, 0.05);
             border-radius: 8px; margin-bottom: 20px;
         }
-        div.stButton > button {
-            background-color: #0D248D !important; color: white !important;
-            border: 2px solid #0D248D !important; border-radius: 12px !important;
-            padding: 20px !important; height: auto !important; min_height: 90px !important;
-            font-size: 1.1rem !important; transition: all 0.3s ease !important;
-        }
-        div.stButton > button:hover {
-            transform: scale(1.05) !important; background-color: #1530A0 !important;
-            box-shadow: 0 0 20px rgba(21, 48, 160, 0.6) !important; border-color: white !important; z-index: 100;
-        }
+        div.stButton > button { background-color: #0D248D !important; color: white !important; border: 2px solid #0D248D !important; }
         </style>
         """, unsafe_allow_html=True)
         
-        c_spacer1, c_logo, c_spacer2 = st.columns([1, 2, 1]) 
-        with c_logo:
+        c1, c2, c3 = st.columns([1, 2, 1]) 
+        with c2:
             if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
             else: st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         
         st.markdown(f"### {row.get('TITULO', 'Desafío')}")
-        
         c_text, c_opt = st.columns([1.5, 1])
-        with c_text:
-            st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
-        
+        with c_text: st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
         with c_opt:
-            st.markdown("#### Tu decisión:")
             options = []
-            if pd.notna(row.get('OPCION_A_TXT')): options.append({'txt': row['OPCION_A_TXT'], 'logic': row.get('OPCION_A_LOGIC'), 'id': 'A'})
-            if pd.notna(row.get('OPCION_B_TXT')): options.append({'txt': row['OPCION_B_TXT'], 'logic': row.get('OPCION_B_LOGIC'), 'id': 'B'})
-            if pd.notna(row.get('OPCION_C_TXT')): options.append({'txt': row['OPCION_C_TXT'], 'logic': row.get('OPCION_C_LOGIC'), 'id': 'C'})
-            if pd.notna(row.get('OPCION_D_TXT')): options.append({'txt': row['OPCION_D_TXT'], 'logic': row.get('OPCION_D_LOGIC'), 'id': 'D'})
-            
+            for char in ['A', 'B', 'C', 'D']:
+                if pd.notna(row.get(f'OPCION_{char}_TXT')) and str(row.get(f'OPCION_{char}_TXT')).strip():
+                    options.append({'txt': row[f'OPCION_{char}_TXT'], 'logic': row.get(f'OPCION_{char}_LOGIC'), 'id': char})
             random.shuffle(options)
-            step = st.session_state.current_step
             for opt in options:
-                if st.button(opt['txt'], key=f"btn_{step}_{opt['id']}", use_container_width=True):
+                if st.button(opt['txt'], key=f"btn_{st.session_state.current_step}_{opt['id']}", use_container_width=True):
                     parse_logic(opt['logic'])
                     if 'history' not in st.session_state: st.session_state.history = []
                     st.session_state.history.append({"mes": row.get('MES'), "opcion": opt['id'], "texto": opt['txt']})
                     st.session_state.current_step += 1
                     st.rerun()
 
-    # ------------------------------------------------------------------
-    # 5️⃣ PANTALLA E: RESULTADOS (CON SEMÁFORO VISUAL)
-    # ------------------------------------------------------------------
     else:
-        # Volver al modo blanco limpio
-        st.markdown("""
-        <style>
-        .stApp { background-color: white !important; }
-        h1, h2, h3, h4, p, li, span, div { color: black !important; }
-        </style>
-        """, unsafe_allow_html=True)
-        
+        # PANTALLA DE RESULTADOS
+        st.markdown("""<style>.stApp { background-color: white !important; } h1,h2,h3,p {color: black !important;}</style>""", unsafe_allow_html=True)
         c1, c2, c3 = st.columns([1,1,1])
         with c2:
             if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
 
-        # CÁLCULO DE RESULTADOS
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
-        
-        cerebro = cargar_cerebro_sape()
-        diagnostico = diagnosticar_usuario_python(octagon_norm, cerebro)
+        diagnostico = diagnosticar_usuario_python(octagon_norm, {})
 
-        # CUADRO DE DIAGNÓSTICO
         if diagnostico:
-            titulo = diagnostico.get('name', 'Diagnóstico')
             nivel = diagnostico.get('risk_level', 'ALERTA')
-            desc = diagnostico.get('description', '')
             color = "#E74C3C" if "CRÍTICO" in nivel else "#F1C40F" if "ALTO" in nivel else "#2ECC71"
-            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{titulo}</h3><p>{desc}</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{diagnostico.get('name')}</h3><p>{diagnostico.get('description')}</p></div>""", unsafe_allow_html=True)
 
-        st.markdown(f"## 📊 Informe Ejecutivo S.A.P.E. | {st.session_state.user_data.get('name','Usuario')}")
-        
-        # MÉTRICAS PRINCIPALES
+        st.markdown(f"## 📊 Informe | {st.session_state.user_data.get('name','Usuario')}")
         k1, k2, k3 = st.columns(3)
-        k1.metric("Índice IRE", f"{ire}/100")
+        k1.metric("IRE", f"{ire}/100")
         k2.metric("Potencial", f"{avg}/100")
-        k3.metric("Fricción", f"{friction}%", delta_color="inverse")
+        k3.metric("Fricción", f"{friction}%")
         
-        st.divider()
-
-        # COLUMNA IZQUIERDA: GRÁFICO DE ARAÑA
         col_chart, col_bars = st.columns([1, 1.2])
-        
-        with col_chart:
-            st.plotly_chart(radar_chart(), use_container_width=True)
-
-        # COLUMNA DERECHA: BARRAS CON SEMÁFORO (DÉFICIT - ALERTA - ÓPTIMO - EXCESO)
+        with col_chart: st.plotly_chart(radar_chart(), use_container_width=True)
         with col_bars:
-            st.markdown("### Detalle de Competencias")
-            
-            # Mapeo de nombres para mostrar
+            st.markdown("### Competencias")
             labels_map = {
-                "risk_propensity": "Propensión al Riesgo", "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación", "locus_of_control": "Locus de Control",
-                "emotional_stability": "Estabilidad Emocional", "achievement": "Orientación al Logro",
+                "risk_propensity": "Riesgo", "ambiguity_tolerance": "Ambigüedad", "innovativeness": "Innovación", 
+                "locus_of_control": "Control", "emotional_stability": "Estabilidad", "achievement": "Logro",
                 "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
             }
-
             for key, label_text in labels_map.items():
                 val = octagon_norm.get(key, 0)
-                
-                # --- LÓGICA DE SEMÁFORO (LA CLAVE DEL DISEÑO SÓLIDO) ---
-                if val < 25:
-                    bar_color = "#E74C3C" # ROJO (Déficit Crítico)
-                elif val < 60:
-                    bar_color = "#F1C40F" # AMARILLO (Alerta / En desarrollo)
-                elif val <= 90:
-                    bar_color = "#2ECC71" # VERDE (Óptimo)
-                else:
-                    bar_color = "#E74C3C" # ROJO (Exceso / Peligro) - ¡IMPORTANTE!
-
-                # Renderizamos la barra con HTML/CSS puro
+                bar_color = "#E74C3C" if val < 25 else "#F1C40F" if val < 60 else "#2ECC71" if val <= 90 else "#E74C3C"
                 st.markdown(f"""
                 <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                        <span style="font-weight: 600; font-size: 0.9rem;">{label_text}</span>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="font-weight: 600;">{label_text}</span>
                         <span style="font-weight: 700; color: {bar_color};">{int(val)}/100</span>
                     </div>
                     <div style="background-color: #E2E8F0; border-radius: 10px; height: 12px; width: 100%;">
-                        <div style="background-color: {bar_color}; width: {val}%; height: 100%; border-radius: 10px; transition: width 1s ease-in-out;"></div>
+                        <div style="background-color: {bar_color}; width: {val}%; height: 100%; border-radius: 10px;"></div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.divider()
+                </div>""", unsafe_allow_html=True)
 
-        # GUARDADO
         if 'data_saved' not in st.session_state:
-            try:
-                org_name = st.session_state.user_data.get('org_data', {}).get('name', 'GENERICO')
-                save_result_to_db(
-                    student_id=st.session_state.user_data.get('username', 'ANON'), 
-                    sector=st.session_state.user_data.get('sector', 'GEN'), 
-                    ire=ire, friction=friction, triggers=triggers, 
-                    scores=octagon_norm,   
-                    history=st.session_state.history,  
-                    organization=org_name
-                )
-                st.session_state.data_saved = True
-                st.success(f"✅ Resultados registrados correctamente en {org_name}.")
-            except Exception as e:
-                st.error(f"Error guardando resultados: {e}")
-        else:
-             st.success("✅ Resultados ya registrados.")
-
-        st.info("Has completado la simulación. Puedes cerrar esta ventana.")
+            org_name = st.session_state.user_data.get('org_id', 'GENERICO')
+            save_result_to_db(st.session_state.user_data.get('username', 'ANON'), st.session_state.user_data.get('sector', 'GEN'), ire, friction, triggers, octagon_norm, st.session_state.history, org_name)
+            st.session_state.data_saved = True
+            st.success("✅ Resultados guardados.")
 
 # ==========================================
 # 👑 PANEL ADMIN (VERSIÓN FINAL BLINDADA)
