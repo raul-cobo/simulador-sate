@@ -425,101 +425,169 @@ def get_max_potential_for_row(row, valid_keys):
             
     return row_maxes
 
-def calculate_results():
-    """Calcula porcentajes reales basados en el máximo posible del cuestionario"""
+# ==========================================
+# 🧠 MOTOR DE CÁLCULO Y GRÁFICOS (PEGAR ANTES DE RUN_SIMULATOR_LOGIC)
+# ==========================================
+
+def parse_logic(logic_string):
+    """Interpreta strings del CSV: 'risk_propensity 3 | achievement -1'"""
+    if not logic_string or pd.isna(logic_string): return
     
-    # 1. CLAVES VÁLIDAS (Tal cual están en tu CSV SATE_V4)
+    parts = str(logic_string).split('|')
+    if 'octagon' not in st.session_state: st.session_state.octagon = {}
+    
+    for p in parts:
+        p = p.strip()
+        if not p: continue
+        try:
+            # Separamos por el último espacio
+            # Ejemplo: "risk_propensity" y "3"
+            if ' ' in p:
+                key, val = p.rsplit(' ', 1)
+                key = key.strip()
+                val = float(val)
+                # Acumulamos en el estado de sesión
+                st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
+        except: pass
+
+def get_max_potential_for_row(row, valid_keys):
+    """Mira cuánto era lo máximo posible a sumar en una pregunta específica"""
+    row_maxes = {k: 0 for k in valid_keys}
+    for char in ['A', 'B', 'C', 'D']:
+        logic_str = row.get(f'OPCION_{char}_LOGIC')
+        if not logic_str or pd.isna(logic_str): continue
+        parts = str(logic_str).split('|')
+        for p in parts:
+            p = p.strip()
+            if not p: continue
+            try:
+                if ' ' in p:
+                    key, val = p.rsplit(' ', 1)
+                    key = key.strip()
+                    val = float(val)
+                    if key in row_maxes and val > row_maxes[key]:
+                        row_maxes[key] = val
+            except: pass
+    return row_maxes
+
+def calculate_results():
+    """Calcula porcentajes REALES basados en el máximo posible del cuestionario"""
+    # 1. CLAVES EXACTAS DEL CSV SATE_V4
     valid_keys = [
-        "risk_propensity",      # Propensión al Riesgo
-        "ambiguity_tolerance",  # Tolerancia a la Ambigüedad
-        "innovativeness",       # Innovación
-        "locus_control",        # Locus de Control
-        "emotional_stability",  # Estabilidad Emocional
-        "achievement",          # Orientación al Logro
-        "self_efficacy",        # Autoeficacia
-        "autonomy"              # Autonomía
+        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
+        "locus_control", "emotional_stability", "achievement", 
+        "self_efficacy", "autonomy"
     ]
     
-    # Puntuaciones del usuario (Lo que ha sumado jugando)
     user_scores = st.session_state.get('octagon', {})
     
-    # 2. CALCULAR EL 100% TEÓRICO (El Máximo Posible)
-    # Recorremos TODAS las preguntas cargadas en el juego
+    # 2. CALCULAR EL 100% TEÓRICO
     all_questions = st.session_state.get('data', [])
     total_max_possibles = {k: 0 for k in valid_keys}
     
     for row in all_questions:
-        # Obtenemos lo máximo que se podía sacar en ESTA pregunta
         row_maxs = get_max_potential_for_row(row, valid_keys)
-        # Lo sumamos al acumulador total
         for k in valid_keys:
             total_max_possibles[k] += row_maxs[k]
 
     # 3. CÁLCULO DE PORCENTAJES
     octagon_norm = {}
-    
     for k in valid_keys:
-        u_val = user_scores.get(k, 0)      # Puntos del usuario
-        max_val = total_max_possibles.get(k, 0) # Puntos máximos posibles en el juego
+        u_val = user_scores.get(k, 0)
+        max_val = total_max_possibles.get(k, 0)
         
         if max_val > 0:
-            # Regla de tres simple: (Usuario / Máximo) * 100
             percentage = (u_val / max_val) * 100
         else:
-            # Si el juego no permitía sumar puntos en este rasgo (max=0),
-            # le damos 0% (o 50% neutro si prefieres, pero 0 es más honesto si no se ha evaluado)
             percentage = 0
-            
-        # Clamp (Asegurar que está entre 0 y 100)
+        
         octagon_norm[k] = max(0, min(100, percentage))
 
-    # 4. CÁLCULO DEL IRE (Promedio de los porcentajes)
+    # 4. KPI GLOBALES
     if octagon_norm:
         avg = sum(octagon_norm.values()) / len(octagon_norm)
     else:
         avg = 0
     
     ire = avg 
-    
-    # 5. FRICCIÓN (Inverso del IRE)
     friction = max(0, 100 - ire)
-    
-    # (Opcional) Debug para ver si suma bien:
-    # print("Usuario:", user_scores)
-    # print("Máximos Posibles:", total_max_possibles)
     
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {}
 
 def radar_chart():
-    """Genera el gráfico de araña"""
-    data = st.session_state.get('octagon', {})
-    if not data: return go.Figure()
+    """Genera el gráfico de araña con los DATOS NORMALIZADOS"""
+    # Llamamos a calculate_results para obtener los porcentajes (0-100)
+    # No usamos st.session_state.octagon directamente porque esos son puntos brutos
+    _, _, _, _, _, _, scores, _ = calculate_results()
     
-    # Usamos los datos normalizados de calculate_results si es posible, si no, raw
-    # Para simplificar, recalculamos rápido normalización visual
-    categories = list(data.keys())
-    values = [50 + (v*4) for v in data.values()] # Normalización visual rápida
-    values = [max(0, min(100, v)) for v in values] # Clamp 0-100
+    if not scores: return go.Figure()
+    
+    # Diccionario de etiquetas bonitas
+    LABELS = {
+        "risk_propensity": "Riesgo", 
+        "ambiguity_tolerance": "Ambigüedad",
+        "innovativeness": "Innovación", 
+        "locus_control": "Control",
+        "emotional_stability": "Estabilidad", 
+        "achievement": "Logro",
+        "self_efficacy": "Autoeficacia",
+        "autonomy": "Autonomía"
+    }
+    
+    categories = [LABELS.get(k, k) for k in scores.keys()]
+    values = list(scores.values())
+    
+    # Cerrar el círculo del gráfico
+    categories.append(categories[0])
+    values.append(values[0])
     
     fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=values, theta=categories, fill='toself', name='Tú'))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=False)
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Tu Perfil',
+        line_color='#0D248D',
+        fillcolor='rgba(13, 36, 141, 0.2)'
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100], # Escala fija de 0 a 100%
+                tickfont=dict(size=10, color="gray")
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=12, color="black", weight="bold")
+            )
+        ),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=20, b=20),
+        height=350,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
     return fig
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
-    """Guarda en Supabase"""
+    """Guarda en Supabase (Previene errores si faltan tablas)"""
     try:
+        # Convertimos scores y history a JSON string para guardar
+        scores_json = json.dumps(scores)
+        history_json = json.dumps(history)
+        
         supabase.table("sape_results").insert({
             "student_id": student_id,
             "sector": sector,
             "ire": ire,
             "friction": friction,
-            "octagon": str(scores),
+            "octagon": scores_json, # Guardamos el octágono normalizado
             "organization": organization,
             "created_at": datetime.now().isoformat()
         }).execute()
     except Exception as e:
-        print(f"Error guardando: {e}")
+        print(f"Error guardando en BD (No crítico para el usuario): {e}")
 
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
