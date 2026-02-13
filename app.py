@@ -449,13 +449,13 @@ def save_result_to_db(student_id, sector, ire, friction, triggers, scores, histo
         print(f"Error guardando: {e}")
 
 # ==========================================
-# 🎮 3. INTERFAZ SIMULADOR (CORRECCIÓN VISUAL EXACTA)
+# 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
 # ==========================================
 def run_simulator_logic():
     # --- CSS: Estilos específicos para el Juego ---
     st.markdown("""
     <style>
-        /* Fondo General Azul Oscuro */
+        /* Fondo General */
         .stApp { background-color: #050A1F; }
         
         /* Textos Blancos */
@@ -463,21 +463,20 @@ def run_simulator_logic():
         
         /* CAJA DE NARRATIVA (Izquierda) */
         .narrative-box {
-            background-color: transparent; /* Ojo: Si quieres caja visible, pon rgba(255,255,255,0.05) */
+            background-color: transparent; 
             padding-right: 20px;
-            font-size: 1.25rem; /* Letra un poco más grande y legible */
+            font-size: 1.25rem; 
             line-height: 1.6;
-            border-left: 4px solid #0D248D; /* Línea decorativa a la izquierda */
+            border-left: 4px solid #0D248D; 
             padding-left: 15px;
         }
 
         /* BOTONES DE RESPUESTA (Derecha) */
-        /* Fondo azul un poco más oscuro que el fondo (#050A1F) -> Usaremos #02040B */
         div.stButton > button {
             background-color: #02040B !important; 
             color: white !important;
-            border: 1px solid #0D248D !important; /* Borde sutil azul */
-            border-radius: 15px !important; /* Esquinas redondeadas */
+            border: 1px solid #0D248D !important; 
+            border-radius: 15px !important; 
             padding: 20px !important;
             font-size: 1rem !important;
             width: 100%;
@@ -486,20 +485,19 @@ def run_simulator_logic():
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
 
-        /* EFECTO HOVER (Al pasar el ratón) */
+        /* EFECTO HOVER */
         div.stButton > button:hover {
-            transform: scale(1.05) !important; /* Crece un 5% (20% es demasiado agresivo y rompe el layout) */
-            background-color: #0D248D !important; /* Se ilumina */
+            transform: scale(1.05) !important; 
+            background-color: #0D248D !important; 
             border-color: white !important;
             z-index: 99;
             cursor: pointer;
         }
         
-        /* Ajuste de columnas */
         div[data-testid="column"] {
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Centrar verticalmente el contenido */
+            justify-content: center; 
         }
     </style>
     """, unsafe_allow_html=True)
@@ -604,7 +602,7 @@ def run_simulator_logic():
                         go(BUTTON_MAP[code], code)
 
     # ----------------------------------------------------
-    # PANTALLA 4: EL JUEGO (DISEÑO AJUSTADO)
+    # PANTALLA 4: EL JUEGO (CORREGIDO)
     # ----------------------------------------------------
     elif not st.session_state.finished:
         if not st.session_state.data:
@@ -615,45 +613,36 @@ def run_simulator_logic():
             
         row = st.session_state.data[st.session_state.current_step]
         
-        # 1. LOGO (Arriba del todo)
+        # 1. LOGO
         if os.path.exists("logo_blanco.png"): 
             st.image("logo_blanco.png", width=120)
         else:
             st.markdown("## 🧬 AUDEO")
 
         # 2. BARRA DE PROGRESO SEGMENTADA
-        total_steps = len(st.session_state.data) # Usamos el total real de preguntas
+        total_steps = len(st.session_state.data)
         current = st.session_state.current_step
         
-        # HTML para la barra segmentada (estilo visual tipo "dash")
         bar_html = f"""<div style="display: flex; gap: 3px; margin-bottom: 20px;">"""
         for i in range(total_steps):
-            if i < current: bg = "#0D248D" # Pasado (Azul)
-            elif i == current: bg = "#FFFFFF" # Actual (Blanco)
-            else: bg = "rgba(255,255,255,0.2)" # Futuro (Gris transparente)
+            if i < current: bg = "#0D248D" # Completado
+            elif i == current: bg = "#FFFFFF" # Actual
+            else: bg = "rgba(255,255,255,0.2)" # Pendiente
             bar_html += f'<div style="flex: 1; height: 6px; background-color: {bg}; border-radius: 2px;"></div>'
         bar_html += "</div>"
         st.markdown(bar_html, unsafe_allow_html=True)
         
-        # 3. TITULO DE LA PREGUNTA
+        # 3. TÍTULO
         st.markdown(f"<h3 style='margin-bottom: 5px;'>{row.get('TITULO','Desafío')}</h3>", unsafe_allow_html=True)
         st.markdown(f"<p style='color: #ccc !important; font-size: 0.9rem;'>Mes {row.get('MES', current+1)}</p>", unsafe_allow_html=True)
-        
-        st.write("") # Espacio separador
+        st.write("") 
 
-        # 4. COLUMNAS: 55% NARRATIVA | 45% OPCIONES
-        # Usamos st.columns con un gap grande para que no se peguen
+        # 4. COLUMNAS
         col_narrativa, col_opciones = st.columns([0.55, 0.45], gap="large")
         
-        # --- IZQUIERDA: Narrativa ---
         with col_narrativa:
-            st.markdown(f"""
-            <div class="narrative-box">
-                {row.get('NARRATIVA','')}
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="narrative-box">{row.get('NARRATIVA','')}</div>""", unsafe_allow_html=True)
 
-        # --- DERECHA: Opciones ---
         with col_opciones:
             opts = []
             for c in ['A','B','C','D']:
@@ -663,7 +652,6 @@ def run_simulator_logic():
             random.shuffle(opts)
             
             for o in opts:
-                # El estilo de los botones ya está definido arriba en el CSS
                 if st.button(o['t'], key=f"{current}_{o['id']}", use_container_width=True):
                     parse_logic(o['l'])
                     st.session_state.history.append({'op': o['id'], 'txt': o['t']})
@@ -686,210 +674,6 @@ def run_simulator_logic():
             save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
             st.session_state.saved = True
             st.success("Guardado.")
-
-    # ----------------------------------------------------
-    # PANTALLA 5: Resultados
-    # ----------------------------------------------------
-    else:
-        st.markdown("""<style>.stApp {background-color: white !important;} p,h1,h2,h3,div,span {color:black !important}</style>""", unsafe_allow_html=True)
-        ire, avg, fric, _, _, _, scores, _ = calculate_results()
-        
-        c1, c2, c3 = st.columns([1,1,1])
-        with c2: 
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", width=150)
-            
-        st.title(f"Informe: {st.session_state.user_data.get('name')}")
-        k1, k2, k3 = st.columns(3)
-        k1.metric("IRE", ire); k2.metric("Potencial", avg); k3.metric("Fricción", fric)
-        st.plotly_chart(radar_chart(), use_container_width=True)
-        
-        if 'saved' not in st.session_state:
-            save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
-            st.session_state.saved = True
-            st.success("Resultados guardados correctamente en la base de datos.")
-
-# ==========================================
-# 👑 PANEL ADMIN (CON GESTIÓN DE SECTORES)
-# ==========================================
-def render_admin_dashboard():
-    st.title("👑 Panel de Administración")
-    
-    # 1. DEFINIR EL MAPA DE SECTORES (Nombre Visible -> Código Interno)
-    # Esto asegura que lo que guardes coincida con lo que el simulador espera.
-    SECTOR_OPTIONS = {
-        "Startup Tecnológica (Scalable)": "TECH",
-        "Pequeña y Mediana Empresa (PYME)": "RETAIL", # Ojo: en tu CSV vi "PYME", aquí unificamos.
-        "Autoempleo / Freelance": "FREELANCE", 
-        "Intraemprendimiento": "INTRA",
-        "Psicología Sanitaria": "PSICOLOGÍA_SANITARIA", 
-        "Consultoría / Servicios": "CONSULTORÍA",
-        "Hostelería y Turismo": "HOSTELERÍA", 
-        "Emprendimiento Social": "SOCIAL",
-        "Salud": "SALUD", 
-        "Psicología No Sanitaria": "PSICOLOGÍA_NO_SANITARIA"
-    }
-    
-    # Lista solo de códigos para validar
-    VALID_CODES = list(SECTOR_OPTIONS.values())
-
-    try:
-        # KPIs Básicos
-        count_users = supabase.table("users").select("*", count="exact").execute().count
-        count_results = supabase.table("sape_results").select("*", count="exact").execute().count
-        count_orgs = supabase.table("organizations").select("*", count="exact").execute().count
-        
-        # Recuperar datos de empresas
-        res_orgs = supabase.table("organizations").select("id", "name", "active_sectors").execute()
-        org_data_list = res_orgs.data
-        valid_ids = [o['id'] for o in org_data_list]
-    except: 
-        count_users = count_results = count_orgs = 0
-        valid_ids = []
-        org_data_list = []
-
-    k1, k2, k3 = st.columns(3)
-    k1.metric("👥 Usuarios", count_users)
-    k2.metric("📊 Simulaciones", count_results)
-    k3.metric("🏢 Empresas", count_orgs)
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["🔎 INSPECTOR", "👥 USUARIOS", "📈 RESULTADOS", "🏢 EMPRESAS"])
-    
-    # --- PESTAÑA 1: INSPECTOR ---
-    with tab1:
-        st.markdown("### 🕵️ Inspector de Empresas")
-        if valid_ids:
-            sel_org = st.selectbox("Selecciona Organización:", valid_ids)
-            if sel_org:
-                try:
-                    u_data = supabase.table("users").select("*").eq("org_id", sel_org).execute().data
-                    r_data = supabase.table("sape_results").select("*").eq("organization", sel_org).execute().data
-                    
-                    if u_data:
-                        df_u = pd.DataFrame(u_data)
-                        df_r = pd.DataFrame(r_data) if r_data else pd.DataFrame()
-                        
-                        if not df_r.empty:
-                            df_r = df_r[['student_id', 'ire', 'friction', 'created_at']].rename(columns={'created_at': 'fecha'})
-                            df_final = pd.merge(df_u, df_r, left_on='username', right_on='student_id', how='left')
-                        else:
-                            df_final = df_u
-                            df_final['fecha'] = None; df_final['ire'] = None
-
-                        df_final['Estado'] = df_final['fecha'].apply(lambda x: "✅ Hecho" if pd.notnull(x) else "❌ Pendiente")
-                        st.dataframe(df_final[['username', 'role', 'Estado', 'ire', 'fecha']], use_container_width=True)
-                    else:
-                        st.info("Esta empresa no tiene usuarios.")
-                except Exception as e: st.error(f"Error: {e}")
-        else: st.warning("No hay empresas.")
-
-    # --- PESTAÑA 2: USUARIOS ---
-    with tab2:
-        c1, c2 = st.columns([1, 1.5])
-        with c1: 
-            st.markdown("### ➕ Nuevo Usuario")
-            with st.form("add_user"):
-                u = st.text_input("Usuario"); p = st.text_input("Password", "1234")
-                r = st.selectbox("Rol", ["STUDENT", "MANAGER", "ADMIN"])
-                o = st.selectbox("Org ID", valid_ids) if valid_ids else st.text_input("Org ID")
-                if st.form_submit_button("Crear"):
-                    try:
-                        supabase.table("users").insert({"username": u, "password": p, "role": r, "org_id": o}).execute()
-                        st.success(f"Creado: {u}"); st.rerun()
-                    except Exception as e: st.error(f"Error: {e}")
-
-        with c2: 
-            st.markdown("### 📋 Listado"); 
-            try:
-                res = supabase.table("users").select("*").execute()
-                df = pd.DataFrame(res.data)
-                if not df.empty:
-                    st.dataframe(df, use_container_width=True)
-                    st.divider()
-                    to_del = st.selectbox("Borrar usuario:", df['username'])
-                    if st.button("Confirmar Borrado"):
-                        supabase.table("users").delete().eq("username", to_del).execute(); st.rerun()
-            except: pass
-
-    # --- PESTAÑA 3: RESULTADOS ---
-    with tab3:
-        try:
-            res = supabase.table("sape_results").select("*").execute()
-            st.dataframe(pd.DataFrame(res.data), use_container_width=True)
-        except: pass
-
-    # --- PESTAÑA 4: EMPRESAS Y SECTORES (EL CÓDIGO NUEVO) ---
-    with tab4:
-        col_create, col_edit = st.columns(2)
-        
-        # 1. CREAR EMPRESA
-        with col_create:
-            st.markdown("### ➕ Nueva Empresa")
-            with st.form("new_org"):
-                oid = st.text_input("ID (sin espacios)").strip()
-                oname = st.text_input("Nombre").strip()
-                # Multiselector con nombres bonitos
-                sectores_seleccionados = st.multiselect("Sectores Habilitados", list(SECTOR_OPTIONS.keys()), default=list(SECTOR_OPTIONS.keys()))
-                
-                if st.form_submit_button("Crear Empresa"):
-                    if oid and oname:
-                        try:
-                            # Convertimos nombres bonitos -> CÓDIGOS
-                            codigos_a_guardar = [SECTOR_OPTIONS[s] for s in sectores_seleccionados]
-                            supabase.table("organizations").insert({
-                                "id": oid, "name": oname,
-                                "active_sectors": json.dumps(codigos_a_guardar)
-                            }).execute()
-                            st.success(f"Empresa {oname} creada."); st.rerun()
-                        except Exception as e: st.error(f"Error: {e}")
-
-        # 2. EDITAR SECTORES
-        with col_edit:
-            st.markdown("### ✏️ Configurar Sectores")
-            if org_data_list:
-                # Selector de empresa
-                org_map = {o['id']: o['name'] for o in org_data_list}
-                sel_id = st.selectbox("Editar Empresa:", list(org_map.keys()), format_func=lambda x: f"{x} ({org_map[x]})")
-                
-                # Obtener datos actuales
-                curr_org = next((x for x in org_data_list if x['id'] == sel_id), None)
-                
-                if curr_org:
-                    # Lógica inteligente para leer la columna 'active_sectors'
-                    raw = curr_org.get('active_sectors', '[]')
-                    current_codes = []
-                    if raw:
-                        try:
-                            # Intenta JSON normal
-                            current_codes = json.loads(raw)
-                        except:
-                            try:
-                                # Intenta formato Python (comillas simples) con ast
-                                import ast
-                                current_codes = ast.literal_eval(raw)
-                            except:
-                                current_codes = []
-                    
-                    # Filtramos solo códigos válidos para evitar errores
-                    current_codes = [c for c in current_codes if c in VALID_CODES]
-                    
-                    # Convertimos CÓDIGOS -> NOMBRES para mostrar en el selector
-                    inv_map = {v: k for k, v in SECTOR_OPTIONS.items()}
-                    default_names = [inv_map[c] for c in current_codes if c in inv_map]
-
-                    st.info(f"Sectores actuales de **{curr_org['name']}**")
-                    
-                    with st.form("edit_sectors"):
-                        new_names = st.multiselect("Sectores Permitidos:", list(SECTOR_OPTIONS.keys()), default=default_names)
-                        
-                        if st.form_submit_button("Guardar Cambios"):
-                            # Guardamos CÓDIGOS
-                            new_codes = [SECTOR_OPTIONS[n] for n in new_names]
-                            supabase.table("organizations").update({
-                                "active_sectors": json.dumps(new_codes)
-                            }).eq("id", sel_id).execute()
-                            st.success("✅ Actualizado."); st.rerun()
-            else:
-                st.info("Crea una empresa primero.")
 
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
