@@ -398,6 +398,11 @@ def save_result_to_db(student_id, sector, ire, friction, triggers, scores, histo
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
 # ==========================================
+def normalize_key(k):
+    """Quita todo lo que no sea letra/número para comparar (SOLUCIÓN NUCLEAR)"""
+    import re
+    if not k: return ""
+    return re.sub(r'[^a-zA-Z0-9]', '', str(k)).lower()
 def run_simulator_logic():
     # --- CSS: Estilos específicos para el Juego ---
     st.markdown("""
