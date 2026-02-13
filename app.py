@@ -295,37 +295,41 @@ def init_session():
         st.session_state.user_data = {}
 
 @st.cache_data
+# ==========================================
+# 📂 CARGA DE PREGUNTAS (ARREGLADO PARA PUNTO Y COMA)
+# ==========================================
+@st.cache_data
 def load_questions():
-    """Carga las preguntas desde SATE_V4.csv con el formato correcto"""
-    archivo = 'SATE_V4.csv'
-    
-    if os.path.exists(archivo):
-        try:
-            # Tu CSV usa punto y coma (;) como separador
-            return pd.read_csv(archivo, sep=';', encoding='utf-8').to_dict('records')
-        except Exception as e:
-            st.error(f"Error leyendo {archivo}: {e}")
-            return []
-    else:
-        st.error(f"⚠️ No encuentro el archivo {archivo}. Súbelo junto a app.py")
+    # 1. Intentamos cargar con punto y coma (Lo más probable para tu archivo)
+    try:
+        # Forzamos codificación utf-8 y separador ;
+        df = pd.read_csv("SATE_V4.csv", sep=";", encoding="utf-8")
+        
+        # Validación rápida: si solo detecta 1 columna, es que el separador estaba mal
+        if len(df.columns) < 2:
+            # Probamos con coma normal
+            df = pd.read_csv("SATE_V4.csv", sep=",", encoding="utf-8")
+            
+    except Exception as e:
+        st.error(f"Error leyendo archivo de preguntas: {e}")
         return []
 
-    # --- NUEVAS FUNCIONES SAPE (Cerebro + Diagnóstico) ---
+    # 2. Limpieza de nombres de columna (quitamos espacios y comillas extra)
+    df.columns = df.columns.str.strip().str.replace('"', '')
+    
+    # 3. Verificar si existe la columna SECTOR
+    if 'SECTOR' not in df.columns:
+        st.error("❌ El archivo no tiene una columna llamada 'SECTOR'.")
+        st.write("Columnas detectadas:", df.columns.tolist())
+        return []
 
-@st.cache_data
-def cargar_cerebro_sape():
-    """Carga el diccionario de textos desde el JSON"""
-    try:
-        # Busca en la carpeta data, o en la raíz si no existe
-        paths = ['data/sape_diccionario_riesgos.json', 'sape_diccionario_riesgos.json']
-        for p in paths:
-            if os.path.exists(p):
-                with open(p, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-        return None
-    except Exception as e:
-        st.error(f"Error cargando cerebro SAPE: {e}")
-        return None
+    # 4. Limpieza de datos (quitamos comillas de los valores también)
+    # Esto es vital: a veces el Excel guarda "TECH" con comillas y Python no lo encuentra
+    for col in df.columns:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str).str.strip().str.replace('"', '')
+
+    return df.to_dict('records')
 
 def diagnosticar_usuario_python(octagon, cerebro):
     """
