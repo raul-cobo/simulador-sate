@@ -299,37 +299,46 @@ def init_session():
 # 📂 CARGA DE PREGUNTAS (ARREGLADO PARA PUNTO Y COMA)
 # ==========================================
 @st.cache_data
+# ==========================================
+# 📂 CARGA DE PREGUNTAS (CORREGIDO SATE_V4)
+# ==========================================
+# Quitamos el cache un momento (ttl=0) para forzar que recargue el archivo nuevo
+@st.cache_data(ttl=0)
 def load_questions():
-    # 1. Intentamos cargar con punto y coma (Lo más probable para tu archivo)
-    try:
-        # Forzamos codificación utf-8 y separador ;
-        df = pd.read_csv("SATE_V4.csv", sep=";", encoding="utf-8")
-        
-        # Validación rápida: si solo detecta 1 columna, es que el separador estaba mal
-        if len(df.columns) < 2:
-            # Probamos con coma normal
-            df = pd.read_csv("SATE_V4.csv", sep=",", encoding="utf-8")
-            
-    except Exception as e:
-        st.error(f"Error leyendo archivo de preguntas: {e}")
-        return []
-
-    # 2. Limpieza de nombres de columna (quitamos espacios y comillas extra)
-    df.columns = df.columns.str.strip().str.replace('"', '')
+    file_path = "SATE_V4.csv"
     
-    # 3. Verificar si existe la columna SECTOR
-    if 'SECTOR' not in df.columns:
-        st.error("❌ El archivo no tiene una columna llamada 'SECTOR'.")
-        st.write("Columnas detectadas:", df.columns.tolist())
+    if not os.path.exists(file_path):
+        st.error(f"❌ ERROR: No encuentro el archivo '{file_path}' en la carpeta.")
         return []
 
-    # 4. Limpieza de datos (quitamos comillas de los valores también)
-    # Esto es vital: a veces el Excel guarda "TECH" con comillas y Python no lo encuentra
-    for col in df.columns:
-        if df[col].dtype == object:
-            df[col] = df[col].astype(str).str.strip().str.replace('"', '')
+    try:
+        # 1. Lectura inteligente: Forzamos punto y coma y UTF-8-SIG (quita caracteres raros)
+        df = pd.read_csv(file_path, sep=";", encoding="utf-8-sig", dtype=str)
+        
+        # 2. Limpieza de Cabeceras (quita comillas y espacios de los títulos)
+        df.columns = df.columns.str.replace('"', '').str.replace("'", "").str.strip()
+        
+        # Si después de leer solo ve 1 columna, es que el separador falló (intento de rescate)
+        if len(df.columns) < 2:
+            st.warning("⚠️ El archivo parece no usar ';'. Probando con ','...")
+            df = pd.read_csv(file_path, sep=",", encoding="utf-8-sig", dtype=str)
+            df.columns = df.columns.str.replace('"', '').str.replace("'", "").str.strip()
 
-    return df.to_dict('records')
+        # 3. Validación de columna clave
+        if 'SECTOR' not in df.columns:
+            st.error(f"❌ El archivo no tiene la columna 'SECTOR'. Columnas encontradas: {list(df.columns)}")
+            return []
+
+        # 4. Limpieza Profunda de Datos (Quita comillas de TODO el contenido)
+        # Esto convierte "TECH" en TECH para que coincida con el botón
+        for col in df.columns:
+            df[col] = df[col].astype(str).str.replace('"', '').str.replace("'", "").str.strip()
+            
+        return df.to_dict('records')
+
+    except Exception as e:
+        st.error(f"💥 Error crítico leyendo el archivo de preguntas: {e}")
+        return []
 
 def diagnosticar_usuario_python(octagon, cerebro):
     """
