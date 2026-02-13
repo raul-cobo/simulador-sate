@@ -541,13 +541,13 @@ def diagnosticar_usuario_python(octagon, cerebro):
         return {"name": "Perfil en Riesgo", "risk_level": "ALTO", "description": "Se detectan vulnerabilidades importantes. Recomendamos formación previa."}
 
 # ==========================================
-# 🎮 INTERFAZ SIMULADOR (CONECTADO A PERMISOS)
+# 🎮 INTERFAZ SIMULADOR (CORREGIDO BOTONES)
 # ==========================================
 def run_simulator_logic():
-    # 1. Estilo y limpieza visual
+    # 1. Estilo
     st.markdown("<style>.stApp { background-color: white; }</style>", unsafe_allow_html=True)
     
-    # 2. Inicialización de variables
+    # 2. Inicialización
     if 'instructions_seen' not in st.session_state: st.session_state.instructions_seen = False
     if 'data_verified' not in st.session_state: st.session_state.data_verified = False
     if 'started' not in st.session_state: st.session_state.started = False
@@ -555,7 +555,6 @@ def run_simulator_logic():
     if 'current_step' not in st.session_state: st.session_state.current_step = 0
     if 'history' not in st.session_state: st.session_state.history = []
     if 'user_data' not in st.session_state: st.session_state.user_data = {}
-    if 'octagon' not in st.session_state: st.session_state.octagon = {}
 
     # 3. PANTALLA 1: BIENVENIDA
     if not st.session_state.instructions_seen:
@@ -569,7 +568,7 @@ def run_simulator_logic():
             st.session_state.instructions_seen = True
             st.rerun()
 
-    # 4. PANTALLA 2: DATOS PERSONALES
+    # 4. PANTALLA 2: DATOS
     elif not st.session_state.get('data_verified', False):
         st.markdown("#### 1. Identificación")
         with st.form("user_data_form"):
@@ -583,33 +582,24 @@ def run_simulator_logic():
                     st.session_state.data_verified = True
                     st.rerun()
 
-    # 5. PANTALLA 3: SELECCIÓN DE SECTOR (¡AQUÍ ESTÁ LA MAGIA! 🎩)
+    # 5. PANTALLA 3: SELECCIÓN DE SECTOR (AQUÍ ESTÁ EL ARREGLO)
     elif not st.session_state.started:
         st.markdown(f"#### 2. Selecciona tu Sector:")
         
-        # A. Recuperar permisos de la empresa del usuario
+        # A. Recuperar permisos
         user_org_id = st.session_state.user_data.get('org_id')
         allowed_sectors = []
-        
         try:
-            # Consultamos a Supabase qué sectores tiene activos esta empresa
             resp = supabase.table("organizations").select("active_sectors").eq("id", user_org_id).execute()
             if resp.data:
-                raw_sectors = resp.data[0].get('active_sectors', '[]')
-                # Parseo robusto (lee tanto JSON como strings de Python)
-                if raw_sectors:
-                    try:
-                        allowed_sectors = json.loads(raw_sectors)
-                    except:
-                        try:
-                            allowed_sectors = ast.literal_eval(raw_sectors)
-                        except:
-                            allowed_sectors = []
-        except:
-            allowed_sectors = [] # Si falla, lista vacía
+                raw = resp.data[0].get('active_sectors', '[]')
+                if raw:
+                    try: allowed_sectors = json.loads(raw)
+                    except: 
+                        try: allowed_sectors = ast.literal_eval(raw)
+                        except: allowed_sectors = []
+        except: allowed_sectors = []
 
-        # B. Mapa de Botones: CÓDIGO -> ETIQUETA VISIBLE
-        # Estos códigos deben coincidir con los que guarda el Admin
         BUTTON_MAP = {
             "TECH": "Startup Tecnológica (Scalable)",
             "RETAIL": "Pequeña y Mediana Empresa (PYME)",
@@ -623,46 +613,50 @@ def run_simulator_logic():
             "PSICOLOGÍA_NO_SANITARIA": "Psicología No Sanitaria"
         }
 
-        # C. Función para iniciar el juego
+        # B. Lógica de Carga (MEJORADA)
         def go_sector(label_name, code_internal):
-            all_q = load_questions() # Carga todas las preguntas
-            # Filtramos preguntas por el código interno (ej: TECH)
+            all_q = load_questions() 
+            
+            # 1. Búsqueda exacta
             qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == code_internal]
             
-            # Fallback: Si no hay preguntas de ese sector, cargamos TECH por defecto para no romper
-            if not qs: 
-                qs = [x for x in all_q if str(x.get('SECTOR', '')).strip().upper() == "TECH"]
+            # 2. Fallback: Intentar búsqueda parcial si falla la exacta
+            if not qs:
+                qs = [x for x in all_q if code_internal in str(x.get('SECTOR', '')).strip().upper()]
+
+            # 3. Fallback final a TECH solo si no hay nada más
+            if not qs:
+                # Debug: Avisamos al usuario si no hay preguntas
+                st.error(f"⚠️ No se encontraron preguntas para el sector: {code_internal}")
+                st.warning("Comprueba que el archivo CSV tenga la columna 'SECTOR' con este código.")
+                return # IMPORTANTE: No avanzamos si no hay preguntas
             
             st.session_state.data = qs
             st.session_state.user_data["sector"] = code_internal
             st.session_state.started = True
             st.rerun()
 
-        # D. Renderizar Botones dinámicamente
+        # C. Renderizar Botones
         if not allowed_sectors:
-            st.error("⚠️ Tu organización no tiene sectores habilitados. Contacta con tu manager.")
+            st.error("⚠️ Tu organización no tiene sectores habilitados.")
         else:
-            # Crear columnas para los botones (grid de 2 columnas)
             cols = st.columns(2)
-            found_any = False
-            
-            # Iteramos solo sobre los sectores permitidos que existen en nuestro mapa
             valid_buttons = [code for code in allowed_sectors if code in BUTTON_MAP]
             
-            for i, code in enumerate(valid_buttons):
-                found_any = True
-                label = BUTTON_MAP[code]
-                with cols[i % 2]: # Alternar columnas izquierda/derecha
-                    if st.button(label, use_container_width=True):
-                        go_sector(label, code)
+            if not valid_buttons:
+                st.warning(f"Sectores asignados: {allowed_sectors}, pero no coinciden con el sistema.")
             
-            if not found_any:
-                 st.warning("Hay sectores asignados pero no coinciden con los disponibles en el sistema.")
+            for i, code in enumerate(valid_buttons):
+                label = BUTTON_MAP[code]
+                with cols[i % 2]:
+                    # AÑADIDO: Key única para evitar conflictos
+                    if st.button(label, key=f"btn_sec_{code}", use_container_width=True):
+                        go_sector(label, code)
 
-    # 6. PANTALLA 4: EL JUEGO (PREGUNTAS)
+    # 6. PANTALLA 4: EL JUEGO
     elif not st.session_state.get('finished', False):
         if 'data' not in st.session_state or not st.session_state.data:
-            st.error("Error cargando preguntas. Vuelve a seleccionar sector.")
+            st.error("Error crítico: Se perdieron las preguntas.")
             st.session_state.started = False
             st.rerun()
             
@@ -673,27 +667,15 @@ def run_simulator_logic():
         row = st.session_state.data[st.session_state.current_step]
         st.progress((st.session_state.current_step + 1) / len(st.session_state.data))
         
-        st.markdown("""
-        <style>
-        .stApp { background-color: #050A1F !important; }
-        h1, h2, h3, h4, p, div, span, label, li { color: #FFFFFF !important; }
-        .narrative-text {
-            font-size: 1.3rem; line-height: 1.6; padding: 15px;
-            border-left: 4px solid #0D248D; background-color: rgba(255, 255, 255, 0.05);
-            border-radius: 8px; margin-bottom: 20px;
-        }
-        div.stButton > button { background-color: #0D248D !important; color: white !important; border: 2px solid #0D248D !important; }
-        </style>
-        """, unsafe_allow_html=True)
+        st.markdown("""<style>.stApp { background-color: #050A1F !important; } .narrative-text {color: white;} h1,h2,h3,p,div,span,label {color: white !important;} div.stButton > button {background-color: #0D248D !important; color: white !important; border: 2px solid #0D248D !important;}</style>""", unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns([1, 2, 1]) 
         with c2:
             if os.path.exists("logo_blanco.png"): st.image("logo_blanco.png", use_container_width=True)
-            else: st.markdown("<h2 style='text-align: center; color: white;'>🧬 AUDEO</h1>", unsafe_allow_html=True)
         
         st.markdown(f"### {row.get('TITULO', 'Desafío')}")
         c_text, c_opt = st.columns([1.5, 1])
-        with c_text: st.markdown(f'<div class="narrative-text">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
+        with c_text: st.markdown(f'<div class="narrative-text" style="padding:15px; border-left:4px solid #0D248D; font-size:1.2rem;">{row.get("NARRATIVA","")}</div>', unsafe_allow_html=True)
         with c_opt:
             options = []
             for char in ['A', 'B', 'C', 'D']:
@@ -716,41 +698,14 @@ def run_simulator_logic():
             if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
 
         ire, avg, friction, triggers, fric_reasons, delta, octagon_norm, max_possibles = calculate_results()
-        diagnostico = diagnosticar_usuario_python(octagon_norm, {})
-
-        if diagnostico:
-            nivel = diagnostico.get('risk_level', 'ALERTA')
-            color = "#E74C3C" if "CRÍTICO" in nivel else "#F1C40F" if "ALTO" in nivel else "#2ECC71"
-            st.markdown(f"""<div style="padding: 20px; border-left: 6px solid {color}; background-color: #f8f9fa; color: #333; margin-bottom: 25px;"><h3 style="color: {color}; margin:0;">{diagnostico.get('name')}</h3><p>{diagnostico.get('description')}</p></div>""", unsafe_allow_html=True)
-
+        
         st.markdown(f"## 📊 Informe | {st.session_state.user_data.get('name','Usuario')}")
         k1, k2, k3 = st.columns(3)
         k1.metric("IRE", f"{ire}/100")
         k2.metric("Potencial", f"{avg}/100")
         k3.metric("Fricción", f"{friction}%")
         
-        col_chart, col_bars = st.columns([1, 1.2])
-        with col_chart: st.plotly_chart(radar_chart(), use_container_width=True)
-        with col_bars:
-            st.markdown("### Competencias")
-            labels_map = {
-                "risk_propensity": "Riesgo", "ambiguity_tolerance": "Ambigüedad", "innovativeness": "Innovación", 
-                "locus_of_control": "Control", "emotional_stability": "Estabilidad", "achievement": "Logro",
-                "leadership": "Liderazgo", "adaptability": "Adaptabilidad"
-            }
-            for key, label_text in labels_map.items():
-                val = octagon_norm.get(key, 0)
-                bar_color = "#E74C3C" if val < 25 else "#F1C40F" if val < 60 else "#2ECC71" if val <= 90 else "#E74C3C"
-                st.markdown(f"""
-                <div style="margin-bottom: 12px;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span style="font-weight: 600;">{label_text}</span>
-                        <span style="font-weight: 700; color: {bar_color};">{int(val)}/100</span>
-                    </div>
-                    <div style="background-color: #E2E8F0; border-radius: 10px; height: 12px; width: 100%;">
-                        <div style="background-color: {bar_color}; width: {val}%; height: 100%; border-radius: 10px;"></div>
-                    </div>
-                </div>""", unsafe_allow_html=True)
+        st.plotly_chart(radar_chart(), use_container_width=True)
 
         if 'data_saved' not in st.session_state:
             org_name = st.session_state.user_data.get('org_id', 'GENERICO')
