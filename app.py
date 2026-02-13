@@ -828,49 +828,48 @@ def main():
 if __name__ == "__main__":
     main()
 # ==========================================
-# 🕵️‍♂️ CHIVATO FORENSE (PEGAR AL FINAL DE APP.PY)
+# 🕵️‍♂️ CÓDIGO CHIVATO: PUNTUACIONES BRUTAS
+# (Pegar al final de app.py)
 # ==========================================
-st.sidebar.markdown("---")
-st.sidebar.header("🔍 DIAGNÓSTICO EN VIVO")
-
-if st.sidebar.button("ANALIZAR ARCHIVO DEL SERVIDOR"):
-    try:
-        import re
-        df_real = pd.read_csv("SATE_V4.csv", sep=";", encoding="utf-8-sig", dtype=str, engine='python')
+with st.sidebar:
+    st.markdown("---")
+    st.header("🕵️‍♂️ CHIVATO DE PUNTOS")
+    
+    if st.checkbox("Ver Puntos Reales (Sin Cocinar)"):
+        # 1. Recuperamos la memoria cruda
+        raw_scores = st.session_state.get('octagon', {})
         
-        # 1. Verificar Sector
-        sector_user = st.session_state.user_data.get('sector', 'N/A')
-        st.sidebar.info(f"Tu Sector: '{sector_user}'")
-        
-        # 2. Buscar Locus en ese sector
-        df_filt = df_real[df_real['SECTOR'] == sector_user]
-        st.sidebar.write(f"Filas encontradas: {len(df_filt)}")
-        
-        total_puntos = 0
-        encontrados = 0
-        
-        for idx, row in df_filt.iterrows():
-            for char in ['A', 'B', 'C', 'D']:
-                txt = str(row.get(f'OPCION_{char}_LOGIC', ''))
-                # Búsqueda normalizada
-                if "locus" in re.sub(r'[^a-zA-Z]', '', txt).lower():
-                    # Extraer números
-                    nums = re.findall(r'-?\d+', txt)
-                    if nums:
-                        val = float(nums[-1])
-                        if val > 0:
-                            total_puntos += val
-                            encontrados += 1
-                            # Mostrar los 3 primeros hallazgos
-                            if encontrados <= 3:
-                                st.sidebar.code(f"Fila {idx} Op {char}: {val} pts\n({txt})")
-        
-        if total_puntos > 0:
-            st.sidebar.success(f"✅ ¡HAY DATOS! Total Locus: {total_puntos}")
-            st.sidebar.warning("Si ves esto pero la gráfica sale a 0, BORRA CACHÉ (C en el teclado).")
+        if not raw_scores:
+            st.warning("📭 Todavía no has acumulado puntos. Juega un poco.")
         else:
-            st.sidebar.error("❌ EL ARCHIVO DEL SERVIDOR NO TIENE PUNTOS DE LOCUS.")
-            st.sidebar.markdown("👉 **Solución:** Sube el archivo SATE_V4.csv a GitHub otra vez.")
+            st.markdown("### 🥩 Puntos Brutos Acumulados")
+            st.markdown("*(Esto es lo que has sumado opción a opción)*")
             
-    except Exception as e:
-        st.sidebar.error(f"Error: {e}")
+            # Definimos las claves que nos interesan para el orden
+            keys_of_interest = [
+                "risk_propensity", "ambiguity_tolerance", "innovativeness", 
+                "locus_control", "emotional_stability", "achievement", 
+                "self_efficacy", "autonomy"
+            ]
+            
+            # Mostramos cada una
+            total_acumulado = 0
+            for k in keys_of_interest:
+                # Buscamos la clave tal cual, o normalizada si hace falta
+                val = raw_scores.get(k, 0)
+                
+                # Icono según valor
+                icon = "🟢" if val > 0 else "⚪" if val == 0 else "🔴"
+                
+                # Mostramos la línea
+                st.code(f"{icon} {k}: {val} pts")
+                total_acumulado += val
+            
+            st.write(f"**Total Puntos:** {total_acumulado}")
+            
+            st.info("""
+            **Interpretación:**
+            - Si **Locus de Control** sale con **0 pts**, significa que el código NO ha sumado nada (o has elegido opciones que no daban puntos).
+            - Si sale con **números negativos**, es que has restado.
+            - Si sale con **números positivos**, ¡EL CÓDIGO FUNCIONA! El problema estaría entonces en la fórmula del gráfico (0-100%).
+            """)
