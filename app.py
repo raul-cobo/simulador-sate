@@ -218,20 +218,10 @@ def init_session():
         st.session_state.user_id = generate_id()
         st.session_state.user_data = {}
 
-@st.cache_data
 # ==========================================
-# 📂 CARGA DE PREGUNTAS (ARREGLADO PARA PUNTO Y COMA)
+# 📂 1. CARGA DE PREGUNTAS (VERSIÓN ÚNICA Y LIMPIA)
 # ==========================================
-@st.cache_data
-# ==========================================
-# 📂 CARGA DE PREGUNTAS (CORREGIDO SATE_V4)
-# ==========================================
-# Quitamos el cache un momento (ttl=0) para forzar que recargue el archivo nuevo
-@st.cache_data(ttl=0)
-# ==========================================
-# 📂 1. CARGA DE PREGUNTAS (VERSIÓN BLINDADA)
-# ==========================================
-@st.cache_data(ttl=0)
+@st.cache_data(ttl=0) # ttl=0 para que recargue si cambias el Excel
 def load_questions():
     file_path = "SATE_V4.csv"
     if not os.path.exists(file_path):
@@ -239,69 +229,76 @@ def load_questions():
         return []
 
     try:
-        # Motor 'python' para leer comillas complejas y punto y coma
-        df = pd.read_csv(file_path, sep=";", encoding="utf-8-sig", dtype=str, engine='python', on_bad_lines='skip')
+        # Leemos el CSV con separador de punto y coma (;)
+        df = pd.read_csv(file_path, sep=";", encoding="utf-8-sig", dtype=str, engine='python')
         
-        # Limpieza de cabeceras
-        df.columns = df.columns.str.replace('"', '').str.replace("'", "").str.strip()
+        # Limpieza de nombres de columnas (quita espacios extra)
+        df.columns = df.columns.str.strip()
         
-        # Fallback si leyó mal las columnas
-        if len(df.columns) < 2:
-            df = pd.read_csv(file_path, sep=",", encoding="utf-8-sig", dtype=str, engine='python')
-            df.columns = df.columns.str.replace('"', '').str.replace("'", "").str.strip()
-
-        if 'SECTOR' not in df.columns:
-            st.error(f"❌ Falta la columna 'SECTOR'. Leído: {list(df.columns)}")
-            return []
-
-        # Limpieza de valores (quita comillas de todo)
-        for col in df.columns:
-            if df[col].dtype == object:
-                df[col] = df[col].astype(str).str.replace('"', '').str.replace("'", "").str.strip()
-
+        # Convertimos a lista de diccionarios
         return df.to_dict('records')
-
+        
     except Exception as e:
-        st.error(f"💥 Error leyendo CSV: {e}")
+        st.error(f"❌ Error leyendo el archivo SATE_V4.csv: {e}")
         return []
 
 # ==========================================
-# 🧠 MOTOR MATEMÁTICO Y GRÁFICO (BLOQUE MAESTRO v5.0)
+# 🧠 MOTOR MATEMÁTICO NORMALIZADO (NUCLEAR) v6.0
 # ==========================================
+import re
+
+def normalize_key(k):
+    """
+    Elimina guiones, espacios y mayúsculas para comparar 'a lo bruto'.
+    Ej: 'Locus_Control ' -> 'locuscontrol'
+    """
+    if not k: return ""
+    # Quita todo lo que no sea letra o número y pasa a minúsculas
+    return re.sub(r'[^a-zA-Z0-9]', '', str(k)).lower()
+
+def get_official_key_map():
+    """Mapa de claves sucias -> Clave Oficial limpia"""
+    # Estas son las claves OFICIALES que usamos en el código
+    official_keys = [
+        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
+        "locus_control", "emotional_stability", "achievement", 
+        "self_efficacy", "autonomy"
+    ]
+    # Creamos un diccionario: {'riskpropensity': 'risk_propensity', ...}
+    return {normalize_key(k): k for k in official_keys}
 
 def parse_logic(logic_string):
-    """
-    Lee la lógica del CSV y suma puntos.
-    Versión robusta: ignora espacios extra y tabuladores.
-    """
+    """Lee la lógica usando comparación normalizada"""
     if not logic_string or pd.isna(logic_string): return
     
-    # Limpieza básica de comillas
     clean_str = str(logic_string).replace('"', '').replace("'", "")
     parts = clean_str.split('|')
     
     if 'octagon' not in st.session_state: st.session_state.octagon = {}
     
+    key_map = get_official_key_map()
+    
     for p in parts:
         p = p.strip()
         if not p: continue
         try:
-            # DIVISIÓN ROBUSTA: "locus_control   3" -> ['locus_control', '3']
             tokens = p.split()
-            
             if len(tokens) >= 2:
-                # El último trozo es el número
                 val = float(tokens[-1])
-                # Todo lo anterior es la clave (por si hubiera espacios raros)
-                key = " ".join(tokens[:-1]).strip()
+                # La clave es todo lo anterior. La normalizamos.
+                raw_key = " ".join(tokens[:-1])
+                norm_key = normalize_key(raw_key)
                 
-                # Acumulamos
-                st.session_state.octagon[key] = st.session_state.octagon.get(key, 0) + val
+                # Buscamos si esa clave normalizada existe en nuestro mapa oficial
+                if norm_key in key_map:
+                    official_key = key_map[norm_key]
+                    st.session_state.octagon[official_key] = st.session_state.octagon.get(official_key, 0) + val
         except: pass
 
-def get_max_potential_for_row(row, valid_keys):
-    """Calcula el máximo posible por pregunta usando la misma lógica robusta"""
-    row_maxes = {k: 0 for k in valid_keys}
+def get_max_potential_for_row(row, official_keys):
+    """Calcula máximo posible usando normalización"""
+    row_maxes = {k: 0 for k in official_keys}
+    key_map = get_official_key_map()
     
     for char in ['A', 'B', 'C', 'D']:
         logic_str = row.get(f'OPCION_{char}_LOGIC')
@@ -317,35 +314,31 @@ def get_max_potential_for_row(row, valid_keys):
                 tokens = p.split()
                 if len(tokens) >= 2:
                     val = float(tokens[-1])
-                    key = " ".join(tokens[:-1]).strip()
+                    raw_key = " ".join(tokens[:-1])
+                    norm_key = normalize_key(raw_key)
                     
-                    if key in row_maxes:
-                        if val > row_maxes[key]:
-                            row_maxes[key] = val
+                    if norm_key in key_map:
+                        off_key = key_map[norm_key]
+                        # Solo sumamos si es positivo (potencial de ganancia)
+                        if val > row_maxes[off_key]:
+                            row_maxes[off_key] = val
             except: pass
             
     return row_maxes
 
 def calculate_results():
-    """
-    Calcula porcentajes REALES con nombres exactos del CSV.
-    Incluye factor de saturación (0.8) para permitir descarriladores.
-    """
-    # 1. LISTA MAESTRA DE CLAVES (Tal cual aparecen en el CSV)
+    """Calcula porcentajes con la nueva lógica normalizada"""
+    
+    # 1. Claves Oficiales
     valid_keys = [
-        "risk_propensity",      # Riesgo
-        "ambiguity_tolerance",  # Ambigüedad
-        "innovativeness",       # Innovación
-        "locus_control",        # Locus
-        "emotional_stability",  # Estabilidad
-        "achievement",          # Logro
-        "self_efficacy",        # Autoeficacia
-        "autonomy"              # Autonomía
+        "risk_propensity", "ambiguity_tolerance", "innovativeness", 
+        "locus_control", "emotional_stability", "achievement", 
+        "self_efficacy", "autonomy"
     ]
     
     user_scores = st.session_state.get('octagon', {})
     
-    # 2. CALCULAR EL 100% TEÓRICO (La "Nota Máxima" del examen)
+    # 2. Calcular Máximos (Normalizados)
     all_questions = st.session_state.get('data', [])
     total_max_possibles = {k: 0 for k in valid_keys}
     
@@ -354,46 +347,40 @@ def calculate_results():
         for k in valid_keys:
             total_max_possibles[k] += row_maxs[k]
 
-    # 3. CÁLCULO DE PORCENTAJES CON SATURACIÓN
-    # Factor 0.8: Si sacas el 80% de los puntos posibles, tienes un 100 de nota.
+    # 3. Saturación y Porcentajes
     SATURATION_FACTOR = 0.8 
-    
     octagon_norm = {}
     
     for k in valid_keys:
-        u_val = user_scores.get(k, 0)      # Puntos del usuario
-        max_val = total_max_possibles.get(k, 0) # Puntos máximos posibles
+        u_val = user_scores.get(k, 0)
+        max_val = total_max_possibles.get(k, 0)
         
         if max_val > 0:
             saturated_max = max_val * SATURATION_FACTOR
             percentage = (u_val / saturated_max) * 100
         else:
-            percentage = 0 
-            
+            percentage = 0
+        
         octagon_norm[k] = max(0, min(100, percentage))
 
-    # 4. KPI GLOBALES
+    # 4. KPIs
     if octagon_norm:
         avg = sum(octagon_norm.values()) / len(octagon_norm)
     else:
         avg = 0
-    
-    ire = avg 
+    ire = avg
     friction = max(0, 100 - ire)
     
-    # Retornamos los datos crudos al final para el depurador ("chivato")
     return int(ire), int(avg), int(friction), [], [], 0, octagon_norm, {
-        "raw_user": user_scores,
+        "raw_user": user_scores, 
         "max_possible": total_max_possibles
     }
 
 def radar_chart():
-    """Genera el gráfico con TUS ETIQUETAS"""
+    """Genera el gráfico"""
     _, _, _, _, _, _, scores, _ = calculate_results()
-    
     if not scores: return go.Figure()
     
-    # TUS ETIQUETAS EXACTAS
     LABELS = {
         "risk_propensity": "Propensión al riesgo", 
         "ambiguity_tolerance": "Tolerancia a la ambigüedad",
@@ -407,47 +394,31 @@ def radar_chart():
     
     categories = [LABELS.get(k, k) for k in scores.keys()]
     values = list(scores.values())
-    
-    # Cerrar el círculo visualmente
     categories.append(categories[0])
     values.append(values[0])
     
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill='toself',
-        name='Tu Perfil',
-        line_color='#0D248D',
-        fillcolor='rgba(13, 36, 141, 0.2)'
+        r=values, theta=categories, fill='toself', name='Perfil',
+        line_color='#0D248D', fillcolor='rgba(13, 36, 141, 0.2)'
     ))
-    
     fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10, color="gray")),
-            angularaxis=dict(tickfont=dict(size=12, color="black", weight="bold"))
-        ),
-        showlegend=False,
-        margin=dict(l=40, r=40, t=20, b=20),
-        height=350,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)"
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=10)),
+                   angularaxis=dict(tickfont=dict(size=12, weight="bold"))),
+        showlegend=False, margin=dict(l=40, r=40, t=20, b=20), height=350,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
     )
     return fig
 
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
     try:
         supabase.table("sape_results").insert({
-            "student_id": student_id,
-            "sector": sector,
-            "ire": ire,
-            "friction": friction,
-            "octagon": json.dumps(scores),
-            "organization": organization,
+            "student_id": student_id, "sector": sector, "ire": ire, "friction": friction,
+            "octagon": json.dumps(scores), "organization": organization,
             "created_at": datetime.now().isoformat()
         }).execute()
-    except Exception as e:
-        print(f"Error guardando en BD: {e}")
+    except Exception as e: print(f"Error BD: {e}")
+
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
 # ==========================================
