@@ -584,70 +584,60 @@ def run_simulator_logic():
                     if st.button(BUTTON_MAP[code], key=code, use_container_width=True):
                         go(BUTTON_MAP[code], code)
 
-    # -------------------------------------------------------
-        # PANTALLA 4: NARRATIVA Y OPCIONES (FIX VISUAL + ALEATORIO)
-        # -------------------------------------------------------
-        
-        # Variables actuales
+    # ----------------------------------------------------
+    # PANTALLA 4: EL JUEGO (CORREGIDO)
+    # ----------------------------------------------------
+    elif not st.session_state.finished:
+        if not st.session_state.data:
+            st.error("Error de datos."); st.session_state.started = False; st.rerun()
+            
+        if st.session_state.current_step >= len(st.session_state.data):
+            st.session_state.finished = True; st.rerun()
+            
         row = st.session_state.data[st.session_state.current_step]
+        
+        # 1. LOGO
+        if os.path.exists("logo_blanco.png"): 
+            st.image("logo_blanco.png", width=120)
+        else:
+            st.markdown("## 🧬 AUDEO")
+
+        # 2. BARRA DE PROGRESO SEGMENTADA
+        total_steps = len(st.session_state.data)
         current = st.session_state.current_step
         
-        # Columnas: Izquierda (Historia) - Derecha (Botones)
-        col_narrativa, col_opciones = st.columns([0.65, 0.35], gap="large")
+        bar_html = f"""<div style="display: flex; gap: 3px; margin-bottom: 20px;">"""
+        for i in range(total_steps):
+            if i < current: bg = "#0D248D" # Completado
+            elif i == current: bg = "#FFFFFF" # Actual
+            else: bg = "rgba(255,255,255,0.2)" # Pendiente
+            bar_html += f'<div style="flex: 1; height: 6px; background-color: {bg}; border-radius: 2px;"></div>'
+        bar_html += "</div>"
+        st.markdown(bar_html, unsafe_allow_html=True)
+        
+        # 3. TÍTULO
+        st.markdown(f"<h3 style='margin-bottom: 5px;'>{row.get('TITULO','Desafío')}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #ccc !important; font-size: 0.9rem;'>Mes {row.get('MES', current+1)}</p>", unsafe_allow_html=True)
+        st.write("") 
+
+        # 4. COLUMNAS
+        col_narrativa, col_opciones = st.columns([0.55, 0.45], gap="large")
         
         with col_narrativa:
-            # CAJA DE TEXTO ESTILO "TARJETA" (Para que se lea siempre)
-            st.markdown(f"""
-            <div style="
-                background-color: #ffffff; 
-                border: 1px solid #d0d0d0;
-                padding: 25px; 
-                border-radius: 12px; 
-                color: #000000;  /* Texto NEGRO PURO */
-                font-size: 18px; 
-                line-height: 1.6;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                {row.get('NARRATIVA','')}
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="narrative-box">{row.get('NARRATIVA','')}</div>""", unsafe_allow_html=True)
 
         with col_opciones:
-            st.markdown("### ⚡ Tu decisión:")
-            
-            # 1. Recolectar opciones disponibles
             opts = []
             for c in ['A','B','C','D']:
                 txt = row.get(f'OPCION_{c}_TXT')
-                logic = row.get(f'OPCION_{c}_LOGIC')
-                
-                # Si la celda no está vacía, la añadimos
-                if pd.notna(txt) and str(txt).strip():
-                    opts.append({'t': txt, 'l': logic, 'id': c})
-            
-            # 2. BARAJAR LAS OPCIONES (Aleatorización)
+                if txt and str(txt).strip():
+                    opts.append({'t': txt, 'l': row.get(f'OPCION_{c}_LOGIC'), 'id': c})
             random.shuffle(opts)
             
-            # 3. Pintar los botones barajados
             for o in opts:
-                # Usamos una clave única para que no falle Streamlit
-                btn_key = f"btn_{current}_{o['id']}"
-                
-                if st.button(o['t'], key=btn_key, use_container_width=True):
-                    
-                    # A. Guardar en historial
-                    if 'history' not in st.session_state: 
-                        st.session_state.history = []
-                    
-                    st.session_state.history.append({
-                        'mes': row.get('MES'), 
-                        'opcion': o['id'], # Guardamos la letra original (A, B...)
-                        'texto': o['t']
-                    })
-                    
-                    # B. Calcular puntos
+                if st.button(o['t'], key=f"{current}_{o['id']}", use_container_width=True):
                     parse_logic(o['l'])
-                    
-                    # C. Avanzar
+                    st.session_state.history.append({'op': o['id'], 'txt': o['t']})
                     st.session_state.current_step += 1
                     st.rerun()
 
