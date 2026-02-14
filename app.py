@@ -391,41 +391,40 @@ def radar_chart():
 # ==========================================
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
     try:
-        # 1. GENERAR FECHA Y HORA
         ahora = datetime.now().isoformat()
         
-        # 2. VALIDAR ID (Para evitar que falle si no estás logueado)
-        if not student_id:
-            # Si estás probando sin loguearte, usamos un ID temporal o None
-            # (Depende de cómo tengas configurada tu tabla en Supabase. 
-            # Si la columna student_id es OBLIGATORIA (Not Null), esto fallará si mandamos None)
-            # Intentaremos mandar None, si falla, avisa.
-            final_id = None 
-        else:
-            final_id = student_id
+        # Validación de ID
+        final_id = student_id if student_id else None
 
-        # 3. PREPARAR DATOS
+        # PREPARAR DATOS (Usando los nombres EXACTOS de tu tabla)
         data_to_insert = {
-            "student_id": final_id, 
-            "sector": sector, 
-            "ire": ire, 
+            "student_id": final_id,
+            "sector": sector,
+            
+            # 1. CAMBIO CLAVE: 'ire' ahora es 'ire_score'
+            "ire_score": ire, 
+            
             "friction": friction,
-            "octagon": json.dumps(scores), # Aquí van los rasgos individuales
+            
+            # 2. CAMBIO CLAVE: 'octagon' ahora es 'raw_scores'
+            "raw_scores": json.dumps(scores), 
+            
             "organization": organization,
-            "created_at": ahora
+            "created_at": ahora,
+            
+            # Opcional: Si quieres guardar los triggers (disparadores)
+            "triggers": triggers 
         }
 
-        # 4. EJECUTAR INSERT
+        # EJECUTAR INSERT
         response = supabase.table("sape_results").insert(data_to_insert).execute()
         
-        # 5. CONFIRMACIÓN VISUAL
         if response.data:
             st.success(f"✅ Resultados guardados correctamente a las {ahora}")
         
     except Exception as e:
-        # AQUÍ VERÁS POR QUÉ FALLABA
-        st.error(f"❌ ERROR AL GUARDAR EN BASE DE DATOS: {e}")
-        st.write("Datos que se intentaron guardar:", data_to_insert) # Para depurar
+        st.error(f"❌ ERROR AL GUARDAR: {e}")
+        st.write("Datos intentados:", data_to_insert)
 
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
