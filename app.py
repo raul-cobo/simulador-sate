@@ -642,10 +642,14 @@ def run_simulator_logic():
                     st.rerun()
 
    # ----------------------------------------------------
-    # PANTALLA 5: INFORME + MONITOR DE GUARDADO (FIXED)
+    # PANTALLA 5: INFORME FINAL (VERSIÓN ÚNICA)
     # ----------------------------------------------------
     else:
         # 1. CÁLCULOS
+        if 'octagon' not in st.session_state:
+            st.error("⚠️ Error: No hay datos para calcular.")
+            return
+
         ire, avg, fric, triggers, history, _, scores, debug_data = calculate_results()
         
         # 2. RECUPERAR USUARIO
@@ -656,9 +660,9 @@ def run_simulator_logic():
         organization = user.get('organization', 'Invitado')
         sector = st.session_state.get('sector', 'TECH')
 
-        st.title("🏁 Resultados Finales")
+        st.markdown("## 🏁 Informe de Competencias")
 
-        # --- MONITOR DE ESTADO ---
+        # --- MONITOR DE ESTADO (Guardado) ---
         status_col, action_col = st.columns([3, 1])
         
         with status_col:
@@ -666,124 +670,68 @@ def run_simulator_logic():
                 st.session_state.save_status = "pending"
                 st.session_state.save_msg = ""
 
-            # INTENTO DE GUARDADO AUTOMÁTICO
+            # INTENTO DE GUARDADO
             if st.session_state.save_status == "pending":
                 if student_id:
+                    # Usamos la función corregida save_result_to_db
                     success, msg = save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
                     if success:
                         st.session_state.save_status = "success"
                         st.session_state.save_msg = msg
-                        st.success(f"✅ DATOS GUARDADOS: {msg}")
+                        st.success(f"✅ RESULTADOS GUARDADOS: {msg}")
                     else:
                         st.session_state.save_status = "error"
                         st.session_state.save_msg = msg
                         st.error(f"❌ ERROR AL GUARDAR: {msg}")
                 else:
                     st.session_state.save_status = "guest"
-                    st.warning("⚠️ MODO INVITADO: No se guarda en BD.")
+                    st.warning("⚠️ MODO INVITADO: Resultados no guardados en BD.")
 
             # ESTADOS FIJOS
             elif st.session_state.save_status == "success":
-                st.success(f"✅ Datos guardados correctamente ({st.session_state.save_msg})")
+                st.success(f"✅ Datos guardados ({st.session_state.save_msg})")
             elif st.session_state.save_status == "error":
-                st.error(f"❌ Error previo: {st.session_state.save_msg}")
+                st.error(f"❌ Fallo previo: {st.session_state.save_msg}")
             elif st.session_state.save_status == "guest":
-                st.warning("⚠️ Resultados no guardados (Sin sesión iniciada)")
+                st.warning("⚠️ Sin sesión iniciada (No guardado)")
 
         with action_col:
-            if st.button("💾 Reintentar Guardado", key="btn_retry"):
+            if st.button("💾 Reintentar", key="btn_retry_final"):
                 st.session_state.save_status = "pending"
                 st.rerun()
 
         st.markdown("---")
 
-        # --- INFORME VISUAL ---
+        # --- KPIS PRINCIPALES ---
         k1, k2, k3 = st.columns(3)
-        k1.metric("🚀 Índice IRE", f"{int(ire)}/100")
+        
+        # Lógica de colores IRE
+        delta_msg = "Alto Potencial" if ire >= 70 else "En Desarrollo" if ire >= 50 else "Atención"
+        
+        k1.metric("🚀 Índice IRE", f"{int(ire)}/100", delta=delta_msg)
         k2.metric("⭐ Potencial", f"{int(avg)}/100")
         k3.metric("🔥 Fricción", f"{int(fric)}%", delta_color="inverse")
         
         st.markdown("---")
         
-        c1, c2 = st.columns([1, 1])
+        # --- GRÁFICOS ---
+        c1, c2 = st.columns([1.2, 1])
         with c1:
-            # AQUÍ ESTÁ LA CORRECCIÓN: key="final_radar"
-            st.plotly_chart(radar_chart(), use_container_width=True, key="final_radar")
+            st.markdown("### 🕸️ Tu Octógono")
+            try:
+                # Key única para evitar duplicados
+                st.plotly_chart(radar_chart(), use_container_width=True, key="chart_radar_final_unique")
+            except Exception as e:
+                st.error(f"Error gráfico: {e}")
             
         with c2:
-            st.write("### Desglose")
+            st.markdown("### 📊 Desglose")
             for k, v in scores.items():
-                st.progress(int(v)/100)
-                st.caption(f"{k}: {int(v)}")
+                val_int = int(v)
+                st.progress(val_int/100)
+                st.caption(f"**{k.replace('_',' ').title()}**: {val_int}")
 
         st.markdown("---")
-        if st.button("🔄 Jugar otra vez", key="btn_restart"):
-            for key in list(st.session_state.keys()):
-                if key not in ['logged_in', 'user_data']:
-                    del st.session_state[key]
-            st.rerun()
-
-        # -------------------------------------------------------
-        # 4. INTERFAZ VISUAL (DASHBOARD)
-        # -------------------------------------------------------
-        
-        st.markdown("## 🏁 Informe de Competencias Emprendedoras")
-        st.markdown("---")
-
-        # --- SECCIÓN A: KPIS PRINCIPALES ---
-        k1, k2, k3 = st.columns(3)
-        
-        # Colores dinámicos para el IRE
-        delta_color = "normal"
-        if ire >= 70: color_ire = "green"; delta_msg = "Alto Potencial"
-        elif ire >= 50: color_ire = "orange"; delta_msg = "En Desarrollo"
-        else: color_ire = "red"; delta_msg = "Atención Requerida"
-
-        k1.metric("🚀 Índice IRE", f"{int(ire)}/100", delta=delta_msg)
-        k2.metric("⭐ Potencial Medio", f"{int(avg)}/100")
-        k3.metric("🔥 Fricción / Estrés", f"{int(fric)}%", delta_color="inverse") # Inverse porque menos es mejor
-
-        st.markdown("---")
-
-        # --- SECCIÓN B: GRÁFICO Y BARRAS ---
-        col_chart, col_details = st.columns([1.2, 1])
-
-        with col_chart:
-            st.markdown("### 🕸️ Tu Octógono")
-            # Llamamos a tu función de radar (asegúrate que devuelve 'fig')
-            fig = radar_chart() 
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col_details:
-            st.markdown("### 📊 Desglose por Competencia")
-            st.write("") # Espacio
-            
-            # Recorremos el diccionario de scores para pintar las barras
-            # Traducimos las claves a nombres bonitos si hace falta
-            traducciones = {
-                "risk_propensity": "Propensión al Riesgo",
-                "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación",
-                "locus_control": "Locus de Control",
-                "emotional_stability": "Estabilidad Emocional",
-                "achievement": "Orientación al Logro",
-                "self_efficacy": "Autoeficacia",
-                "autonomy": "Autonomía"
-            }
-
-            for key, val in scores.items():
-                nombre = traducciones.get(key, key.replace("_", " ").title())
-                puntos = int(val)
-                
-                # Color de la barra según puntuación
-                if puntos < 30: bar_color = ":red["
-                elif puntos < 60: bar_color = ":orange["
-                else: bar_color = ":green["
-                
-                # Texto encima de la barra
-                st.caption(f"**{nombre}**: {puntos}/100")
-                st.progress(puntos / 100)
-
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
 # ==========================================
