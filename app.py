@@ -620,24 +620,55 @@ def run_simulator_logic():
         st.markdown(f"<p style='color: #ccc !important; font-size: 0.9rem;'>Mes {row.get('MES', current+1)}</p>", unsafe_allow_html=True)
         st.write("") 
 
-        # 4. COLUMNAS
-        col_narrativa, col_opciones = st.columns([0.55, 0.45], gap="large")
+     # --- DEFINICIÓN DE VARIABLES NECESARIAS ---
+        row = st.session_state.data[st.session_state.current_step]
+        current = st.session_state.current_step
+        
+        # --- DISEÑO: NARRATIVA (Izq) + OPCIONES (Der) ---
+        col_narrativa, col_opciones = st.columns([0.6, 0.4], gap="large")
         
         with col_narrativa:
-            st.markdown(f"""<div class="narrative-box">{row.get('NARRATIVA','')}</div>""", unsafe_allow_html=True)
+            # Caja de texto con la historia
+            st.markdown(f"""
+            <div style="background-color:#f9f9f9; padding:20px; border-radius:10px; border-left: 5px solid #0D248D;">
+                <p style="font-size:18px; line-height:1.6;">{row.get('NARRATIVA','')}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
         with col_opciones:
+            st.write("### ¿Qué harías?")
+            
+            # 1. Recolectar opciones válidas
             opts = []
             for c in ['A','B','C','D']:
                 txt = row.get(f'OPCION_{c}_TXT')
-                if txt and str(txt).strip():
-                    opts.append({'t': txt, 'l': row.get(f'OPCION_{c}_LOGIC'), 'id': c})
+                logic = row.get(f'OPCION_{c}_LOGIC')
+                # Si hay texto, la añadimos a la lista
+                if pd.notna(txt) and str(txt).strip():
+                    opts.append({'t': txt, 'l': logic, 'id': c})
+            
+            # 2. ¡BARAJAR! (Aquí está la aleatorización)
             random.shuffle(opts)
             
+            # 3. Pintar botones barajados
             for o in opts:
-                if st.button(o['t'], key=f"{current}_{o['id']}", use_container_width=True):
+                # El key debe ser único para cada paso y opción
+                if st.button(o['t'], key=f"btn_{current}_{o['id']}", use_container_width=True):
+                    
+                    # A. Guardar en historial
+                    if 'history' not in st.session_state: 
+                        st.session_state.history = []
+                    
+                    st.session_state.history.append({
+                        'mes': row.get('MES'), 
+                        'opcion': o['id'], # Guardamos la letra original (A, B...)
+                        'texto': o['t']
+                    })
+                    
+                    # B. Aplicar lógica de puntos
                     parse_logic(o['l'])
-                    st.session_state.history.append({'op': o['id'], 'txt': o['t']})
+                    
+                    # C. Avanzar
                     st.session_state.current_step += 1
                     st.rerun()
 
