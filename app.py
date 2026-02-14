@@ -641,74 +641,96 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
-    # ----------------------------------------------------
-    # PANTALLA 5: RESULTADOS (CON GUARDADO BLINDADO)
+       # ----------------------------------------------------
+    # PANTALLA 5: INFORME DE RESULTADOS (FINAL)
     # ----------------------------------------------------
     else:
-        # 1. TÍTULO
-        st.title("🏁 RESULTADOS DE LA SIMULACIÓN")
-        
-        # 2. CALCULAR RESULTADOS
-        if 'octagon' not in st.session_state:
-            st.error("⚠️ No hay datos de puntuación. Algo ha fallado en la lógica.")
-            return
-
+        # 1. CÁLCULOS
         ire, avg, fric, triggers, history, _, scores, debug_data = calculate_results()
         
-        # 3. DATOS DEL USUARIO
+        # 2. DATOS DE CONTEXTO
         user = st.session_state.get('user_data', {})
-        student_id = user.get('id') # Supabase ID
-        if not student_id: 
-            # Fallback por si el usuario no tiene ID en la sesión
-            student_id = st.session_state.get('user_id') 
-
-        organization = user.get('organization', 'Invitado')
-        sector = st.session_state.get('sector', 'TECH') 
+        student_id = user.get('id')
+        # Si no hay ID en user_data, miramos si hay un fallback
+        if not student_id: student_id = st.session_state.get('user_id')
         
-        # --- DEBUG (OPCIONAL: Puedes borrar este bloque 'with' si ya funciona) ---
-        with st.expander("🕵️‍♂️ DATOS TÉCNICOS (DEBUG)", expanded=False):
-            st.write(f"**Usuario ID:** `{student_id}`")
-            st.write(f"**Sector:** `{sector}`")
-            st.json(scores) 
+        organization = user.get('organization', 'Invitado')
+        sector = st.session_state.get('sector', 'TECH')
 
-        # 4. INTENTO DE GUARDADO AUTOMÁTICO
+        # 3. GUARDADO AUTOMÁTICO (SILENCIOSO)
+        # Solo guardamos si no lo hemos hecho ya en esta sesión
         if 'has_saved' not in st.session_state:
             st.session_state.has_saved = False
 
         if not st.session_state.has_saved:
             if student_id:
-                # Intentamos guardar
                 save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
                 st.session_state.has_saved = True
             else:
-                st.warning("⚠️ Modo Invitado: Los resultados no se guardan en base de datos.")
+                # Si es invitado, no guardamos, pero no mostramos error rojo, solo aviso sutil
+                st.toast("⚠️ Modo Invitado: Resultados no guardados en base de datos.", icon="ℹ️")
 
-        # 5. BOTÓN DE GUARDADO MANUAL (POR SI FALLA EL AUTO)
-        if st.button("💾 FORZAR GUARDADO"):
-            save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
-
-        # 6. MOSTRAR GRÁFICOS
-        try:
-            # KPI Cards
-            k1, k2, k3 = st.columns(3)
-            c_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
-            k1.metric("Índice IRE", f"{int(ire)}/100")
-            k2.metric("Potencial", f"{int(avg)}/100")
-            k3.metric("Fricción", f"{int(fric)}%")
-            
-            # Gráfico Radar
-            st.plotly_chart(radar_chart(), use_container_width=True)
-            
-        except Exception as e:
-            st.error(f"Error pintando gráfico: {e}")
-
-        # 7. BOTÓN REINICIAR
-        if st.button("🔄 Jugar otra vez"):
-            for key in list(st.session_state.keys()):
-                if key not in ['logged_in', 'user_data']: # No borramos el login
-                    del st.session_state[key]
-            st.rerun()
+        # -------------------------------------------------------
+        # 4. INTERFAZ VISUAL (DASHBOARD)
+        # -------------------------------------------------------
         
+        st.markdown("## 🏁 Informe de Competencias Emprendedoras")
+        st.markdown("---")
+
+        # --- SECCIÓN A: KPIS PRINCIPALES ---
+        k1, k2, k3 = st.columns(3)
+        
+        # Colores dinámicos para el IRE
+        delta_color = "normal"
+        if ire >= 70: color_ire = "green"; delta_msg = "Alto Potencial"
+        elif ire >= 50: color_ire = "orange"; delta_msg = "En Desarrollo"
+        else: color_ire = "red"; delta_msg = "Atención Requerida"
+
+        k1.metric("🚀 Índice IRE", f"{int(ire)}/100", delta=delta_msg)
+        k2.metric("⭐ Potencial Medio", f"{int(avg)}/100")
+        k3.metric("🔥 Fricción / Estrés", f"{int(fric)}%", delta_color="inverse") # Inverse porque menos es mejor
+
+        st.markdown("---")
+
+        # --- SECCIÓN B: GRÁFICO Y BARRAS ---
+        col_chart, col_details = st.columns([1.2, 1])
+
+        with col_chart:
+            st.markdown("### 🕸️ Tu Octógono")
+            # Llamamos a tu función de radar (asegúrate que devuelve 'fig')
+            fig = radar_chart() 
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col_details:
+            st.markdown("### 📊 Desglose por Competencia")
+            st.write("") # Espacio
+            
+            # Recorremos el diccionario de scores para pintar las barras
+            # Traducimos las claves a nombres bonitos si hace falta
+            traducciones = {
+                "risk_propensity": "Propensión al Riesgo",
+                "ambiguity_tolerance": "Tolerancia Ambigüedad",
+                "innovativeness": "Innovación",
+                "locus_control": "Locus de Control",
+                "emotional_stability": "Estabilidad Emocional",
+                "achievement": "Orientación al Logro",
+                "self_efficacy": "Autoeficacia",
+                "autonomy": "Autonomía"
+            }
+
+            for key, val in scores.items():
+                nombre = traducciones.get(key, key.replace("_", " ").title())
+                puntos = int(val)
+                
+                # Color de la barra según puntuación
+                if puntos < 30: bar_color = ":red["
+                elif puntos < 60: bar_color = ":orange["
+                else: bar_color = ":green["
+                
+                # Texto encima de la barra
+                st.caption(f"**{nombre}**: {puntos}/100")
+                st.progress(puntos / 100)
+                       
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
 # ==========================================
