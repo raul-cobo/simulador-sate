@@ -224,7 +224,7 @@ def init_session():
 # --- A. CARGA DE DATOS ---
 @st.cache_data(ttl=0)
 def load_questions():
-    file_path = "SATE_V4.csv"
+    file_path = "SATE_V4.1.csv"
     if not os.path.exists(file_path):
         st.error(f"❌ No encuentro el archivo: {file_path}")
         return []
@@ -609,19 +609,7 @@ def run_simulator_logic():
                     st.session_state.history.append({'op': o['id'], 'txt': o['t']})
                     st.session_state.current_step += 1
                     st.rerun()
-def run_simulator_logic():
-    # --- 🚨 PEGAR ESTO JUSTO AQUÍ, AL PRINCIPIO DE LA FUNCIÓN ---
-    # CHIVATO VISUAL GIGANTE
-    puntos = st.session_state.get('octagon', {})
-    locus = points_locus = puntos.get('locus_control', 0)
-    logro = points_logro = puntos.get('achievement', 0)
-    
-    st.error(f"🕵️‍♂️ CHIVATO EN VIVO | Locus: {locus} | Logro: {logro}")
-    # ------------------------------------------------------------
 
-    # Aquí sigue tu código normal...
-    if 'month' not in st.session_state: st.session_state.month = 1
-    # ...
 # ----------------------------------------------------
     # PANTALLA 5: RESULTADOS (MATEMÁTICAS Y ETIQUETAS CORRECTAS)
     # ----------------------------------------------------
