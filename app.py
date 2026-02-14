@@ -386,14 +386,46 @@ def radar_chart():
     )
     return fig
 
+# ==========================================
+# 💾 GUARDADO EN BASE DE DATOS
+# ==========================================
 def save_result_to_db(student_id, sector, ire, friction, triggers, scores, history, organization):
     try:
-        supabase.table("sape_results").insert({
-            "student_id": student_id, "sector": sector, "ire": ire, "friction": friction,
-            "octagon": json.dumps(scores), "organization": organization,
-            "created_at": datetime.now().isoformat()
-        }).execute()
-    except Exception as e: print(f"Error BD: {e}")
+        # 1. GENERAR FECHA Y HORA
+        ahora = datetime.now().isoformat()
+        
+        # 2. VALIDAR ID (Para evitar que falle si no estás logueado)
+        if not student_id:
+            # Si estás probando sin loguearte, usamos un ID temporal o None
+            # (Depende de cómo tengas configurada tu tabla en Supabase. 
+            # Si la columna student_id es OBLIGATORIA (Not Null), esto fallará si mandamos None)
+            # Intentaremos mandar None, si falla, avisa.
+            final_id = None 
+        else:
+            final_id = student_id
+
+        # 3. PREPARAR DATOS
+        data_to_insert = {
+            "student_id": final_id, 
+            "sector": sector, 
+            "ire": ire, 
+            "friction": friction,
+            "octagon": json.dumps(scores), # Aquí van los rasgos individuales
+            "organization": organization,
+            "created_at": ahora
+        }
+
+        # 4. EJECUTAR INSERT
+        response = supabase.table("sape_results").insert(data_to_insert).execute()
+        
+        # 5. CONFIRMACIÓN VISUAL
+        if response.data:
+            st.success(f"✅ Resultados guardados correctamente a las {ahora}")
+        
+    except Exception as e:
+        # AQUÍ VERÁS POR QUÉ FALLABA
+        st.error(f"❌ ERROR AL GUARDAR EN BASE DE DATOS: {e}")
+        st.write("Datos que se intentaron guardar:", data_to_insert) # Para depurar
 
 # ==========================================
 # 🎮 3. INTERFAZ SIMULADOR (CORREGIDO)
@@ -610,102 +642,73 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
-# ----------------------------------------------------
-    # PANTALLA 5: RESULTADOS (MATEMÁTICAS Y ETIQUETAS CORRECTAS)
+    # ----------------------------------------------------
+    # PANTALLA 5: RESULTADOS (CON GUARDADO BLINDADO)
     # ----------------------------------------------------
     else:
-        # 1. ESTILOS
-        st.markdown("""
-        <style>
-            .stApp { background-color: #FFFFFF !important; }
-            h1, h2, h3, h4, p, li, span, div, label { color: #050A1F !important; }
-            .metric-card {
-                background-color: #F8F9FA;
-                border: 1px solid #E9ECEF;
-                border-radius: 12px;
-                padding: 20px;
-                text-align: center;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            }
-            .metric-value { font-size: 2.5rem; font-weight: 800; color: #0D248D; margin: 10px 0; }
-            .metric-label { font-size: 0.9rem; color: #666; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # 2. CÁLCULOS
-        ire, avg, fric, _, _, _, scores, _ = calculate_results()
+        # 1. TÍTULO
+        st.title("🏁 RESULTADOS DE LA SIMULACIÓN")
         
-        # 3. CABECERA
-        c_logo, c_info = st.columns([1, 4])
-        with c_logo:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", width=130)
-            else: st.markdown("## 🧬 AUDEO")
-        with c_info:
-            st.markdown(f"# Informe de Perfil Emprendedor")
-            st.markdown(f"**Usuario:** {st.session_state.user_data.get('name', 'Anónimo')} | **Sector:** {st.session_state.user_data.get('sector', 'General')}")
-        st.markdown("---")
+        # 2. CALCULAR RESULTADOS
+        if 'octagon' not in st.session_state:
+            st.error("⚠️ No hay datos de puntuación. Algo ha fallado en la lógica.")
+            return
 
-        # 4. KPIs
-        k1, k2, k3 = st.columns(3)
-        c_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
-        c_fric = "#E74C3C" if fric >= 50 else "#F1C40F" if fric >= 30 else "#2ECC71"
+        ire, avg, fric, triggers, history, _, scores, debug_data = calculate_results()
         
-        with k1: st.markdown(f"""<div class="metric-card"><div class="metric-label">Índice Resiliencia (IRE)</div><div class="metric-value" style="color: {c_ire}">{int(ire)}/100</div></div>""", unsafe_allow_html=True)
-        with k2: st.markdown(f"""<div class="metric-card"><div class="metric-label">Potencial Competencial</div><div class="metric-value">{int(avg)}/100</div></div>""", unsafe_allow_html=True)
-        with k3: st.markdown(f"""<div class="metric-card"><div class="metric-label">Nivel de Fricción</div><div class="metric-value" style="color: {c_fric}">{int(fric)}%</div></div>""", unsafe_allow_html=True)
+        # 3. DATOS DEL USUARIO
+        user = st.session_state.get('user_data', {})
+        student_id = user.get('id') # Supabase ID
+        if not student_id: 
+            # Fallback por si el usuario no tiene ID en la sesión
+            student_id = st.session_state.get('user_id') 
 
-        st.write("") 
-
-        # 5. GRÁFICO Y BARRAS
-        col_radar, col_skills = st.columns([1, 1.2], gap="large")
+        organization = user.get('organization', 'Invitado')
+        sector = st.session_state.get('sector', 'TECH') 
         
-        with col_radar:
-            st.markdown("### 🕸️ Mapa de Talento")
+        # --- DEBUG (OPCIONAL: Puedes borrar este bloque 'with' si ya funciona) ---
+        with st.expander("🕵️‍♂️ DATOS TÉCNICOS (DEBUG)", expanded=False):
+            st.write(f"**Usuario ID:** `{student_id}`")
+            st.write(f"**Sector:** `{sector}`")
+            st.json(scores) 
+
+        # 4. INTENTO DE GUARDADO AUTOMÁTICO
+        if 'has_saved' not in st.session_state:
+            st.session_state.has_saved = False
+
+        if not st.session_state.has_saved:
+            if student_id:
+                # Intentamos guardar
+                save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
+                st.session_state.has_saved = True
+            else:
+                st.warning("⚠️ Modo Invitado: Los resultados no se guardan en base de datos.")
+
+        # 5. BOTÓN DE GUARDADO MANUAL (POR SI FALLA EL AUTO)
+        if st.button("💾 FORZAR GUARDADO"):
+            save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
+
+        # 6. MOSTRAR GRÁFICOS
+        try:
+            # KPI Cards
+            k1, k2, k3 = st.columns(3)
+            c_ire = "#2ECC71" if ire >= 70 else "#F1C40F" if ire >= 50 else "#E74C3C"
+            k1.metric("Índice IRE", f"{int(ire)}/100")
+            k2.metric("Potencial", f"{int(avg)}/100")
+            k3.metric("Fricción", f"{int(fric)}%")
+            
+            # Gráfico Radar
             st.plotly_chart(radar_chart(), use_container_width=True)
-            if ire > 75: diag = "Tu perfil muestra una **alta alineación** con las exigencias del emprendimiento."
-            elif ire > 50: diag = "Tienes una base sólida, pero hay **áreas de fricción** que debes trabajar."
-            else: diag = "Se detectan **riesgos significativos**. Recomendamos formación antes de emprender."
-            st.info(diag)
-
-        with col_skills:
-            st.markdown("### 📊 Detalle de Competencias")
             
-            # DICCIONARIO CORREGIDO (COINCIDE CON CSV)
-            LABELS = {
-                "risk_propensity": "Propensión al Riesgo", 
-                "ambiguity_tolerance": "Tolerancia Ambigüedad",
-                "innovativeness": "Innovación", 
-                "locus_control": "Locus de Control",       # Corregido
-                "emotional_stability": "Estabilidad Emocional", 
-                "achievement": "Orientación al Logro",
-                "self_efficacy": "Autoeficacia",           # Corregido (Antes Liderazgo)
-                "autonomy": "Autonomía"                    # Corregido (Antes Adaptabilidad)
-            }
-            
-            for key, val in scores.items():
-                nombre = LABELS.get(key, key.capitalize())
-                mask_width = 100 - val 
-                
-                barra_html = f"""
-                <div style="margin-bottom: 18px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <span style="font-weight:600; font-size:0.95rem; color: #333;">{nombre}</span>
-                        <span style="font-weight:700; color: #333;">{int(val)}%</span>
-                    </div>
-                    <div style="width: 100%; height: 14px; background-color: #E9ECEF; border-radius: 7px; position: relative; overflow: hidden; border: 1px solid #ddd;">
-                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to right, #E74C3C 0%, #E74C3C 25%, #F1C40F 25%, #F1C40F 60%, #2ECC71 60%, #2ECC71 90%, #E74C3C 90%, #E74C3C 100%);"></div>
-                        <div style="position: absolute; top: 0; right: 0; width: {mask_width}%; height: 100%; background-color: #E9ECEF;"></div>
-                        <div style="position: absolute; top: 0; right: {mask_width}%; width: 2px; height: 100%; background-color: rgba(0,0,0,0.2);"></div>
-                    </div>
-                </div>
-                """
-                st.markdown(barra_html, unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error pintando gráfico: {e}")
 
-        # 6. GUARDAR
-        if 'saved' not in st.session_state:
-            save_result_to_db(st.session_state.user_data.get('username'), st.session_state.user_data.get('sector'), ire, fric, [], scores, st.session_state.history, st.session_state.user_data.get('org_id'))
-            st.session_state.saved = True
-            st.success("✅ Resultados guardados en tu expediente.")
+        # 7. BOTÓN REINICIAR
+        if st.button("🔄 Jugar otra vez"):
+            for key in list(st.session_state.keys()):
+                if key not in ['logged_in', 'user_data']: # No borramos el login
+                    del st.session_state[key]
+            st.rerun()
         
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
