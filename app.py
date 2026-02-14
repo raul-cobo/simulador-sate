@@ -641,11 +641,8 @@ def run_simulator_logic():
                     st.session_state.current_step += 1
                     st.rerun()
 
-       # ----------------------------------------------------
-    # PANTALLA 5: INFORME DE RESULTADOS (FINAL)
-    # ----------------------------------------------------
    # ----------------------------------------------------
-    # PANTALLA 5: INFORME + MONITOR DE GUARDADO
+    # PANTALLA 5: INFORME + MONITOR DE GUARDADO (FIXED)
     # ----------------------------------------------------
     else:
         # 1. CÁLCULOS
@@ -654,14 +651,14 @@ def run_simulator_logic():
         # 2. RECUPERAR USUARIO
         user = st.session_state.get('user_data', {})
         student_id = user.get('id')
-        if not student_id: student_id = st.session_state.get('user_id') # Fallback
+        if not student_id: student_id = st.session_state.get('user_id')
         
         organization = user.get('organization', 'Invitado')
         sector = st.session_state.get('sector', 'TECH')
 
         st.title("🏁 Resultados Finales")
 
-        # --- MONITOR DE ESTADO (Para que sepas seguro qué pasa) ---
+        # --- MONITOR DE ESTADO ---
         status_col, action_col = st.columns([3, 1])
         
         with status_col:
@@ -669,7 +666,7 @@ def run_simulator_logic():
                 st.session_state.save_status = "pending"
                 st.session_state.save_msg = ""
 
-            # INTENTO DE GUARDADO AUTOMÁTICO (Solo 1 vez)
+            # INTENTO DE GUARDADO AUTOMÁTICO
             if st.session_state.save_status == "pending":
                 if student_id:
                     success, msg = save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
@@ -685,7 +682,7 @@ def run_simulator_logic():
                     st.session_state.save_status = "guest"
                     st.warning("⚠️ MODO INVITADO: No se guarda en BD.")
 
-            # SI YA SE INTENTÓ, MOSTRAR EL RESULTADO FIJO
+            # ESTADOS FIJOS
             elif st.session_state.save_status == "success":
                 st.success(f"✅ Datos guardados correctamente ({st.session_state.save_msg})")
             elif st.session_state.save_status == "error":
@@ -694,14 +691,13 @@ def run_simulator_logic():
                 st.warning("⚠️ Resultados no guardados (Sin sesión iniciada)")
 
         with action_col:
-            # BOTÓN DE REINTENTO MANUAL
-            if st.button("💾 Reintentar Guardado"):
-                st.session_state.save_status = "pending" # Resetea para probar otra vez
+            if st.button("💾 Reintentar Guardado", key="btn_retry"):
+                st.session_state.save_status = "pending"
                 st.rerun()
 
         st.markdown("---")
 
-        # --- AQUÍ EMPIEZA EL INFORME VISUAL (IGUAL QUE ANTES) ---
+        # --- INFORME VISUAL ---
         k1, k2, k3 = st.columns(3)
         k1.metric("🚀 Índice IRE", f"{int(ire)}/100")
         k2.metric("⭐ Potencial", f"{int(avg)}/100")
@@ -711,7 +707,9 @@ def run_simulator_logic():
         
         c1, c2 = st.columns([1, 1])
         with c1:
-            st.plotly_chart(radar_chart(), use_container_width=True)
+            # AQUÍ ESTÁ LA CORRECCIÓN: key="final_radar"
+            st.plotly_chart(radar_chart(), use_container_width=True, key="final_radar")
+            
         with c2:
             st.write("### Desglose")
             for k, v in scores.items():
@@ -719,7 +717,7 @@ def run_simulator_logic():
                 st.caption(f"{k}: {int(v)}")
 
         st.markdown("---")
-        if st.button("🔄 Jugar otra vez"):
+        if st.button("🔄 Jugar otra vez", key="btn_restart"):
             for key in list(st.session_state.keys()):
                 if key not in ['logged_in', 'user_data']:
                     del st.session_state[key]
