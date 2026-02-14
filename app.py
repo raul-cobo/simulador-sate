@@ -644,31 +644,86 @@ def run_simulator_logic():
        # ----------------------------------------------------
     # PANTALLA 5: INFORME DE RESULTADOS (FINAL)
     # ----------------------------------------------------
+   # ----------------------------------------------------
+    # PANTALLA 5: INFORME + MONITOR DE GUARDADO
+    # ----------------------------------------------------
     else:
         # 1. CÁLCULOS
         ire, avg, fric, triggers, history, _, scores, debug_data = calculate_results()
         
-        # 2. DATOS DE CONTEXTO
+        # 2. RECUPERAR USUARIO
         user = st.session_state.get('user_data', {})
         student_id = user.get('id')
-        # Si no hay ID en user_data, miramos si hay un fallback
-        if not student_id: student_id = st.session_state.get('user_id')
+        if not student_id: student_id = st.session_state.get('user_id') # Fallback
         
         organization = user.get('organization', 'Invitado')
         sector = st.session_state.get('sector', 'TECH')
 
-        # 3. GUARDADO AUTOMÁTICO (SILENCIOSO)
-        # Solo guardamos si no lo hemos hecho ya en esta sesión
-        if 'has_saved' not in st.session_state:
-            st.session_state.has_saved = False
+        st.title("🏁 Resultados Finales")
 
-        if not st.session_state.has_saved:
-            if student_id:
-                save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
-                st.session_state.has_saved = True
-            else:
-                # Si es invitado, no guardamos, pero no mostramos error rojo, solo aviso sutil
-                st.toast("⚠️ Modo Invitado: Resultados no guardados en base de datos.", icon="ℹ️")
+        # --- MONITOR DE ESTADO (Para que sepas seguro qué pasa) ---
+        status_col, action_col = st.columns([3, 1])
+        
+        with status_col:
+            if 'save_status' not in st.session_state:
+                st.session_state.save_status = "pending"
+                st.session_state.save_msg = ""
+
+            # INTENTO DE GUARDADO AUTOMÁTICO (Solo 1 vez)
+            if st.session_state.save_status == "pending":
+                if student_id:
+                    success, msg = save_result_to_db(student_id, sector, ire, fric, triggers, scores, history, organization)
+                    if success:
+                        st.session_state.save_status = "success"
+                        st.session_state.save_msg = msg
+                        st.success(f"✅ DATOS GUARDADOS: {msg}")
+                    else:
+                        st.session_state.save_status = "error"
+                        st.session_state.save_msg = msg
+                        st.error(f"❌ ERROR AL GUARDAR: {msg}")
+                else:
+                    st.session_state.save_status = "guest"
+                    st.warning("⚠️ MODO INVITADO: No se guarda en BD.")
+
+            # SI YA SE INTENTÓ, MOSTRAR EL RESULTADO FIJO
+            elif st.session_state.save_status == "success":
+                st.success(f"✅ Datos guardados correctamente ({st.session_state.save_msg})")
+            elif st.session_state.save_status == "error":
+                st.error(f"❌ Error previo: {st.session_state.save_msg}")
+            elif st.session_state.save_status == "guest":
+                st.warning("⚠️ Resultados no guardados (Sin sesión iniciada)")
+
+        with action_col:
+            # BOTÓN DE REINTENTO MANUAL
+            if st.button("💾 Reintentar Guardado"):
+                st.session_state.save_status = "pending" # Resetea para probar otra vez
+                st.rerun()
+
+        st.markdown("---")
+
+        # --- AQUÍ EMPIEZA EL INFORME VISUAL (IGUAL QUE ANTES) ---
+        k1, k2, k3 = st.columns(3)
+        k1.metric("🚀 Índice IRE", f"{int(ire)}/100")
+        k2.metric("⭐ Potencial", f"{int(avg)}/100")
+        k3.metric("🔥 Fricción", f"{int(fric)}%", delta_color="inverse")
+        
+        st.markdown("---")
+        
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.plotly_chart(radar_chart(), use_container_width=True)
+        with c2:
+            st.write("### Desglose")
+            for k, v in scores.items():
+                st.progress(int(v)/100)
+                st.caption(f"{k}: {int(v)}")
+
+        st.markdown("---")
+        if st.button("🔄 Jugar otra vez"):
+            for key in list(st.session_state.keys()):
+                if key not in ['logged_in', 'user_data']:
+                    del st.session_state[key]
+            st.rerun()
 
         # -------------------------------------------------------
         # 4. INTERFAZ VISUAL (DASHBOARD)
@@ -730,7 +785,7 @@ def run_simulator_logic():
                 # Texto encima de la barra
                 st.caption(f"**{nombre}**: {puntos}/100")
                 st.progress(puntos / 100)
-                       
+
 # ==========================================
 # 🏢 PANEL CLIENTE (MANAGER) - DINÁMICO
 # ==========================================
