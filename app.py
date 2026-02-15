@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from supabase import create_client
+from sapp_engine import load_sapp_questions, calculate_sapp_scores
 
 # --- 🎨 CONFIGURACIÓN VISUAL (SÓLO OCULTAR MENÚS) ---
 def inject_custom_css():
@@ -811,44 +812,194 @@ def render_manager_dashboard():
             else: st.info("Faltan datos para el mapa.")
 
     except Exception as e: st.error(f"Error cargando datos: {e}")
-
 # ==========================================
-# 🚀 MAIN (ROUTER)
+# 🧠 INTERFAZ SAPP (NUEVO TEST B2B)
+# ==========================================
+def run_sapp_interface():
+    # 1. RECUPERAR DATOS DEL USUARIO
+    user = st.session_state.user_data
+    # Buscamos la evaluación activa
+    try:
+        # Buscamos en la tabla evaluations qué tiene asignado este usuario
+        res = supabase.table("evaluations").select("*").eq("user_id", user['username']).eq("status", "pending").execute()
+        
+        if not res.data:
+            st.info("✅ No tienes evaluaciones pendientes o ya las has completado.")
+            return
+
+        evaluation = res.data[0] # Tomamos la primera pendiente
+        sector = evaluation.get('sector')
+        eval_id = evaluation.get('id')
+        
+    except Exception as e:
+        st.error(f"Error recuperando asignación: {e}")
+        return
+
+    # 2. CARGAR PREGUNTAS (Solo si no están ya cargadas)
+    if 'sapp_questions' not in st.session_state:
+        # Llamamos al MOTOR (Tu archivo sapp_engine.py)
+        # OJO: Aquí podrías chequear si la org es DEMO para pasar is_demo=True
+        qs = load_sapp_questions(sector, is_demo=False)
+        if qs is None: return # Si falló la carga
+        st.session_state.sapp_questions = qs
+        st.session_state.sapp_step = 0
+        st.session_state.sapp_answers = {} # Diccionario {indice: 'A', ...}
+
+    # 3. CONTROL DE FLUJO
+    questions = st.session_state.sapp_questions
+    step = st.session_state.sapp_step
+    
+    # --- PANTALLA DE RESULTADOS (SI YA TERMINÓ) ---
+    if step >= len(questions):
+        st.success("🎉 ¡Evaluación Completada!")
+        
+        if st.button("💾 Calcular y Guardar Resultados"):
+            # A. CALCULAR (Usando el Motor Aislado)
+            final_scores = calculate_sapp_scores(st.session_state.sapp_answers, questions)
+            
+            # B. GUARDAR EN SUPABASE (Tabla evaluations)
+            try:
+                supabase.table("evaluations").update({
+                    "status": "completed",
+                    "raw_answers": st.session_state.sapp_answers,
+                    "final_scores": final_scores
+                }).eq("id", eval_id).execute()
+                
+                st.balloons()
+                st.write("### 📊 Tus Resultados")
+                st.json(final_scores) # (Aquí pondremos los gráficos bonitos luego)
+                
+            except Exception as e:
+                st.error(f"Error guardando: {e}")
+        return
+
+    # --- PANTALLA DE JUEGO (PREGUNTA ACTUAL) ---
+    row = questions.iloc[step]
+    
+    # Barra de progreso
+    progreso = (step / len(questions))
+    st.progress(progreso, text=f"Dilema {step + 1} de {len(questions)} | Sector: {sector}")
+
+    st.markdown(f"""
+    <div style="background-color:white; padding:20px; border-radius:10px; border-left:5px solid #ff4b4b; color:black; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h3 style="margin-top:0;">{row['TITULO']}</h3>
+        <p style="font-size:18px;">{row['NARRATIVA']}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("---")
+    
+    # Botones de respuesta
+    cols = st.columns(2)
+    options = [
+        ('A', row.get('OPCION_A_TXT')),
+        ('B', row.get('OPCION_B_TXT')),
+        ('C', row.get('OPCION_C_TXT')),
+        ('D', row.get('OPCION_D_TXT'))
+    ]
+    
+    # Filtrar vacías y barajar si quieres (opcional)
+    valid_opts = [o for o in options if pd.notna(o[1])]
+    
+    for i, (letra, texto) in enumerate(valid_opts):
+        # Usamos columnas alternas
+        with cols[i % 2]:
+            if st.button(f"{texto}", key=f"sapp_{step}_{letra}", use_container_width=True):
+                # Guardar respuesta
+                st.session_state.sapp_answers[str(step)] = letra
+                # Avanzar
+                st.session_state.sapp_step += 1
+                st.rerun()
+# ==========================================
+# 🚦 MAIN ROUTER (Gestor de Tráfico)
 # ==========================================
 def main():
-    inject_custom_css()
-    if 'logged_in' not in st.session_state: st.session_state.logged_in = False
-    if 'user_data' not in st.session_state: st.session_state.user_data = {}
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+        st.session_state.user_data = {}
 
+    inject_custom_css() # Tu CSS de siempre
+
+    # --- ZONA DE LOGIN ---
     if not st.session_state.logged_in:
-        c1, c2, c3 = st.columns([1, 1, 1])
+        c1, c2, c3 = st.columns([1,2,1])
         with c2:
-            if os.path.exists("logo_original.png"): st.image("logo_original.png", use_container_width=True)
             st.markdown("<h2 style='text-align: center; color: #0D248D;'>ACCESO CORPORATIVO</h2>", unsafe_allow_html=True)
             with st.form("login_form"):
                 u = st.text_input("Usuario")
                 p = st.text_input("Contraseña", type="password")
+                
                 if st.form_submit_button("ENTRAR", use_container_width=True):
                     try:
+                        # Buscamos en la nueva estructura de tabla users
                         res = supabase.table("users").select("*").eq("username", u).eq("password", p).execute()
                         if res.data:
-                            st.session_state.logged_in = True
-                            st.session_state.user_data = res.data[0]
-                            st.rerun()
-                        else: st.error("❌ Credenciales incorrectas")
-                    except Exception as e: st.error(f"Error de conexión: {e}")
+                            user = res.data[0]
+                            # Verificar si está borrado o inactivo
+                            if user.get('is_deleted'):
+                                st.error("⛔ Usuario inhabilitado.")
+                            else:
+                                st.session_state.logged_in = True
+                                st.session_state.user_data = user
+                                st.rerun()
+                        else: 
+                            st.error("❌ Credenciales incorrectas")
+                    except Exception as e: 
+                        st.error(f"Error de conexión: {e}")
+
+    # --- ZONA PRIVADA (Router) ---
     else:
+        user = st.session_state.user_data
+        role = user.get('role', 'STUDENT')
+        
+        # BARRA LATERAL (Logout)
         with st.sidebar:
-            st.write(f"👤 **{st.session_state.user_data.get('username')}**")
+            st.write(f"👤 **{user.get('username')}**")
+            st.caption(f"Rol: {role}")
             if st.button("Cerrar Sesión"):
-                st.session_state.logged_in = False
-                st.session_state.user_data = {}
+                st.session_state.clear()
                 st.rerun()
 
-        role = st.session_state.user_data.get('role')
-        if role == 'ADMIN': render_admin_dashboard()
-        elif role == 'MANAGER': render_manager_dashboard()
-        else: run_simulator_logic()
+        # 1. SUPER ADMIN
+        if role == 'ADMIN':
+            render_admin_dashboard()
+            
+        # 2. MANAGER (ORGANIZACIÓN)
+        elif role == 'MANAGER':
+            render_manager_dashboard()
+            
+        # 3. USUARIO (ESTUDIANTE / CANDIDATO)
+        else:
+            # Aquí ocurre la MAGIA del ROUTER
+            # Consultamos qué test tiene asignado en 'evaluations'
+            try:
+                # Buscamos si tiene un SAPE o un SAPP pendiente/en curso
+                evaluation_query = supabase.table("evaluations").select("*").eq("user_id", user['username']).neq("status", "completed").execute()
+                
+                if evaluation_query.data:
+                    active_test = evaluation_query.data[0]
+                    tipo = active_test.get('test_type') # "SAPE" o "SAPP"
+                    
+                    if tipo == "SAPE":
+                        # IMPORTANTE: Configuramos las variables que espera tu código antiguo
+                        if 'organization' not in st.session_state:
+                            st.session_state.sector = "TECH" # El SAPE antiguo es Tech por defecto
+                        
+                        # Ejecutamos TU CÓDIGO ORIGINAL
+                        run_simulator_logic() 
+                        
+                    elif tipo == "SAPP":
+                        # Ejecutamos EL NUEVO CÓDIGO
+                        run_sapp_interface()
+                        
+                    else:
+                        st.warning(f"Tipo de test desconocido: {tipo}")
+                else:
+                    st.info("👋 Hola. No tienes ninguna evaluación activa asignada en este momento.")
+                    st.write("Contacta con tu administrador para que te asigne una licencia.")
+            
+            except Exception as e:
+                st.error(f"Error de enrutamiento: {e}")
 
 if __name__ == "__main__":
     main()
