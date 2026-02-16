@@ -57,4 +57,9 @@ def manager_dashboard(org_id: str):
                 new_p = ui.input('Pass')
                 ui.button('Crear', on_click=lambda: ui.notify('Usuario creado (lógica pendiente)')).props('icon=add')
 
-ui.run(port=int(os.environ.get("PORT", 8080)), title="Audeo Platform")
+ui.run(
+    host='0.0.0.0', 
+    port=int(os.environ.get("PORT", 8080)), 
+    title="Audeo Platform",
+    reload=False
+)
