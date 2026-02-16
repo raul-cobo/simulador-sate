@@ -1,7 +1,5 @@
 streamlit
-pandas
-plotly
-Pillow
-requests
-reportlab
 supabase
+pandas
+openpyxl
+fpdf2
