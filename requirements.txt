@@ -1,6 +1,6 @@
 streamlit
 supabase
 pandas
-openpyxl
-fpdf2
 plotly
+fpdf2
+openpyxl
