@@ -1,6 +1,3 @@
-streamlit
+nicegui
 supabase
 pandas
-plotly
-fpdf2
-openpyxl
