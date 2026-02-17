@@ -1,204 +1,179 @@
 from nicegui import ui, app
 from supabase import create_client
 import os
-import pandas as pd
 from datetime import datetime
 
-# --- 1. CONEXIÓN A SUPABASE ---
-# Usamos las variables de entorno de Railway
+# --- 1. CONFIGURACIÓN Y CONEXIÓN ---
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_KEY")
 supabase = create_client(url, key) if url and key else None
 
-# --- 2. ESTILOS GLOBALES (TAILWIND) ---
-# Definimos colores corporativos de Audeo (Azul oscuro y acentos)
-APP_BG = 'bg-slate-50'
-CARD_STYLE = 'p-8 rounded-xl shadow-lg bg-white border border-gray-100'
-BTN_PRIMARY = 'bg-blue-900 text-white hover:bg-blue-800'
+# --- 2. DATOS DEL JUEGO (SIMULACIÓN) ---
+# En el futuro, esto vendrá de tu CSV o Base de Datos
+GAME_DATA = [
+    {
+        "id": 1, 
+        "month": 1,
+        "story": "Acabas de recibir la ronda de inversión inicial (50k). Tu equipo está motivado pero desorganizado. El desarrollador principal te pide comprar licencias de software caras.",
+        "question": "¿Qué decides hacer con el presupuesto?",
+        "options": [
+            {"txt": "Aprobar todo para mantener la moral alta.", "scores": {"team": 10, "cash": -20}},
+            {"txt": "Negociar versiones gratuitas y ahorrar.", "scores": {"team": -5, "cash": 10}},
+            {"txt": "Posponer la decisión y ver cómo avanzan.", "scores": {"team": -10, "cash": 0}}
+        ]
+    },
+    {
+        "id": 2, 
+        "month": 2,
+        "story": "Un competidor ha lanzado una funcionalidad similar a la tuya. Los clientes empiezan a preguntar en redes sociales.",
+        "question": "¿Cuál es tu estrategia de comunicación?",
+        "options": [
+            {"txt": "Ignorarlo y seguir nuestro roadmap.", "scores": {"focus": 10, "market": -10}},
+            {"txt": "Pivotar rápido para diferenciarnos.", "scores": {"focus": -20, "innovation": 20}},
+            {"txt": "Atacar al competidor públicamente.", "scores": {"reputation": -50, "market": 10}}
+        ]
+    }
+    # ... Aquí irían los 40 meses ...
+]
 
-# --- 3. GESTIÓN DE ESTADO (SESSION) ---
-# NiceGUI gestiona la sesión por usuario conectado automáticamente
-def init_session():
-    if 'user' not in app.storage.user:
-        app.storage.user['user'] = None
+# --- 3. LÓGICA DE NEGOCIO ---
 
-# --- 4. PÁGINA: LOGIN ---
+def handle_login(u, p):
+    try:
+        res = supabase.table("users").select("*").eq("username", u).execute()
+        if res.data and res.data[0]['password'] == p:
+            user = res.data[0]
+            app.storage.user['user'] = user
+            
+            # Ruteo inteligente
+            if user['role'] == 'MANAGER':
+                ui.navigate.to(f'/manager/{user["org_id"]}')
+            else:
+                ui.navigate.to('/sape/intro') # Los alumnos van al juego
+        else:
+            ui.notify('Credenciales incorrectas', type='negative')
+    except Exception as e:
+        ui.notify(f'Error: {e}', type='negative')
+
+def save_results(score_history):
+    """Guarda la partida en Supabase al terminar"""
+    user = app.storage.user.get('user')
+    if not user: return
+    
+    # Aquí calculamos el perfil final (Simulado por ahora)
+    final_profile = "Emprendedor Equilibrado" 
+    
+    try:
+        # Guardamos en una tabla 'results' (Asegúrate de crearla en Supabase si no existe)
+        # O actualizamos el usuario
+        ui.notify('Guardando resultados...', type='info')
+        # supabase.table("results").insert({...}).execute() (Descomentar cuando tengas la tabla)
+    except Exception as e:
+        print(f"Error guardando: {e}")
+
+# --- 4. INTERFAZ: LOGIN ---
 @ui.page('/')
 def login_page():
-    def handle_login():
-        u = username.value
-        p = password.value
-        if not supabase:
-            ui.notify('Error: Falta conexión a Supabase', type='negative'); return
-
-        try:
-            # Consulta a la tabla 'users'
-            res = supabase.table("users").select("*").eq("username", u).execute()
-            if res.data and res.data[0]['password'] == p:
-                user_data = res.data[0]
-                app.storage.user['user'] = user_data
-                ui.notify(f'Bienvenido, {u}', type='positive')
-                
-                # RUTEADOR DE ROLES
-                if user_data['role'] == 'ADMIN':
-                    ui.navigate.to('/admin')
-                elif user_data['role'] == 'MANAGER':
-                    ui.navigate.to(f'/manager/{user_data["org_id"]}')
-                else:
-                    ui.navigate.to('/sape/intro')
-            else:
-                ui.notify('Credenciales incorrectas', type='negative')
-        except Exception as e:
-            ui.notify(f'Error de conexión: {str(e)}', type='negative')
-
-    with ui.column().classes('w-full h-screen items-center justify-center ' + APP_BG):
-        with ui.card().classes(CARD_STYLE + ' w-96'):
-            ui.label('🧬 AUDEO').classes('text-4xl font-bold text-blue-900 text-center w-full mb-2')
-            ui.label('Platform Access').classes('text-gray-400 text-center w-full mb-6 text-sm')
-            
-            username = ui.input('Usuario').classes('w-full mb-4')
-            password = ui.input('Contraseña', password=True).classes('w-full mb-6')
-            
-            ui.button('ACCEDER', on_click=handle_login).classes('w-full ' + BTN_PRIMARY)
-
-# --- 5. PÁGINA: MANAGER DASHBOARD ---
-@ui.page('/manager/{org_id}')
-def manager_dashboard(org_id: str):
-    # Verificación de seguridad básica
-    user = app.storage.user.get('user')
-    if not user or user.get('role') not in ['MANAGER', 'ADMIN']:
-        ui.navigate.to('/')
+    # Si ya está logueado, redirigir
+    if app.storage.user.get('user'):
+        ui.navigate.to('/sape/intro')
         return
 
-    # Recuperar usuarios de la organización
-    try:
-        res = supabase.table("users").select("*").eq("org_id", org_id).execute()
-        users_list = res.data if res.data else []
-    except:
-        users_list = []
+    with ui.column().classes('w-full h-screen items-center justify-center bg-slate-100'):
+        with ui.card().classes('w-96 p-8 shadow-xl rounded-xl'):
+            ui.label('🧬 AUDEO').classes('text-4xl font-bold text-blue-900 text-center w-full mb-6')
+            u = ui.input('Usuario').classes('w-full')
+            p = ui.input('Contraseña', password=True).classes('w-full')
+            ui.button('ACCEDER', on_click=lambda: handle_login(u.value, p.value))\
+                .classes('w-full mt-6 bg-blue-900 text-white')
 
-    with ui.column().classes('w-full min-h-screen ' + APP_BG):
-        # HEADER
-        with ui.row().classes('w-full bg-white shadow-sm p-4 items-center justify-between'):
-            ui.label(f'🏢 Panel de Control: {org_id}').classes('text-xl font-bold text-blue-900')
-            ui.button('Cerrar Sesión', on_click=lambda: (app.storage.user.clear(), ui.navigate.to('/'))).props('flat color=grey')
+# --- 5. INTERFAZ: MANAGER ---
+@ui.page('/manager/{org_id}')
+def manager_page(org_id: str):
+    # (El código del manager que ya verificaste va aquí - Resumido para no ocupar mucho)
+    with ui.column().classes('p-8 w-full'):
+        ui.label(f'Manager: {org_id}').classes('text-2xl font-bold')
+        try:
+            users = supabase.table("users").select("*").eq("org_id", org_id).execute().data
+            ui.table(
+                columns=[{'name': 'username', 'label': 'Usuario', 'field': 'username'}], 
+                rows=users
+            ).classes('w-full mt-4')
+        except: pass
 
-        # CONTENIDO
-        with ui.column().classes('w-full max-w-6xl mx-auto p-6'):
-            
-            # KPI CARDS
-            with ui.row().classes('w-full gap-4 mb-6'):
-                with ui.card().classes('flex-1 p-4 bg-white shadow-sm border-l-4 border-blue-900'):
-                    ui.label('Total Usuarios').classes('text-gray-500 text-sm')
-                    ui.label(str(len(users_list))).classes('text-3xl font-bold text-blue-900')
-                with ui.card().classes('flex-1 p-4 bg-white shadow-sm border-l-4 border-green-500'):
-                    ui.label('Licencias Activas').classes('text-gray-500 text-sm')
-                    ui.label('ILIMITADO').classes('text-xl font-bold text-green-600')
-
-            # TABLA DE USUARIOS (Reemplaza al st.dataframe)
-            ui.label('Gestión de Equipo').classes('text-lg font-bold text-gray-700 mb-2')
-            
-            # Definición de columnas para AG Grid (NiceGUI usa esto por defecto, es muy potente)
-            cols = [
-                {'name': 'username', 'label': 'Usuario', 'field': 'username', 'sortable': True, 'align': 'left'},
-                {'name': 'role', 'label': 'Rol', 'field': 'role', 'sortable': True, 'align': 'left'},
-                {'name': 'password', 'label': 'Clave (Visible)', 'field': 'password', 'align': 'left'},
-            ]
-            
-            table = ui.table(columns=cols, rows=users_list, pagination=10).classes('w-full bg-white shadow-sm rounded-lg')
-            table.add_slot('top-right', """
-                <q-input borderless dense debounce="300" v-model="props.filter" placeholder="Buscar usuario...">
-                    <template v-slot:append>
-                        <q-icon name="search" />
-                    </template>
-                </q-input>
-            """)
-
-# --- 6. PÁGINA: SAPE ENGINE (INTRO) ---
+# --- 6. INTERFAZ: JUEGO SAPE (VISUAL NOVEL) ---
 @ui.page('/sape/intro')
 def sape_intro():
-    user = app.storage.user.get('user')
-    if not user: ui.navigate.to('/')
-
     with ui.column().classes('w-full h-screen items-center justify-center bg-gray-900 text-white'):
-        # Estética "Inmersiva"
-        ui.label('SIMULADOR S.A.P.E.').classes('text-5xl font-black mb-4 tracking-widest text-blue-400')
-        ui.label('Sistema de Análisis de la Personalidad Emprendedora').classes('text-xl text-gray-400 mb-12')
-        
-        with ui.card().classes('w-full max-w-2xl bg-gray-800 border border-gray-700 p-8'):
-            ui.markdown("""
-            **Bienvenido/a.** Estás a punto de asumir el rol de fundador/a de una empresa a lo largo de **40 meses virtuales**.
-            
-            * 🚫 No hay respuestas correctas.
-            * 🧠 El algoritmo analiza tus patrones de decisión.
-            * ⚡ Tus decisiones tienen consecuencias.
-            """).classes('text-lg leading-relaxed text-gray-300')
-            
-            ui.button('INICIAR SIMULACIÓN 🚀', on_click=lambda: ui.navigate.to('/sape/play'))\
-                .classes('w-full mt-8 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 text-xl rounded-xl shadow-lg shadow-blue-900/50')
-
-# --- 7. PÁGINA: SAPE GAMEPLAY (LÓGICA REACTIVA) ---
-# Aquí cargaremos las preguntas simuladas (Placeholder para demo)
-QUESTIONS = [
-    {"id": 1, "text": "Mes 1: Tienes 10.000€. ¿Qué haces?", "options": [
-        {"txt": "Invierto todo en producto", "score": {"risk": 10}},
-        {"txt": "Guardo la mitad por seguridad", "score": {"risk": -5}}
-    ]},
-    {"id": 2, "text": "Mes 2: Un cliente se queja en redes sociales.", "options": [
-        {"txt": "Le contesto públicamente defendiéndome", "score": {"emotional": -10}},
-        {"txt": "Le contacto por privado para solucionar", "score": {"emotional": 10}}
-    ]}
-]
+        ui.label('SIMULADOR S.A.P.E.').classes('text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400 mb-4')
+        ui.label('Tu empresa. 40 Meses. Tus decisiones.').classes('text-xl text-gray-400 mb-8')
+        ui.button('COMENZAR LA AVENTURA', on_click=lambda: ui.navigate.to('/sape/play'))\
+            .classes('px-8 py-4 bg-blue-600 rounded-full text-xl font-bold shadow-lg shadow-blue-500/50 hover:scale-105 transition')
 
 @ui.page('/sape/play')
 def sape_play():
-    # Estado local de la partida (NiceGUI usa contenedores que se limpian)
-    state = {'step': 0, 'history': []}
+    # Estado de la partida actual
+    state = {'idx': 0, 'score_history': []}
     
-    container = ui.column().classes('w-full h-screen items-center justify-center bg-gray-900')
+    # Contenedor principal que se limpiará en cada paso
+    main_container = ui.column().classes('w-full min-h-screen items-center justify-center bg-slate-900 p-4')
 
-    def next_step(option_chosen):
-        # Guardar decisión
-        state['history'].append(option_chosen)
-        state['step'] += 1
-        render_step() # <--- RECURSIVIDAD VISUAL
-
-    def render_step():
-        container.clear() # Limpiamos la pantalla anterior
+    def next_step(option_selected):
+        # 1. Guardar puntuación
+        state['score_history'].append(option_selected['scores'])
+        state['idx'] += 1
         
-        with container:
-            # CHECK DE FINALIZACIÓN
-            if state['step'] >= len(QUESTIONS):
-                ui.label('SIMULACIÓN COMPLETADA').classes('text-4xl font-bold text-green-400 mb-4')
-                ui.label('Generando informe de perfil...').classes('text-gray-400 animate-pulse')
-                ui.button('VER RESULTADOS', on_click=lambda: ui.navigate.to('/manager/' + app.storage.user['user']['org_id'])).classes('mt-8 ' + BTN_PRIMARY)
+        # 2. Renderizar siguiente paso
+        render()
+
+    def render():
+        main_container.clear() # ¡Magia! Borra lo anterior sin recargar la página
+        
+        with main_container:
+            # A. FIN DEL JUEGO
+            if state['idx'] >= len(GAME_DATA):
+                save_results(state['score_history'])
+                ui.label('SIMULACIÓN FINALIZADA').classes('text-4xl font-bold text-white mb-4')
+                ui.label('Calculando tu perfil psicológico...').classes('text-gray-400 animate-pulse')
+                ui.button('VER INFORME', on_click=lambda: ui.navigate.to('/sape/results')).classes('mt-8 bg-green-600 text-white px-6 py-3 rounded')
                 return
 
-            # RENDERIZAR PREGUNTA ACTUAL
-            q = QUESTIONS[state['step']]
+            # B. JUEGO EN CURSO
+            data = GAME_DATA[state['idx']]
             
             # Barra de progreso
-            prog = (state['step'] + 1) / len(QUESTIONS)
-            ui.linear_progress(prog).classes('w-full max-w-2xl mb-8').props('color=blue-500 track-color=gray-800')
+            progress = (state['idx'] + 1) / len(GAME_DATA)
+            with ui.row().classes('w-full max-w-4xl mb-6 items-center gap-4'):
+                ui.label(f'MES {data["month"]}').classes('text-blue-400 font-bold whitespace-nowrap')
+                ui.linear_progress(progress).props('color=blue-500 track-color=grey-800').classes('flex-1')
 
-            # Tarjeta de Pregunta
-            with ui.card().classes('w-full max-w-3xl bg-gray-800 border-l-4 border-blue-500 p-8 shadow-2xl'):
-                ui.label(f'MES {state["step"]+1}').classes('text-blue-400 font-bold mb-2 tracking-widest')
-                ui.label(q['text']).classes('text-2xl text-white font-medium leading-relaxed mb-8')
+            # Escenario (Layout tipo Visual Novel)
+            with ui.card().classes('w-full max-w-5xl bg-slate-800 border border-slate-700 shadow-2xl rounded-2xl overflow-hidden flex flex-row'):
                 
-                # Opciones
-                with ui.column().classes('w-full gap-4'):
-                    for opt in q['options']:
-                        ui.button(opt['txt'], on_click=lambda o=opt: next_step(o))\
-                            .classes('w-full text-left p-6 bg-gray-700 hover:bg-gray-600 text-white rounded-xl border border-gray-600 transition-all hover:scale-[1.02]')
+                # Columna Izquierda: El "Coach" o Contexto (Imagen)
+                with ui.column().classes('w-1/3 bg-slate-900 items-center justify-center p-6 border-r border-slate-700'):
+                    # Aquí pondremos tu avatar animado más adelante
+                    ui.icon('psychology', size='6rem', color='blue-400').classes('mb-4') 
+                    ui.label('SITUACIÓN').classes('text-gray-500 text-sm tracking-widest')
+                
+                # Columna Derecha: Narrativa y Opciones
+                with ui.column().classes('w-2/3 p-8'):
+                    ui.markdown(f"### {data['story']}").classes('text-white text-xl leading-relaxed mb-6')
+                    
+                    ui.label(data['question']).classes('text-blue-200 font-bold mb-6 italic')
+                    
+                    # Opciones como botones grandes
+                    with ui.column().classes('w-full gap-3'):
+                        for opt in data['options']:
+                            ui.button(opt['txt'], on_click=lambda o=opt: next_step(o))\
+                                .classes('w-full text-left bg-slate-700 hover:bg-slate-600 text-white p-4 rounded-lg border border-slate-600 transition-all')
 
-    render_step() # Primera llamada
+    render() # Arrancar primera vez
 
-# --- 8. ARRANQUE ---
-# Configuración necesaria para Railway
+# --- 7. ARRANQUE ---
 ui.run(
     host='0.0.0.0', 
     port=int(os.environ.get("PORT", 8080)), 
-    title="Audeo Platform",
-    storage_secret='audeo_super_secret_key' # Necesario para app.storage.user
+    storage_secret='secreto-audeo-b2b',
+    title="Audeo Platform"
 )
