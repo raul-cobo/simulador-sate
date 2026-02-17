@@ -175,6 +175,8 @@ def sape_play():
 # --- 7. ARRANQUE ---
 ui.run(
     host='0.0.0.0', 
-    port=int(os.environ.get("PORT", 8080)),
-    title="Nombre de tu Aplicación"
+    port=int(os.environ.get("PORT", 8080)), 
+    storage_secret='secreto-audeo-b2b',
+    title="Audeo Platform",
+    reload=False
 )
