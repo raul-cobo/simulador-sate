@@ -1,7 +1,7 @@
-nicegui
-pandas
-fpdf2
-plotly
-kaleido==0.2.1
-supabase
-python-dotenv
+nicegui>=1.4.0
+pandas>=2.0.0
+supabase>=2.3.0
+python-dotenv>=1.0.0
+matplotlib
+numpy
+fpdf
