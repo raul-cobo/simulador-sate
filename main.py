@@ -26,12 +26,20 @@ CARD_COLOR = "#161B22"
 ACCENT_COLOR = "#83ABF1"
 
 # --- LECTURA DINÁMICA DE SECTORES ---
+SECTORES_OFICIALES = [
+    'TECH', 'CONSULTORÍA', 'HOSTELERÍA', 'INTRAEMPRENDIMIENTO', 
+    'PSICOLOGÍA NO SANITARIA', 'PSICOLOGÍA SANITARIA', 
+    'PYME', 'SALUD', 'SOCIAL', 'STARTUP'
+]
+
 try:
     df_sape = pd.read_csv('Prueba_SAPE.csv', sep=';', encoding='utf-8')
     SECTORES_DISPONIBLES = df_sape['SECTOR'].dropna().unique().tolist()
+    if not SECTORES_DISPONIBLES:
+        SECTORES_DISPONIBLES = SECTORES_OFICIALES
 except Exception as e:
-    print(f"No se pudo leer el CSV de SAPE para los sectores: {e}")
-    SECTORES_DISPONIBLES = ['TECH', 'PYME', 'STARTUP', 'PSICOLOGÍA_NO_SANITARIA']
+    print(f"⚠️ Aviso (CSV no encontrado al iniciar, usando lista oficial): {e}")
+    SECTORES_DISPONIBLES = SECTORES_OFICIALES
 
 # ==========================================
 # 2. GESTIÓN DE SEGURIDAD Y SESIÓN
@@ -167,7 +175,7 @@ def test_sape_page(sector: str = 'TECH'):
         return
 
     try:
-        interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector, supabase_client=supabase)
+        interfaz = SAPEInterface(df_path='Prueba_SAPE_Corregido.csv', sector=sector, supabase_client=supabase)
         interfaz.render()
     except Exception as e:
         with ui.column().classes('w-full h-screen items-center justify-center'):
