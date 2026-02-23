@@ -102,9 +102,8 @@ def login_page():
             with ui.row().classes('bg-white p-4 rounded-xl mb-6 w-3/4 justify-center items-center shadow-inner'):
                 ui.image('logo_original.png').classes('w-full object-contain')
             
-            user_input = ui.input('Usuario / Email').classes('w-full mb-4')
-            pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-8')
-            
+            user_input = ui.input('Usuario / Email').classes('w-full mb-4 text-white').props('dark outlined')
+            pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-8 text-white').props('dark outlined')
             ui.button('ENTRAR', on_click=intentar_login).classes(
                 f'w-full bg-[{ACCENT_COLOR}] text-[{BG_COLOR}] font-bold py-3 rounded-lg hover:scale-105 transition-transform'
             )
