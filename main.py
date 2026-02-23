@@ -27,9 +27,16 @@ ACCENT_COLOR = "#83ABF1"
 
 # --- LECTURA DINÁMICA DE SECTORES ---
 SECTORES_OFICIALES = [
-    'TECH', 'CONSULTORÍA', 'HOSTELERÍA', 'INTRAEMPRENDIMIENTO', 
-    'PSICOLOGÍA NO SANITARIA', 'PSICOLOGÍA SANITARIA', 
-    'PYME', 'SALUD', 'SOCIAL', 'STARTUP'
+    'TECH', 
+    'CONSULTORIA', 
+    'HOSTELERIA', 
+    'INTRA', 
+    'AUTOEMPLEO',
+    'PSICOLOGIA_SANITARIA', 
+    'PSICOLOGÍA_NO_SANITARIA', 
+    'PYME', 
+    'SALUD', 
+    'SOCIAL'
 ]
 
 try:
@@ -175,7 +182,7 @@ def test_sape_page(sector: str = 'TECH'):
         return
 
     try:
-        interfaz = SAPEInterface(df_path='Prueba_SAPE_Corregido.csv', sector=sector, supabase_client=supabase)
+        interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector, supabase_client=supabase)
         interfaz.render()
     except Exception as e:
         with ui.column().classes('w-full h-screen items-center justify-center'):
