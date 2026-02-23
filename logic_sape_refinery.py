@@ -3,26 +3,16 @@ from typing import Dict, Any, List
 class SAPERefinery:
     """
     Motor de refinamiento psicométrico para la prueba SAPE.
-    Aplica correlaciones empíricas y clústeres de segundo orden basados
-    en la investigación científica de Autoevaluaciones Centrales (CSE) 
-    y Agencia Proactiva.
+    Calcula Clústeres, IRE, Fricción, Delta y escanea Descarriladores.
     """
 
     @staticmethod
     def refine_results(raw_scores: Dict[str, float]) -> Dict[str, Any]:
-        """
-        Toma las puntuaciones normalizadas (0-100) y aplica ajustes de 
-        interacción y clústeres. Retorna un diccionario enriquecido listo 
-        para persistir en Supabase y renderizar en NiceGUI.
-        """
-        # Trabajamos sobre una copia profunda para garantizar la inmutabilidad de los datos de origen
         refined = raw_scores.copy()
         
-        # Función auxiliar para asegurar que los valores se mantengan estrictamente entre 0 y 100
         def clamp(value: float) -> float:
             return max(0.0, min(100.0, value))
             
-        # Extracción segura de valores (default a 50.0 como punto neutro estadístico)
         n_ach = refined.get('achievement', 50.0)
         risk = refined.get('risk_propensity', 50.0)
         ta = refined.get('ambiguity_tolerance', 50.0)
@@ -33,71 +23,66 @@ class SAPERefinery:
         innov = refined.get('innovativeness', 50.0)
 
         # ==========================================================
-        # 1. AJUSTES DE INTERACCIÓN (Basado en Evidencia Empírica)
+        # 1. CÁLCULO DE MACRO-MÉTRICAS AUDEO (IRE, FRICCIÓN, DELTA)
         # ==========================================================
         
-        # A. El Moderador del Riesgo: Necesidad de Logro (nAch)
-        # El riesgo alto respaldado por la necesidad de logro se convierte en "Riesgo Calculado/Estratégico"
-        if n_ach > 70.0 and risk > 60.0:
-            refined['is_strategic_risk'] = True
-            refined['risk_propensity'] = clamp(risk * 1.05) # Potenciación del 5%
-        else:
-            refined['is_strategic_risk'] = False
+        rasgos_keys = ['achievement', 'risk_propensity', 'ambiguity_tolerance', 
+                       'self_efficacy', 'emotional_stability', 'autonomy', 
+                       'locus_control', 'innovativeness']
+        
+        puntuaciones = [refined.get(k, 50.0) for k in rasgos_keys]
+        
+        # --- A. IRE (Índice de Resiliencia Emprendedora) ---
+        # Mide la distancia absoluta respecto al 90%. Los excesos (>90) y defectos (<90) RESTAN.
+        diferencias_ire = [abs(90.0 - p) for p in puntuaciones]
+        media_diferencias = sum(diferencias_ire) / len(diferencias_ire)
+        refined['ire'] = round(clamp(100.0 - media_diferencias), 1)
 
-        # B. El Buffer de la Incertidumbre: Tolerancia a la Ambigüedad (TA)
-        # Una alta TA protege y amplifica la Autoeficacia ante el caos
-        if ta > 70.0:
-            refined['self_efficacy'] = clamp(se * 1.08) # Potenciación del 8%
-            refined['robust_confidence'] = True
-        else:
-            refined['robust_confidence'] = False
+        # --- B. FRICCIÓN (Defecto y Exceso) ---
+        media_rasgos = sum(puntuaciones) / len(puntuaciones)
+        puntuacion_min = min(puntuaciones)
+        puntuacion_max = max(puntuaciones)
+        
+        refined['friccion_defecto'] = round(media_rasgos - puntuacion_min, 1)
+        refined['friccion_exceso'] = round(puntuacion_max - media_rasgos, 1)
 
-        # C. El Factor de Estrés: Autonomía vs Estabilidad Emocional (ES)
-        # Alta autonomía con baja estabilidad emocional genera un alto riesgo de sobrecarga
-        if es < 40.0 and autonomy > 75.0:
-            refined['burnout_risk'] = True
-            refined['autonomy_efficiency'] = "Low (Overwhelmed)"
-            refined['emotional_stability'] = clamp(es * 0.90) # Penalización del 10% por fatiga cognitiva
+        # --- C. DELTA ---
+        # Frontera estricta: Busca los rasgos que están por debajo de 70 o por encima de 90
+        rasgos_desviados = [p for p in puntuaciones if p < 70.0 or p > 90.0]
+        if rasgos_desviados:
+            media_desviados = sum(rasgos_desviados) / len(rasgos_desviados)
+            refined['delta'] = round(abs(80.0 - media_desviados), 1) # Diferencia respecto a la media óptima (80)
         else:
-            refined['burnout_risk'] = False
-            refined['autonomy_efficiency'] = "Optimal"
+            refined['delta'] = 0.0 # Perfil perfectamente encajado en la zona 70-90
 
         # ==========================================================
-        # 2. CÁLCULO DE CLÚSTERES (Macro-Dimensiones de Orden Superior)
+        # 2. ESCÁNER DE DESCARRILADORES
         # ==========================================================
-
-        # Clúster 1: Autoevaluación Central (CSE) | Varianza explicada r=.74
-        # Fórmula: (LOC*0.4) + (SE*0.4) + (ES*0.2)
-        refined['cluster_cse'] = round(
-            clamp((loc * 0.4) + (refined['self_efficacy'] * 0.4) + (refined['emotional_stability'] * 0.2)), 2
-        )
-
-        # Clúster 2: Agencia Proactiva (Motor de Ejecución)
-        # Variables: Logro + Autonomía + Locus Interno
-        refined['cluster_agency'] = round(
-            clamp((n_ach + autonomy + loc) / 3.0), 2
-        )
-
-        # Clúster 3: Orientación a la Exploración (Adaptabilidad y Cambio)
-        # Variables: Innovación + Riesgo + Tolerancia a la Ambigüedad
-        refined['cluster_exploration'] = round(
-            clamp((innov + refined['risk_propensity'] + ta) / 3.0), 2
-        )
+        descarriladores = []
+        for k in rasgos_keys:
+            val = refined.get(k, 50.0)
+            if val > 90.0:
+                descarriladores.append({'rasgo': k, 'tipo': 'Exceso', 'valor': val})
+            elif val < 25.0:
+                descarriladores.append({'rasgo': k, 'tipo': 'Defecto', 'valor': val})
+                
+        refined['descarriladores'] = descarriladores
 
         return refined
 
     @staticmethod
     def get_clinical_flags(refined_data: Dict[str, Any]) -> List[str]:
         """
-        Extrae advertencias cualitativas formateadas para el panel de consultoría.
-        Ideal para iterar en NiceGUI y mostrar en tarjetas UI.
+        Extrae advertencias cualitativas formateadas para el panel de consultoría o PDF.
         """
         flags = []
-        if refined_data.get('burnout_risk'):
-            flags.append("🚨 Riesgo de Burnout: La alta demanda de autonomía no está soportada por una estabilidad emocional sólida.")
-        if refined_data.get('is_strategic_risk'):
-            flags.append("📈 Riesgo Estratégico: Perfil orientado a tomar decisiones arriesgadas pero fundamentadas en la consecución de logros.")
-        if refined_data.get('robust_confidence'):
-            flags.append("🛡️ Confianza Robusta: Mantiene una alta eficacia personal incluso en escenarios de alta incertidumbre.")
-            
+        
+        # Banderas de descarriladores
+        descarriladores = refined_data.get('descarriladores', [])
+        for d in descarriladores:
+            if d['tipo'] == 'Exceso':
+                flags.append(f"🚨 Riesgo de Descarrilamiento (Exceso): El rasgo de {d['rasgo']} es excesivamente alto ({d['valor']}%). Podría generar fricción severa.")
+            elif d['tipo'] == 'Defecto':
+                flags.append(f"🛑 Riesgo de Bloqueo (Defecto): El rasgo de {d['rasgo']} es críticamente bajo ({d['valor']}%). Requiere compensación externa urgente.")
+                
         return flags
