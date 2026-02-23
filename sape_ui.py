@@ -171,23 +171,37 @@ class SAPEInterface:
                 ui.button('DESCARGAR INFORME PDF', on_click=lambda: self._descargar_pdf(datos_refinados)).classes(
                     'bg-[#0D248D] text-white text-lg font-bold py-4 px-8 rounded-xl shadow-2xl hover:scale-105 transition-transform'
                 ).props('icon=picture_as_pdf')
+
     async def _descargar_pdf(self, datos_refinados):
         try:
-            ui.notify('Generando informe corporativo... Un momento.', type='info', color='#0D248D')
+            ui.notify('Generando informe corporativo...', type='info')
             
             username = app.storage.user.get('username', 'Candidato')
+            org_id = app.storage.user.get('org_id', 'Organización Desconocida')
             
-            # 1. Llamamos a tu archivo pdf_generator para que fabrique el PDF
-            # (Ajusta el nombre de la función 'crear_pdf' a la que uses dentro de tu pdf_generator.py)
-            ruta_archivo_pdf = pdf_generator.crear_pdf(datos_refinados, username, self.sector)
+            # Preparamos los datos demográficos ficticios (luego los podemos pedir en pantalla)
+            demograficos = {
+                'org': org_id,
+                'edad': 'No especificada',
+                'exp': 'No especificada'
+            }
             
-            # 2. Le decimos al navegador que lo descargue
-            ui.download(ruta_archivo_pdf)
+            # Llamamos a TU función exacta de pdf_generator.py
+            ruta_pdf = pdf_generator.generar_pdf_sape(
+                user_id=username, 
+                scores=datos_refinados.get('scores', {}), 
+                alertas=datos_refinados.get('alertas', []),
+                demograficos=demograficos
+            )
+            
+            # Forzamos la descarga en el navegador del usuario
+            ui.download(ruta_pdf)
+            ui.notify('Informe descargado con éxito', type='positive')
             
         except Exception as e:
             ui.notify('Error al generar el PDF.', type='negative')
             print(f"⚠️ Error generando PDF: {e}")
-            
+
     @ui.refreshable
     def header_progress(self):
         with ui.row().classes('w-full items-center justify-between p-6'):
