@@ -189,21 +189,22 @@ class SAPEInterface:
                 ui.label(fila.get('NARRATIVA', '...')).classes('text-2xl text-white leading-relaxed font-light tracking-wide')
 
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-6 pb-20'):
-                AUDEO_BLUE_BASE = "#0D248D"
-                AUDEO_BLUE_LIGHT = "#254EDB" 
-                
-                for texto_opcion, letra_original in self.opciones_mezcladas:
+              for texto_opcion, letra_original in self.opciones_mezcladas:
                     btn = ui.button(on_click=lambda l=letra_original: self._handle_click(l))
                     
+                    # Forzamos el color mediante style en lugar de classes para asegurar que el navegador lo aplique
+                    btn.style('background-color: #0D248D; color: white;')
+                    
                     btn.classes(
-                        f'w-full text-left p-6 rounded-xl shadow-lg '
-                        f'bg-[{AUDEO_BLUE_BASE}] '
-                        f'text-white '
-                        f'hover:scale-[1.15] '
-                        f'hover:bg-[{AUDEO_BLUE_LIGHT}] '
+                        'w-full text-left p-6 rounded-xl shadow-lg '
+                        'hover:scale-[1.02] ' # Un hover más sutil y elegante
                         'transition-all duration-300 ease-out '
                         'border-none group'
                     )
+                    
+                    # Aseguramos que el texto interior también sea explícitamente blanco
+                    with btn:
+                        ui.label(texto_opcion).classes('text-lg leading-snug whitespace-normal break-words w-full font-medium').style('color: white;')
                     
                     with btn:
                         ui.label(texto_opcion).classes('text-lg leading-snug whitespace-normal break-words w-full font-medium text-white')
