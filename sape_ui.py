@@ -189,8 +189,8 @@ class SAPEInterface:
             # Llamamos a TU función exacta de pdf_generator.py
             ruta_pdf = pdf_generator.generar_pdf_sape(
                 user_id=username, 
-                scores=datos_refinados.get('scores', {}), 
-                alertas=datos_refinados.get('alertas', []),
+                scores=datos_refinados, # <-- Le pasamos TODOS los datos refinados (IRE, Delta, etc.)                alertas=datos_refinados.get('alertas', []),
+                alertas=SAPERefinery.get_clinical_flags(datos_refinados), # <-- Sacamos las alertas de texto
                 demograficos=demograficos
             )
             
