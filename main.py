@@ -138,8 +138,12 @@ def panel_page():
                 ui.label("Prueba S.A.P.E.").classes('text-xl font-bold text-white mb-2')
                 ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-sm text-gray-400 mb-6')
                 
-                # Desplegable Dinámico
-                sector_select = ui.select(SECTORES_DISPONIBLES, value=SECTORES_DISPONIBLES[0] if SECTORES_DISPONIBLES else None, label='Selecciona tu sector').classes('w-full mb-4')
+                # Desplegable Dinámico con colores corporativos Audeo
+                sector_select = ui.select(
+                    SECTORES_DISPONIBLES, 
+                    value=SECTORES_DISPONIBLES[0] if SECTORES_DISPONIBLES else None, 
+                    label='Selecciona tu sector'
+                ).classes('w-full mb-4').props('dark outlined popup-content-style="background-color: #0F2592; color: white;"')
                 
                 ui.button('INICIAR SAPE', on_click=lambda: ui.navigate.to(f'/sape-test?sector={sector_select.value}')).classes(
                     f'w-full bg-[{ACCENT_COLOR}] text-[{BG_COLOR}] font-bold'
