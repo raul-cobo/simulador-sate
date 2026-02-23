@@ -1,6 +1,7 @@
 import pandas as pd
 import random
 import asyncio
+import pdf_generator # Conectamos el motor de PDFs
 from typing import Dict, Any, List
 from nicegui import ui, app
 
@@ -159,11 +160,34 @@ class SAPEInterface:
             except Exception as e:
                 print(f"⚠️ Error guardando en BD 'evaluations': {e}")
 
-        # 4. RENDERIZADO AL OCTÓGONO
+        # 4. RENDERIZADO AL OCTÓGONO Y BOTÓN PDF
         self.contenedor_principal.clear()
         with self.contenedor_principal:
             render_dashboard_resultados(datos_refinados)
-
+            
+            # --- SECCIÓN DEL BOTÓN PDF ---
+            ui.separator().classes('my-8 bg-gray-700')
+            with ui.row().classes('w-full justify-center pb-12'):
+                ui.button('DESCARGAR INFORME PDF', on_click=lambda: self._descargar_pdf(datos_refinados)).classes(
+                    'bg-[#0D248D] text-white text-lg font-bold py-4 px-8 rounded-xl shadow-2xl hover:scale-105 transition-transform'
+                ).props('icon=picture_as_pdf')
+    async def _descargar_pdf(self, datos_refinados):
+        try:
+            ui.notify('Generando informe corporativo... Un momento.', type='info', color='#0D248D')
+            
+            username = app.storage.user.get('username', 'Candidato')
+            
+            # 1. Llamamos a tu archivo pdf_generator para que fabrique el PDF
+            # (Ajusta el nombre de la función 'crear_pdf' a la que uses dentro de tu pdf_generator.py)
+            ruta_archivo_pdf = pdf_generator.crear_pdf(datos_refinados, username, self.sector)
+            
+            # 2. Le decimos al navegador que lo descargue
+            ui.download(ruta_archivo_pdf)
+            
+        except Exception as e:
+            ui.notify('Error al generar el PDF.', type='negative')
+            print(f"⚠️ Error generando PDF: {e}")
+            
     @ui.refreshable
     def header_progress(self):
         with ui.row().classes('w-full items-center justify-between p-6'):
