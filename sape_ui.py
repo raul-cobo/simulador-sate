@@ -102,11 +102,14 @@ class SAPEInterface:
         self.contenedor_principal.clear()
         
         with self.contenedor_principal:
-            # 1. Dibujamos el panel visual
-            render_dashboard_resultados(datos_refinados)
-            
-            # 2. Dibujamos el BOTÓN controlado directamente aquí para que no falle jamás
-            with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 bg-[#0E1117]'):
+            # 1. Intentamos dibujar el panel. Si hay error de cualquier tipo, lo pasamos por alto.
+            try:
+                render_dashboard_resultados(datos_refinados)
+            except Exception as e:
+                ui.label(f"⚠️ Error cargando la pantalla de resultados: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
+                
+            # 2. BOTÓN PDF BLINDADO Y SEPARADO
+            with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
                 ui.button('DESCARGAR INFORME PDF', on_click=lambda: asyncio.create_task(self._descargar_pdf(datos_refinados, username, org_id))).classes(
                     'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
                 ).props('icon=picture_as_pdf')
