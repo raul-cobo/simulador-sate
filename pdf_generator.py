@@ -129,7 +129,7 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
             pdf.ln(2)
     pdf.ln(5)
     
-    # Subpuntos: Fortalezas y Áreas de Desarrollo
+   # Subpuntos: Fortalezas y Áreas de Desarrollo
     fortalezas = scores.get('fortalezas', [])
     if fortalezas:
         pdf.set_font('Arial', 'B', 10)
@@ -138,7 +138,8 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
         for i, f in enumerate(fortalezas[:3]):
             rasgo_k = f[0][0] if isinstance(f[0], tuple) else f[0]
             texto = TEXTOS_RASGOS[rasgo_k]
-            pdf.multi_cell(0, 5, f"{i+1}. {texto['nombre']}: Nivel alto. {texto['fortaleza']}")
+            pdf.set_x(15) # Forzamos el cursor a la izquierda
+            pdf.multi_cell(180, 5, f"{i+1}. {texto['nombre']}: Nivel alto. {texto['fortaleza']}")
         pdf.ln(3)
     
     areas = scores.get('areas_desarrollo', [])
@@ -149,7 +150,8 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
         for i, a in enumerate(areas[:3]):
             rasgo_k = a[0][0] if isinstance(a[0], tuple) else a[0]
             texto = TEXTOS_RASGOS[rasgo_k]
-            pdf.multi_cell(0, 5, f"{i+1}. {texto['nombre']}: {texto['area']}")
+            pdf.set_x(15) # Forzamos el cursor a la izquierda
+            pdf.multi_cell(180, 5, f"{i+1}. {texto['nombre']}: {texto['area']}")
     
     pdf.add_page()
     
@@ -167,11 +169,12 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
             pdf.cell(0, 6, p['nombre'].upper(), 0, 1)
             pdf.set_font('Arial', 'B', 10)
             pdf.set_text_color(80, 80, 80)
-            pdf.multi_cell(0, 5, f"Combinación: {p['combo']}")
+            pdf.set_x(15)
+            pdf.multi_cell(180, 5, f"Combinación: {p['combo']}")
             pdf.set_font('Arial', '', 10)
             pdf.set_text_color(0, 0, 0)
-            # Reemplazamos 'desc' por 'Resultado:' como pide el Doc Maestro
-            pdf.multi_cell(0, 5, f"Resultado: {p['desc']}")
+            pdf.set_x(15)
+            pdf.multi_cell(180, 5, f"Resultado: {p['desc']}")
             pdf.ln(4)
 
     pdf.ln(5)
@@ -184,20 +187,22 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
     conclusion = f"El perfil es {estado}. La discrepancia entre Potencial ({pot}) e IRE ({ire}) marca el margen de mejora indicado en un Delta de ({delta}) repartido en varios rasgos."
     
     pdf.set_font('Arial', '', 10)
-    pdf.multi_cell(0, 5, conclusion)
+    pdf.set_x(15)
+    pdf.multi_cell(180, 5, conclusion)
     
     pdf.set_font('Arial', 'B', 10)
     pdf.ln(2)
     pdf.cell(0, 6, "Recomendación:", 0, 1)
     pdf.set_font('Arial', '', 10)
     
+    pdf.set_x(15)
     if patrones:
-        pdf.multi_cell(0, 5, f"Intervención urgente requerida sobre el patrón '{patrones[0]['nombre']}'. Se recomienda coaching focalizado para mitigar el impacto negativo de esta combinación en el entorno de la startup.")
+        pdf.multi_cell(180, 5, f"Intervención urgente requerida sobre el patrón '{patrones[0]['nombre']}'. Se recomienda coaching focalizado para mitigar el impacto negativo de esta combinación en el entorno de la startup.")
     elif areas:
         peor_area = TEXTOS_RASGOS[areas[0][0]]['nombre'] if not isinstance(areas[0], tuple) else TEXTOS_RASGOS[areas[0][0][0]]['nombre']
-        pdf.multi_cell(0, 5, f"Se debe trabajar de forma prioritaria en reforzar: {peor_area}. El objetivo es equilibrar el perfil para evitar bloqueos operativos a medio plazo.")
+        pdf.multi_cell(180, 5, f"Se debe trabajar de forma prioritaria en reforzar: {peor_area}. El objetivo es equilibrar el perfil para evitar bloqueos operativos a medio plazo.")
     else:
-        pdf.multi_cell(0, 5, "Mantener el equilibrio actual. Se recomienda monitorización periódica preventiva.")
+        pdf.multi_cell(180, 5, "Mantener el equilibrio actual. Se recomienda monitorización periódica preventiva.")
 
     output = f"Informe_SAPE_{user_id}.pdf"
     pdf.output(output)
