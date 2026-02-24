@@ -130,8 +130,14 @@ class SAPEInterface:
             except Exception as e:
                 ui.label(f"⚠️ Error cargando la pantalla de resultados: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
                 
+            # BOTÓN PDF BLINDADO Y SEPARADO
             with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
-                ui.button('DESCARGAR INFORME PDF', on_click=lambda: asyncio.create_task(self._descargar_pdf(datos_refinados, username, org_id))).classes(
+                
+                # Sub-función asíncrona segura para no perder el contexto de NiceGUI
+                async def iniciar_descarga():
+                    await self._descargar_pdf(datos_refinados, username, org_id)
+                
+                ui.button('DESCARGAR INFORME PDF', on_click=iniciar_descarga).classes(
                     'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
                 ).props('icon=picture_as_pdf')
 
@@ -139,12 +145,18 @@ class SAPEInterface:
         try:
             ui.notify('Generando informe corporativo...', type='info')
             demograficos = {'org': org, 'sector': self.sector, 'fecha': datetime.datetime.now().strftime("%d/%m/%Y")}
+            
+            # Genera el PDF físicamente en el servidor
             ruta = pdf_generator.generar_pdf_sape(user, datos, SAPERefinery.get_clinical_flags(datos), demograficos)
+            
+            # Obliga al navegador del usuario a descargarlo
             ui.download(ruta)
             ui.notify('Informe descargado con éxito', type='positive')
+            
         except Exception as e:
-            ui.notify(f'Error generando PDF.', type='negative')
-            print(f"Error PDF: {e}")
+            # Captura cualquier error de fuentes o tildes y lo muestra en pantalla
+            ui.notify(f"Error PDF: {str(e)}", type='negative', timeout=10000)
+            print(f"Error PDF detallado: {e}")
 
     @ui.refreshable
     def header_progress(self):
