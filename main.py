@@ -132,46 +132,70 @@ def login_page():
 # ==========================================
 @ui.page('/panel')
 def panel_page():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white;')
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     
-    # 🚨 AQUÍ ESTABA EL BUCLE: Ahora aceptamos 'STUDENT' (el rol de tu base de datos)
     rol_actual = app.storage.user.get('role')
+    username = app.storage.user.get('username')
+    org_id = app.storage.user.get('org_id')
+    
     if not app.storage.user.get('authenticated') or rol_actual not in ['USER', 'STUDENT']:
         ui.navigate.to('/')
         return
 
-    # Header Panel (Logo Blanco a la izquierda)
+    # COMPROBAR LICENCIAS EN SUPABASE
+    puede_hacer_sape = False
+    mensaje_bloqueo = "Verificando accesos..."
+    
+    if supabase:
+        try:
+            # 1. ¿La empresa tiene licencias?
+            res_org = supabase.table('organizations').select('sape_licenses').eq('id', org_id).execute()
+            licencias_org = res_org.data[0].get('sape_licenses', 0) if res_org.data else 0
+            
+            # 2. ¿El usuario tiene intentos asignados en su profile_data jsonb?
+            res_user = supabase.table('users').select('profile_data').eq('username', username).execute()
+            profile = res_user.data[0].get('profile_data') if res_user.data and res_user.data[0].get('profile_data') else {}
+            intentos_user = profile.get('sape_attempts_allowed', 0)
+
+            if licencias_org <= 0:
+                mensaje_bloqueo = "Tu organización no tiene licencias SAPE disponibles."
+            elif intentos_user <= 0:
+                mensaje_bloqueo = "Has agotado tus intentos para realizar esta prueba."
+            else:
+                puede_hacer_sape = True
+        except Exception as e:
+            mensaje_bloqueo = "Error verificando permisos con el servidor."
+            print(e)
+
+    # Header Panel
     with ui.row().classes('w-full items-center justify-between p-6 border-b border-gray-800'):
         ui.image('logo_blanco.png').classes('w-48')
         with ui.row().classes('items-center gap-4'):
-            ui.label(f"Hola, {app.storage.user.get('username')}").classes('text-gray-300')
+            ui.label(f"Hola, {username}").classes('text-gray-300')
             ui.button('Salir', on_click=logout, color='red').props('flat')
 
     with ui.column().classes('w-full max-w-4xl mx-auto pt-16 items-center'):
         ui.label("Panel de Selección").classes('text-3xl font-bold mb-12')
         
         with ui.row().classes('w-full gap-8 justify-center'):
-            with ui.column().classes(f'w-80 bg-[{CARD_COLOR}] p-8 rounded-xl border border-[{ACCENT_COLOR}]/50 hover:border-[{ACCENT_COLOR}] cursor-pointer transition-colors items-center text-center group'):
+            with ui.column().classes(f'w-80 bg-[{CARD_COLOR}] p-8 rounded-xl border border-[{ACCENT_COLOR}]/50 hover:border-[{ACCENT_COLOR}] transition-colors items-center text-center group relative'):
                 ui.icon('psychology', size='4rem', color=ACCENT_COLOR).classes('mb-4 group-hover:scale-110 transition-transform')
                 ui.label("Prueba S.A.P.E.").classes('text-xl font-bold text-white mb-2')
                 ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-sm text-gray-400 mb-6')
                 
-                # Desplegable Dinámico con colores corporativos Audeo
-                sector_select = ui.select(
-                    SECTORES_DISPONIBLES, 
-                    value=SECTORES_DISPONIBLES[0] if SECTORES_DISPONIBLES else None, 
-                    label='Selecciona tu sector'
-                ).classes('w-full mb-4').props('dark outlined popup-content-style="background-color: #0F2592; color: white;"')
-                
-                ui.button('INICIAR SAPE', on_click=lambda: ui.navigate.to(f'/sape-test?sector={sector_select.value}')).classes(
-                    f'w-full bg-[{ACCENT_COLOR}] text-[{BG_COLOR}] font-bold'
-                )
+                if puede_hacer_sape:
+                    sector_select = ui.select(SECTORES_DISPONIBLES, value=SECTORES_DISPONIBLES[0] if SECTORES_DISPONIBLES else None, label='Selecciona tu sector').classes('w-full mb-4').props('dark outlined popup-content-style="background-color: #0F2592; color: white;"')
+                    ui.button('INICIAR SAPE', on_click=lambda: ui.navigate.to(f'/sape-test?sector={sector_select.value}')).classes(f'w-full bg-[{ACCENT_COLOR}] text-[{BG_COLOR}] font-bold')
+                else:
+                    ui.label(mensaje_bloqueo).classes('text-red-400 font-bold text-sm mb-4')
+                    ui.button('BLOQUEADO', color='red').classes('w-full font-bold opacity-50 cursor-not-allowed').props('disable')
 
+            # Prueba SAPP...
             with ui.column().classes(f'w-80 bg-[{CARD_COLOR}] p-8 rounded-xl border border-gray-700 opacity-60 items-center text-center'):
                 ui.icon('health_and_safety', size='4rem', color='gray').classes('mb-4')
                 ui.label("Prueba S.A.P.P.").classes('text-xl font-bold text-white mb-2')
-                ui.label("Sistema de Análisis del Perfil Profesional").classes('text-sm text-gray-400 mb-6')
+                ui.label("Próximamente").classes('text-sm text-gray-400 mb-6')
                 ui.button('PRÓXIMAMENTE', color='gray').classes('w-full font-bold').props('disable')
 # ==========================================
 # 5. EL ENTORNO DE EXAMEN (SAPE)
