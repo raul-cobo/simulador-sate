@@ -1,59 +1,73 @@
-import matplotlib.pyplot as plt
-import numpy as np
 from fpdf import FPDF
 import os
 
-# Textos extraídos del Documento Maestro Audeo
-TRAIT_INFO = {
-    "achievement": {
-        "titulo": "Necesidad de Logro", 
-        "desc": "El impulso intrinseco de sobresalir, alcanzar estandares de excelencia y esforzarse por tener exito."
+# Textos clínicos para las fortalezas y áreas de desarrollo
+TEXTOS_RASGOS = {
+    'achievement': {
+        'nombre': 'Necesidad de Logro',
+        'fortaleza': 'Clara orientación a resultados y estándares de excelencia. Prioriza la finalización de tareas.',
+        'area': 'Bajo impulso de ejecución. Puede mostrar conformismo o falta de ambición para escalar el proyecto.'
     },
-    "risk_propensity": {
-        "titulo": "Propension al Riesgo", 
-        "desc": "La disposicion a comprometer recursos en escenarios de resultado incierto. Capacidad de calcular y actuar."
+    'risk_propensity': {
+        'nombre': 'Propensión al Riesgo',
+        'fortaleza': 'Alta tolerancia al riesgo. Disposición a actuar en escenarios de incertidumbre financiera u operativa.',
+        'area': 'Aversión al riesgo. Lentitud en la toma de decisiones por miedo a comprometer recursos.'
     },
-    "innovativeness": {
-        "titulo": "Innovatividad", 
-        "desc": "La frecuencia y disposicion para participar en nuevas ideas, experimentos y procesos creativos."
+    'innovativeness': {
+        'nombre': 'Innovatividad',
+        'fortaleza': 'Alta capacidad para proponer soluciones disruptivas y visualizar nuevos modelos de negocio.',
+        'area': 'Visión tradicional. Dificultad para pivotar o salir de los procesos establecidos.'
     },
-    "locus_control": {
-        "titulo": "Locus de Control Interno", 
-        "desc": "La creencia firme de que los eventos son causados principalmente por las propias acciones y decisiones."
+    'locus_control': {
+        'nombre': 'Locus de Control Interno',
+        'fortaleza': 'Asume la responsabilidad total de los resultados. Fuerte proactividad correctiva ante el fracaso.',
+        'area': 'Tendencia a atribuir resultados a factores externos. Puede reducir la proactividad correctiva.'
     },
-    "self_efficacy": {
-        "titulo": "Autoeficacia", 
-        "desc": "La conviccion personal en la propia capacidad para organizar y ejecutar las acciones necesarias."
+    'self_efficacy': {
+        'nombre': 'Autoeficacia',
+        'fortaleza': 'Firme convicción en sus propias capacidades para superar obstáculos técnicos y comerciales.',
+        'area': 'Dudas sobre la propia capacidad que pueden llevar a la parálisis por análisis.'
     },
-    "autonomy": {
-        "titulo": "Autonomia", 
-        "desc": "La necesidad de independencia y libertad para decidir como, cuando y con quien trabajar."
+    'autonomy': {
+        'nombre': 'Autonomía',
+        'fortaleza': 'Alta independencia operativa. Capacidad para avanzar sin supervisión ni directrices externas.',
+        'area': 'Dependencia operativa. Requiere validación constante y directrices claras para avanzar.'
     },
-    "ambiguity_tolerance": {
-        "titulo": "Tolerancia a la Incertidumbre", 
-        "desc": "La capacidad de mantener una expectativa favorable y funcionar eficazmente con informacion ambigua."
+    'ambiguity_tolerance': {
+        'nombre': 'Tol. Ambigüedad',
+        'fortaleza': 'Navega eficazmente en el caos. Mantiene el foco aunque la información sea incompleta.',
+        'area': 'Necesidad excesiva de certezas. Se bloquea en entornos de alta volatilidad.'
     },
-    "emotional_stability": {
-        "titulo": "Estabilidad Emocional", 
-        "desc": "La capacidad de mantener el equilibrio psicologico, la calma y el foco cognitivo bajo presion."
+    'emotional_stability': {
+        'nombre': 'Estabilidad Emocional',
+        'fortaleza': 'Capacidad absoluta para mantener la regulación bajo presión. Nula reactividad impulsiva.',
+        'area': 'Reactividad emocional alta. Dificultad para mantener la calma en situaciones de crisis.'
     }
 }
 
 class InformeAudeo(FPDF):
     def header(self):
-        # Franja oscura superior
-        self.set_fill_color(14, 17, 23)
-        self.rect(0, 0, 210, 25, 'F')
+        # Franja sólida azul Audeo de 4cm (40mm)
+        self.set_fill_color(13, 36, 141) # #0d248d
+        self.rect(0, 0, 210, 40, 'F')
         
-        # Logo (Si existe)
-        if os.path.exists('logo_blanco.png'):
-            self.image('logo_blanco.png', 10, 5, 30)
+        # Recuadro blanco para el logo (a 2cm del top, 2cm del left)
+        self.set_fill_color(255, 255, 255)
+        self.rect(20, 20, 40, 15, 'F') 
+        
+        # Logo
+        if os.path.exists('audeo_original.png'):
+            self.image('audeo_original.png', 22, 22, 36)
             
+        # Textos alineados a la derecha
+        self.set_y(20)
         self.set_font('Arial', 'B', 14)
         self.set_text_color(255, 255, 255)
-        self.set_y(10)
-        self.cell(0, 5, 'INFORME TECNICO S.A.P.E.', 0, 1, 'R')
-        self.ln(15)
+        self.cell(0, 6, 'INFORME TECNICO S.A.P.E.', 0, 1, 'R')
+        
+        self.set_font('Arial', '', 10)
+        self.cell(0, 6, 'Sistema de Analisis de la Personalidad Emprendedora', 0, 1, 'R')
+        self.ln(20)
 
     def footer(self):
         self.set_y(-15)
@@ -61,131 +75,191 @@ class InformeAudeo(FPDF):
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
 
+    def draw_section_title(self, title):
+        self.set_font('Arial', 'B', 12)
+        self.set_text_color(0, 0, 0)
+        self.cell(0, 8, title, 0, 1, 'L')
+        # Raya que marca la sección
+        self.set_draw_color(13, 36, 141)
+        self.line(self.get_x(), self.get_y(), self.get_x() + 190, self.get_y())
+        self.ln(5)
+
 def generar_pdf_sape(user_id, scores, alertas, demograficos):
     pdf = InformeAudeo()
     pdf.add_page()
     
-    # --- DATOS DEMOGRÁFICOS ---
-    pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 10, 'DATOS DEL CANDIDATO', 0, 1)
+    # --- 1º BLOQUE DE DATOS (Identificación) ---
+    pdf.set_y(45)
+    pdf.set_font('Arial', '', 10)
+    pdf.set_text_color(0, 0, 0)
     
-    pdf.set_font('Arial', '', 11)
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(0, 6, f"Candidato: {user_id}", 0, 1)
-    pdf.cell(0, 6, f"Organizacion: {demograficos.get('org', 'N/A')}", 0, 1)
+    col1_x = 20
+    col2_x = 110
     
-    exp_map = {'nunca': 'Nunca ha emprendido', 'sin_exito': 'He emprendido sin exito', 'con_exito': 'He emprendido con exito'}
-    pdf.cell(0, 6, f"Historial: {exp_map.get(demograficos.get('exp'), 'N/A')}", 0, 1)
-    pdf.ln(8)
+    # Fila 1
+    pdf.set_xy(col1_x, pdf.get_y())
+    pdf.cell(90, 6, f"Usuario/a: {user_id}", 0, 0)
+    pdf.set_xy(col2_x, pdf.get_y())
+    pdf.cell(90, 6, f"Organizacion: {demograficos.get('org', 'N/A')}", 0, 1)
+    
+    # Fila 2
+    pdf.set_xy(col1_x, pdf.get_y())
+    pdf.cell(90, 6, f"Sector: {demograficos.get('sector', 'N/A')}", 0, 0)
+    pdf.set_xy(col2_x, pdf.get_y())
+    pdf.cell(90, 6, f"Fecha: {demograficos.get('fecha', 'N/A')}", 0, 1)
+    pdf.ln(10)
 
-    # --- NUEVO: RESUMEN EJECUTIVO ---
-    pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 10, 'RESUMEN METRICAS AUDEO', 0, 1)
+    # --- 2º BLOQUE DE DATOS (MÉTRICAS PRINCIPALES) ---
+    pdf.draw_section_title("1. METRICAS PRINCIPALES")
     
-    pdf.set_font('Arial', 'B', 11)
+    metricas = [
+        ("Potencial", scores.get('potencial', 0), "Capacidad basal (Recursos cognitivos y actitudinales)."),
+        ("IRE", scores.get('ire', 0), "Indice de Resiliencia Emprendedora."),
+        ("Friccion por defecto", scores.get('friccion_defecto', 0), "Valor de la carga sobre el IRE de los rasgos por defecto."),
+        ("Friccion por exceso", scores.get('friccion_exceso', 0), "Valor de la carga sobre el IRE de los rasgos por exceso."),
+        ("Delta", scores.get('delta', 0), "Distancia de la puntuacion obtenida a la puntuacion ideal.")
+    ]
     
-    # Fila IRE
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(80, 7, "Indice de Resiliencia (IRE):", 0, 0)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 7, f"{scores.get('ire', 'N/A')}%", 0, 1)
-    
-    # Fila Fricción
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(80, 7, "Friccion (Defecto / Exceso):", 0, 0)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 7, f"{scores.get('friccion_defecto', 'N/A')} / {scores.get('friccion_exceso', 'N/A')}", 0, 1)
-
-    # Fila Delta
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(80, 7, "Indice Delta (Desviacion):", 0, 0)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 7, f"{scores.get('delta', 'N/A')}", 0, 1)
-    pdf.ln(8)
-
-    # --- EL OCTÓGONO (Gráfico Araña) ---
-    rasgos_keys = ['achievement', 'risk_propensity', 'innovativeness', 'locus_control', 
-                   'self_efficacy', 'autonomy', 'ambiguity_tolerance', 'emotional_stability']
-    
-    # Filtramos solo los 8 rasgos para el gráfico
-    scores_grafico = {k: scores.get(k, 50.0) for k in rasgos_keys}
-    
-    pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 10, 'EL OCTOGONO DE COMPETENCIAS', 0, 1)
-    pdf.ln(2)
-
-    labels = [TRAIT_INFO.get(k, {}).get("titulo", k) for k in rasgos_keys]
-    values = list(scores_grafico.values())
-    num_vars = len(labels)
-    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-    values += values[:1]
-    angles += angles[:1]
-
-    fig, ax = plt.subplots(figsize=(5, 5), subplot_kw=dict(polar=True))
-    ax.fill(angles, values, color='#83ABF1', alpha=0.4)
-    ax.plot(angles, values, color='#0D248D', linewidth=2)
-    
-    ax.set_facecolor('white')
-    fig.patch.set_facecolor('white')
-    
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, color='black', fontsize=8)
-    ax.set_yticks([25, 50, 75, 100])
-    ax.set_yticklabels(['25', '50', '75', '100'], color='grey', size=7)
-    ax.spines['polar'].set_color('#CCCCCC')
-    
-    plt.tight_layout()
-    plt.savefig('radar.png', dpi=150)
-    plt.close()
-    
-    pdf.image('radar.png', x=50, w=110)
-    pdf.ln(5)
-
-    # --- DESGLOSE DE DATOS REDACTADOS ---
-    pdf.add_page()
-    pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(13, 36, 141)
-    pdf.cell(0, 10, 'ANALISIS DETALLADO DE RASGOS', 0, 1)
-    pdf.ln(5)
-
-    for trait in rasgos_keys:
-        score = scores.get(trait, 50.0)
-        info = TRAIT_INFO.get(trait, {"titulo": trait, "desc": "Sin descripcion."})
-        
-        pdf.set_font('Arial', 'B', 12)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(150, 8, info['titulo'], 0, 0)
-        
-        pdf.set_text_color(13, 36, 141)
-        pdf.cell(40, 8, f"{score}%", 0, 1, 'R')
-        
+    for nombre, valor, desc in metricas:
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(45, 6, f"{nombre}: {valor}", 0, 0)
         pdf.set_font('Arial', '', 10)
-        pdf.set_text_color(70, 70, 70)
-        pdf.multi_cell(0, 6, info['desc'], 0, 1)
-        
-        pdf.set_fill_color(230, 230, 230)
-        pdf.rect(pdf.get_x(), pdf.get_y() + 2, 190, 4, 'F')
-        pdf.set_fill_color(131, 171, 241)
-        pdf.rect(pdf.get_x(), pdf.get_y() + 2, 190 * (score / 100), 4, 'F')
-        pdf.ln(10)
+        pdf.cell(0, 6, desc, 0, 1)
+    pdf.ln(10)
 
-    # --- ALERTAS CRÍTICAS (DESCARRILADORES) ---
-    if alertas:
-        pdf.ln(5)
-        pdf.set_font('Arial', 'B', 16)
-        pdf.set_text_color(200, 50, 50)
-        pdf.cell(0, 10, 'ALERTAS Y DESCARRILADORES', 0, 1)
-        pdf.ln(5)
+    # --- 3º BLOQUE (PERFIL COMPETENCIAL DETALLE) ---
+    pdf.draw_section_title("2. PERFIL COMPETENCIAL (DETALLE)")
+    
+    orden_rasgos = ['achievement', 'risk_propensity', 'innovativeness', 'self_efficacy', 
+                    'autonomy', 'emotional_stability', 'locus_control', 'ambiguity_tolerance']
+    
+    descarriladores_dict = {d['rasgo']: d for d in scores.get('descarriladores', [])}
+
+    for rasgo in orden_rasgos:
+        valor = scores.get(rasgo, 50.0)
+        nombre_es = TEXTOS_RASGOS[rasgo]['nombre']
         
-        for a in alertas:
-            pdf.set_fill_color(255, 240, 240)
-            pdf.set_font('Arial', 'B', 11)
-            pdf.set_text_color(200, 0, 0)
-            pdf.multi_cell(0, 8, f">> {a}", 0, 1, fill=True)
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(50, 6, nombre_es, 0, 0)
+        
+        # Barra multicolor (Centro)
+        bar_x = 75
+        bar_y = pdf.get_y() + 1
+        bar_width = 100
+        bar_height = 4
+        
+        # Dibujamos fondo gris claro
+        pdf.set_fill_color(240, 240, 240)
+        pdf.rect(bar_x, bar_y, bar_width, bar_height, 'F')
+        
+        # Llenamos por segmentos según el valor
+        # 0-25 (Rojo)
+        if valor > 0:
+            w = min(valor, 25) * (bar_width / 100)
+            pdf.set_fill_color(200, 50, 50)
+            pdf.rect(bar_x, bar_y, w, bar_height, 'F')
+        # 26-70 (Amarillo)
+        if valor > 25:
+            w = (min(valor, 70) - 25) * (bar_width / 100)
+            pdf.set_fill_color(230, 190, 50)
+            pdf.rect(bar_x + (25 * bar_width/100), bar_y, w, bar_height, 'F')
+        # 71-90 (Verde)
+        if valor > 70:
+            w = (min(valor, 90) - 70) * (bar_width / 100)
+            pdf.set_fill_color(50, 160, 80)
+            pdf.rect(bar_x + (70 * bar_width/100), bar_y, w, bar_height, 'F')
+        # 91-100 (Rojo)
+        if valor > 90:
+            w = (valor - 90) * (bar_width / 100)
+            pdf.set_fill_color(200, 50, 50)
+            pdf.rect(bar_x + (90 * bar_width/100), bar_y, w, bar_height, 'F')
+            
+        # Puntuación final a la derecha
+        pdf.set_xy(bar_x + bar_width + 5, pdf.get_y())
+        pdf.cell(20, 6, f"{valor}%", 0, 1)
+        
+        # Alerta si es descarrilador
+        if rasgo in descarriladores_dict:
+            tipo = descarriladores_dict[rasgo]['tipo']
+            pdf.set_font('Arial', 'B', 9)
+            pdf.set_text_color(200, 50, 50)
+            pdf.set_x(75)
+            pdf.cell(0, 5, f"ALERTA: Descarrilador por {tipo.upper()}", 0, 1)
+            pdf.set_text_color(0, 0, 0)
+        else:
             pdf.ln(2)
+
+    pdf.ln(5)
+    
+    # Fortalezas y Áreas de Desarrollo
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "Fortalezas Consolidadas", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    for i, f in enumerate(scores.get('fortalezas', [])[:3]):
+        rasgo_k = f[0][0] if isinstance(f[0], tuple) else f[0] # Manejo seguro de la tupla
+        texto = TEXTOS_RASGOS[rasgo_k]
+        pdf.multi_cell(0, 5, f"{i+1}. {texto['nombre']}: {texto['fortaleza']}")
+    pdf.ln(3)
+    
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(0, 6, "Areas de Desarrollo", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    for i, a in enumerate(scores.get('areas_desarrollo', [])[:3]):
+        rasgo_k = a[0][0] if isinstance(a[0], tuple) else a[0]
+        texto = TEXTOS_RASGOS[rasgo_k]
+        pdf.multi_cell(0, 5, f"{i+1}. {texto['nombre']}: {texto['area']}")
+    
+    # --- 4º BLOQUE (DIAGNÓSTICO DE PATRONES Y RIESGOS) ---
+    pdf.add_page()
+    pdf.draw_section_title("3. DIAGNOSTICO DE PATRONES Y RIESGOS")
+    
+    patrones = scores.get('patrones_clinicos', [])
+    if not patrones:
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(0, 6, "No existen patrones de riesgo detectados en este perfil.", 0, 1)
+    else:
+        for p in patrones:
+            pdf.set_font('Arial', 'B', 11)
+            pdf.set_text_color(200, 50, 50)
+            pdf.cell(0, 6, p['nombre'].upper(), 0, 1)
+            
+            pdf.set_font('Arial', 'I', 10)
+            pdf.set_text_color(80, 80, 80)
+            pdf.multi_cell(0, 5, f"Combinacion: {p['combo']}")
+            
+            pdf.set_font('Arial', '', 10)
+            pdf.set_text_color(0, 0, 0)
+            pdf.multi_cell(0, 5, p['desc'])
+            pdf.ln(4)
+
+    # --- CONCLUSIÓN ---
+    pdf.ln(5)
+    pdf.draw_section_title("4. CONCLUSION Y RECOMENDACION")
+    
+    pot = scores.get('potencial', 0)
+    ire = scores.get('ire', 0)
+    delta = scores.get('delta', 0)
+    
+    estado = "tecnicamente viable" if delta <= 20 else "con alto riesgo estructural"
+    
+    conclusion = f"El perfil es {estado}. La discrepancia entre Potencial ({pot}) e IRE ({ire}) marca el margen de mejora indicado en un Delta de ({delta}) repartido en varios rasgos."
+    
+    pdf.set_font('Arial', '', 10)
+    pdf.multi_cell(0, 5, conclusion)
+    
+    pdf.set_font('Arial', 'B', 10)
+    pdf.ln(2)
+    pdf.cell(0, 6, "Recomendacion:", 0, 1)
+    pdf.set_font('Arial', '', 10)
+    
+    # Recomendación dinámica básica basada en el peor descarrilador o área
+    if patrones:
+        pdf.multi_cell(0, 5, f"Intervencion urgente requerida sobre el patron '{patrones[0]['nombre']}'. Se recomienda coaching focalizado para mitigar el impacto negativo de esta combinacion en el entorno de la startup.")
+    elif scores.get('areas_desarrollo'):
+        peor_area = TEXTOS_RASGOS[scores['areas_desarrollo'][0][0]]['nombre']
+        pdf.multi_cell(0, 5, f"Se debe trabajar de forma prioritaria en reforzar: {peor_area}. El objetivo es equilibrar el perfil para evitar bloqueos operativos a medio plazo.")
+    else:
+        pdf.multi_cell(0, 5, "Mantener el equilibrio actual. Se recomienda monitorizacion periodica preventiva.")
 
     output = f"Informe_SAPE_{user_id}.pdf"
     pdf.output(output)

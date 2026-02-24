@@ -1,7 +1,8 @@
 import pandas as pd
 import random
 import asyncio
-import pdf_generator # Conectamos el motor de PDFs
+import pdf_generator
+import datetime
 from typing import Dict, Any, List
 from nicegui import ui, app
 
@@ -182,8 +183,8 @@ class SAPEInterface:
             # Preparamos los datos demográficos ficticios (luego los podemos pedir en pantalla)
             demograficos = {
                 'org': org_id,
-                'edad': 'No especificada',
-                'exp': 'No especificada'
+                'sector': self.sector,
+                'fecha': datetime.datetime.now().strftime("%d/%m/%Y")
             }
             
             # Llamamos a TU función exacta de pdf_generator.py
