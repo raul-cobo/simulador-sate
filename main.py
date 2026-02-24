@@ -62,6 +62,9 @@ def logout():
 # ==========================================
 # 3. PANTALLA DE LOGIN (Raíz)
 # ==========================================
+# ==========================================
+# 3. PANTALLA DE LOGIN (Raíz)
+# ==========================================
 @ui.page('/')
 def login_page():
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
@@ -70,8 +73,6 @@ def login_page():
     if app.storage.user.get('authenticated'):
         ui.navigate.to('/admin' if app.storage.user.get('role') == 'ADMIN' else '/panel')
         return
-
-    # (Dentro de main.py, en la función login_page)
 
     def intentar_login():
         user = user_input.value.strip()
@@ -109,18 +110,21 @@ def login_page():
         else:
             ui.notify('No hay conexión con Supabase configurada.', color='negative')
 
-    # CONTENEDOR LOGIN (Fiel al Doc Maestro)
+    # CONTENEDOR LOGIN (Corregido fiel al Doc Maestro)
     with ui.column().classes('w-full h-screen items-center justify-center'):
-        with ui.column().classes(f'bg-[{CARD_COLOR}] p-8 rounded-2xl border border-[{ACCENT_COLOR}]/30 shadow-2xl w-96 items-center'):
+        
+        # 1. Recuadro blanco con el logo (1/4 de la pantalla = w-[25vw])
+        with ui.row().classes('bg-white p-6 rounded-2xl mb-8 justify-center items-center shadow-lg w-[25vw] min-w-[300px]'):
+            ui.image('logo_original.png').classes('w-full object-contain')
             
-            # Logo Original sobre fondo blanco redondeado
-            with ui.row().classes('bg-white p-4 rounded-xl mb-6 w-3/4 justify-center items-center shadow-inner'):
-                ui.image('logo_original.png').classes('w-full object-contain')
-            
+        # 2. Reglones de login debajo del logo
+        with ui.column().classes('items-center w-[25vw] min-w-[300px]'):
             user_input = ui.input('Usuario / Email').classes('w-full mb-4 text-white').props('dark outlined')
             pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-8 text-white').props('dark outlined')
+            
+            # 3. Botón color #0D248D con ampliación del 10% en hover
             ui.button('ENTRAR', on_click=intentar_login).classes(
-                f'w-full bg-[{ACCENT_COLOR}] text-[{BG_COLOR}] font-bold py-3 rounded-lg hover:scale-105 transition-transform'
+                'w-full bg-[#0D248D] text-white font-bold py-3 rounded-lg hover:scale-110 transition-transform duration-300 shadow-xl border-none'
             )
 
 # ==========================================
