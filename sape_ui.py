@@ -132,16 +132,39 @@ class SAPEInterface:
     def render_layout(self):
         if self.current_idx >= len(self.df_sector): return
         fila = self.df_sector.iloc[self.current_idx]
+        
+        # Transformamos los textos a "Tipo oración" (Primera mayúscula, resto minúsculas)
+        titulo_txt = str(fila.get('TITULO', 'Sin título')).capitalize()
+        narrativa_txt = str(fila.get('NARRATIVA', '...')).capitalize()
+
         with ui.row().classes('w-full max-w-7xl mx-auto flex-1 items-stretch pt-10 gap-12 px-6 flex-nowrap'):
+            
+            # Columna Izquierda: Título y Narrativa
             with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pb-20'):
-                ui.label(fila.get('TITULO', 'Sin Título')).classes(f'text-4xl font-black text-[{ACCENT_COLOR}]')
-                ui.label(fila.get('NARRATIVA', '...')).classes('text-2xl text-white font-light')
+                # Título: 24px, negrita, azul Audeo
+                ui.label(titulo_txt).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
+                
+                # Narrativa: 18px, blanco
+                ui.label(narrativa_txt).classes('text-[18px] text-white leading-relaxed')
+
+            # Columna Derecha: Botones de respuesta
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-6 pb-20'):
                 for txt, letra in self.opciones_mezcladas:
+                    txt_oracion = str(txt).capitalize()
+                    
                     btn = ui.button(on_click=lambda l=letra: self._handle_click(l))
-                    btn.style('background-color: #0D248D; color: white;')
-                    btn.classes('w-full text-left p-6 rounded-xl hover:scale-[1.02] transition-all')
-                    with btn: ui.label(txt).classes('text-lg font-medium text-white')
+                    
+                    # Eliminamos el .style() inline para que el hover de Tailwind pueda funcionar correctamente
+                    btn.classes(
+                        'w-full text-left p-6 rounded-xl '
+                        'bg-[#0D248D] hover:bg-[#5898D4] text-white ' # Colores de fondo normal y hover
+                        'hover:scale-[1.15] ' # Ampliación del 15% al pasar el ratón
+                        'transition-all duration-300 ease-out border-none group'
+                    )
+                    
+                    with btn: 
+                        # Texto del botón: 12px, blanco
+                        ui.label(txt_oracion).classes('text-[12px] text-white whitespace-normal break-words w-full')
 
     def render(self):
         ui.query('body').style(f'background-color: {BG_COLOR}; margin: 0;')
