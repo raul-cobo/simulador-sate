@@ -63,14 +63,6 @@ def _render_caja_kpi(titulo, valor, desc):
         ui.label(desc).classes('text-[#83ABF1] text-[12px]')
         
 def _render_octagon_chart(data: Dict[str, Any]):
-    if not hasattr(ui, 'echarts'):
-        with ui.column().classes('w-full h-full items-center justify-center p-8 text-center bg-red-900/20 border border-red-500/50 rounded-xl'):
-            ui.icon('warning', size='3rem', color='red')
-            ui.label('⚠️ VERSIÓN DEL SERVIDOR OBSOLETA').classes('text-red-400 font-bold text-lg mt-2')
-            ui.label('Para ver la gráfica de araña, necesitas actualizar la versión de NiceGUI.').classes('text-white text-sm')
-            ui.label("Escribe 'nicegui>=1.4.0' en tu archivo requirements.txt").classes('text-gray-400 text-xs mt-2')
-        return
-
     valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
     indicadores = [{"name": n, "max": 100} for n in list(DIMENSION_LABELS.values())]
 
@@ -88,7 +80,7 @@ def _render_octagon_chart(data: Dict[str, Any]):
         "radar": {
             "indicator": indicadores,
             "shape": "polygon",
-            "splitNumber": 20, # Cambiado a 20 para precisión
+            "splitNumber": 20, # Cambiado a 20 para precisión absoluta
             "axisName": {"color": "#FFFFFF", "fontSize": 12, "fontWeight": "bold"},
             "splitArea": {
                 "show": True,
@@ -97,7 +89,7 @@ def _render_octagon_chart(data: Dict[str, Any]):
                 }
             },
             "axisLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.3)"}},
-            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.05)"}} # Líneas divisorias muy sutiles para no ensuciar
+            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.05)"}} # Líneas sutiles
         },
         "series": [{
             "type": "radar",
