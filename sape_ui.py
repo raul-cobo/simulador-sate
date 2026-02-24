@@ -133,38 +133,35 @@ class SAPEInterface:
         if self.current_idx >= len(self.df_sector): return
         fila = self.df_sector.iloc[self.current_idx]
         
-        # Transformamos los textos a "Tipo oración" (Primera mayúscula, resto minúsculas)
-        titulo_txt = str(fila.get('TITULO', 'Sin título')).capitalize()
-        narrativa_txt = str(fila.get('NARRATIVA', '...')).capitalize()
+        # .strip().capitalize() limpia espacios del CSV y pone la primera letra en mayúscula y el resto en minúsculas
+        titulo_txt = str(fila.get('TITULO', 'Sin título')).strip().capitalize()
+        narrativa_txt = str(fila.get('NARRATIVA', '...')).strip().capitalize()
 
         with ui.row().classes('w-full max-w-7xl mx-auto flex-1 items-stretch pt-10 gap-12 px-6 flex-nowrap'):
             
-            # Columna Izquierda: Título y Narrativa
             with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pb-20'):
-                # Título: 24px, negrita, azul Audeo
                 ui.label(titulo_txt).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
-                
-                # Narrativa: 18px, blanco
                 ui.label(narrativa_txt).classes('text-[18px] text-white leading-relaxed')
 
-            # Columna Derecha: Botones de respuesta
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-6 pb-20'):
                 for txt, letra in self.opciones_mezcladas:
-                    txt_oracion = str(txt).capitalize()
+                    txt_oracion = str(txt).strip().capitalize()
                     
-                    btn = ui.button(on_click=lambda l=letra: self._handle_click(l))
+                    # Iniciamos el botón anulando su color base por defecto
+                    btn = ui.button(on_click=lambda l=letra: self._handle_click(l), color=None)
                     
-                    # Eliminamos el .style() inline para que el hover de Tailwind pueda funcionar correctamente
+                    # PROPS CLAVE: 'no-caps' evita que Quasar fuerce las mayúsculas
+                    btn.props('no-caps')
+                    
                     btn.classes(
-                        'w-full text-left p-6 rounded-xl '
-                        'bg-[#0D248D] hover:bg-[#5898D4] text-white ' # Colores de fondo normal y hover
-                        'hover:scale-[1.15] ' # Ampliación del 15% al pasar el ratón
-                        'transition-all duration-300 ease-out border-none group'
+                        'w-full text-left p-6 rounded-xl text-white '
+                        '!bg-[#0D248D] hover:!bg-[#5898D4] ' # El '!' fuerza el color azul Audeo por encima del sistema
+                        'hover:scale-[1.15] ' # Ampliación exacta del 15%
+                        'transition-all duration-300 ease-out border-none group shadow-lg'
                     )
                     
                     with btn: 
-                        # Texto del botón: 12px, blanco
-                        ui.label(txt_oracion).classes('text-[12px] text-white whitespace-normal break-words w-full')
+                        ui.label(txt_oracion).classes('text-[12px] text-white whitespace-normal break-words w-full text-left')
 
     def render(self):
         ui.query('body').style(f'background-color: {BG_COLOR}; margin: 0;')
