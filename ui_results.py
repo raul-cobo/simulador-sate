@@ -25,11 +25,15 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
         ui.label("Perfil Psicométrico SAPE").classes('text-3xl font-bold text-white mb-2')
         ui.label("Análisis de Competencias Emprendedoras y Estructura Latente").classes('text-gray-400 mb-8')
 
-        # --- 1. SECCIÓN DE MACRO-CLÚSTERES (KPIs) ---
+        # --- 1. SECCIÓN DE MACRO-CLÚSTERES (Nuevos KPIs Audeo) ---
         with ui.row().classes('w-full gap-4 mb-8'):
-            _render_kpi_card("Autoevaluación Central (CSE)", refined_data.get('cluster_cse', 0), "Resiliencia base")
-            _render_kpi_card("Agencia Proactiva", refined_data.get('cluster_agency', 0), "Motor de ejecución")
-            _render_kpi_card("Exploración Estratégica", refined_data.get('cluster_exploration', 0), "Adaptabilidad")
+            _render_kpi_card("Índice de Resiliencia (IRE)", f"{refined_data.get('ire', 0)}%", "Capacidad de supervivencia")
+            
+            # La fricción tiene dos valores, los mostramos juntos
+            friccion_str = f"-{refined_data.get('friccion_defecto', 0)} / +{refined_data.get('friccion_exceso', 0)}"
+            _render_kpi_card("Fricción (Defecto/Exceso)", friccion_str, "Desgaste interno")
+            
+            _render_kpi_card("Índice Delta", f"{refined_data.get('delta', 0)}", "Desviación del perfil óptimo")
 
         # --- 2. EL OCTÓGONO Y LOS INSIGHTS CLINICOS ---
         with ui.row().classes('w-full items-stretch gap-6'):
@@ -41,14 +45,14 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
 
             # Insights y Flags - Derecha (40%)
             with ui.column().classes('w-full md:flex-1 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-6 shadow-lg'):
-                ui.label("Insights Clínicos").classes('text-xl font-semibold mb-4 text-[#83ABF1]')
+                ui.label("Descarriladores y Alertas").classes('text-xl font-semibold mb-4 text-[#83ABF1]')
                 
                 flags = SAPERefinery.get_clinical_flags(refined_data)
                 
                 if flags:
                     for flag in flags:
-                        # Estilos dinámicos: Rojo para alertas, Azul/Verde para positivos
-                        is_alert = "Burnout" in flag
+                        # Estilos dinámicos: Rojo para descarriladores/alertas, Azul/Verde para otros insights si los hubiera
+                        is_alert = "Riesgo" in flag or "Descarrilamiento" in flag or "Bloqueo" in flag
                         bg_color = "bg-red-900/20" if is_alert else "bg-[#83ABF1]/10"
                         border_color = "border-red-500/50" if is_alert else "border-[#83ABF1]/50"
                         icon = "warning" if is_alert else "psychology"
@@ -58,22 +62,16 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
                             ui.icon(icon).classes(f'{icon_color} text-2xl mr-3 mt-1')
                             ui.label(flag).classes('text-sm text-gray-200 leading-relaxed flex-1')
                 else:
-                    ui.label("Perfil equilibrado. No se detectaron descarriladores ni alertas críticas bajo presión.").classes('text-gray-400 italic text-sm')
-
-        # --- BOTÓN DE ACCIÓN ---
-        with ui.row().classes('w-full justify-end mt-8'):
-            ui.button("Descargar Reporte (PDF)", icon="picture_as_pdf").classes(
-                'bg-[#83ABF1] hover:bg-[#5b8deb] text-[#0E1117] font-bold px-6 py-3 rounded-lg'
-            )
+                    ui.label("Perfil equilibrado en la zona de seguridad. No se detectaron descarriladores críticos ni riesgos de bloqueo.").classes('text-gray-400 italic text-sm')
 
 # --- FUNCIONES AUXILIARES DE RENDERIZADO ---
 
-def _render_kpi_card(title: str, value: float, subtitle: str):
-    """Renderiza una tarjeta para los clústeres macro."""
+def _render_kpi_card(title: str, value: str, subtitle: str):
+    """Renderiza una tarjeta para los KPIs Audeo."""
     with ui.column().classes('flex-1 bg-[#161B22] border border-[#83ABF1]/50 rounded-xl p-5 items-center justify-center text-center shadow-md'):
-        ui.label(title).classes('text-sm text-gray-400 font-medium uppercase tracking-wider mb-1')
-        ui.label(f"{value:.1f}").classes('text-4xl font-black text-white mb-1')
-        ui.label(subtitle).classes('text-xs text-[#83ABF1]')
+        ui.label(title).classes('text-sm text-[#83ABF1] font-bold uppercase tracking-wider mb-2')
+        ui.label(value).classes('text-3xl font-black text-white mb-1')
+        ui.label(subtitle).classes('text-xs text-gray-400')
 
 def _render_octagon_chart(data: Dict[str, Any]):
     """Configura e inyecta el gráfico de ECharts."""
