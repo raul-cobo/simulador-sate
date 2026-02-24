@@ -136,9 +136,10 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
         pdf.cell(0, 6, "Fortalezas Consolidadas", 0, 1)
         pdf.set_font('Arial', '', 10)
         for i, f in enumerate(fortalezas[:3]):
-            rasgo_k = f[0][0] if isinstance(f[0], tuple) else f[0]
+            # CORRECCIÓN: Extraemos la clave sea lista, tupla o string
+            rasgo_k = f[0] if isinstance(f, (list, tuple)) else f
             texto = TEXTOS_RASGOS[rasgo_k]
-            pdf.set_x(15) # Forzamos el cursor a la izquierda
+            pdf.set_x(15)
             pdf.multi_cell(180, 5, f"{i+1}. {texto['nombre']}: Nivel alto. {texto['fortaleza']}")
         pdf.ln(3)
     
@@ -148,9 +149,10 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
         pdf.cell(0, 6, "Áreas de Desarrollo", 0, 1)
         pdf.set_font('Arial', '', 10)
         for i, a in enumerate(areas[:3]):
-            rasgo_k = a[0][0] if isinstance(a[0], tuple) else a[0]
+            # CORRECCIÓN: Extraemos la clave sea lista, tupla o string
+            rasgo_k = a[0] if isinstance(a, (list, tuple)) else a
             texto = TEXTOS_RASGOS[rasgo_k]
-            pdf.set_x(15) # Forzamos el cursor a la izquierda
+            pdf.set_x(15)
             pdf.multi_cell(180, 5, f"{i+1}. {texto['nombre']}: {texto['area']}")
     
     pdf.add_page()
@@ -199,7 +201,9 @@ def generar_pdf_sape(user_id, scores, alertas, demograficos):
     if patrones:
         pdf.multi_cell(180, 5, f"Intervención urgente requerida sobre el patrón '{patrones[0]['nombre']}'. Se recomienda coaching focalizado para mitigar el impacto negativo de esta combinación en el entorno de la startup.")
     elif areas:
-        peor_area = TEXTOS_RASGOS[areas[0][0]]['nombre'] if not isinstance(areas[0], tuple) else TEXTOS_RASGOS[areas[0][0][0]]['nombre']
+        # CORRECCIÓN DE LA AVERÍA PRINCIPAL (Evita el KeyError: 's')
+        rasgo_peor = areas[0][0] if isinstance(areas[0], (list, tuple)) else areas[0]
+        peor_area = TEXTOS_RASGOS[rasgo_peor]['nombre']
         pdf.multi_cell(180, 5, f"Se debe trabajar de forma prioritaria en reforzar: {peor_area}. El objetivo es equilibrar el perfil para evitar bloqueos operativos a medio plazo.")
     else:
         pdf.multi_cell(180, 5, "Mantener el equilibrio actual. Se recomienda monitorización periódica preventiva.")
