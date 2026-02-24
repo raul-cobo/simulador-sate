@@ -1,6 +1,6 @@
 from nicegui import ui
 import plotly.graph_objects as go
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 from logic_sape_refinery import SAPERefinery
 
 DIMENSION_LABELS = {
@@ -14,7 +14,7 @@ DIMENSION_LABELS = {
     'emotional_stability': 'Estabilidad Emocional'
 }
 
-def render_dashboard_resultados(refined_data: Dict[str, Any], callback_pdf: Callable = None):
+def render_dashboard_resultados(refined_data: Dict[str, Any]):
     with ui.column().classes('w-full max-w-5xl mx-auto p-6 bg-[#0E1117] min-h-screen text-white'):
         
         # CABECERA
@@ -47,8 +47,8 @@ def render_dashboard_resultados(refined_data: Dict[str, Any], callback_pdf: Call
                         ui.label(nombre).classes('text-white font-bold text-[14px]')
                         ui.label(f"{val}%").classes('text-white text-[14px]')
 
-        # BLOQUE 3: Nociones y Botón
-        with ui.column().classes('w-full bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-8 shadow-lg'):
+        # BLOQUE 3: Nociones
+        with ui.column().classes('w-full bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-8 shadow-lg mb-8'):
             ui.label("Nociones y Recomendaciones").classes('text-white font-bold text-[16px] mb-4 border-b border-[#83ABF1] pb-2 w-full')
             
             flags = SAPERefinery.get_clinical_flags(refined_data)
@@ -57,12 +57,6 @@ def render_dashboard_resultados(refined_data: Dict[str, Any], callback_pdf: Call
                     ui.label(f"• {flag}").classes('text-white text-[12px] mb-2 leading-relaxed')
             else:
                 ui.label("• Perfil equilibrado. No se detectan patrones de riesgo inminente.").classes('text-white text-[12px] italic')
-            
-            if callback_pdf:
-                with ui.row().classes('w-full justify-center mt-10 pb-4'):
-                    ui.button('DESCARGAR INFORME PDF', on_click=callback_pdf).classes(
-                        'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
-                    ).props('icon=picture_as_pdf')
 
 def _render_caja_kpi(titulo, valor, desc):
     with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-6 items-center justify-center text-center shadow-lg').style('width: 280px; height: 280px;'):
@@ -71,11 +65,10 @@ def _render_caja_kpi(titulo, valor, desc):
         ui.label(desc).classes('text-[#83ABF1] text-[12px]')
         
 def _render_octagon_plotly(data: Dict[str, Any]):
-    """Gráfica de Araña construida con Plotly para máxima compatibilidad."""
     valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
     nombres = list(DIMENSION_LABELS.values())
     
-    # Cerramos el polígono
+    # Cerramos el polígono para que la línea conecte el último punto con el primero
     valores.append(valores[0])
     nombres.append(nombres[0])
     

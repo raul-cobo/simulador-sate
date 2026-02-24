@@ -101,12 +101,15 @@ class SAPEInterface:
         self.header_contenedor.clear()
         self.contenedor_principal.clear()
         
-        # Función "puente" asíncrona para que el botón PDF no falle
-        async def on_download_click():
-            await self._descargar_pdf(datos_refinados, username, org_id)
-
         with self.contenedor_principal:
-            render_dashboard_resultados(datos_refinados, callback_pdf=on_download_click)
+            # 1. Dibujamos el panel visual
+            render_dashboard_resultados(datos_refinados)
+            
+            # 2. Dibujamos el BOTÓN controlado directamente aquí para que no falle jamás
+            with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 bg-[#0E1117]'):
+                ui.button('DESCARGAR INFORME PDF', on_click=lambda: asyncio.create_task(self._descargar_pdf(datos_refinados, username, org_id))).classes(
+                    'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
+                ).props('icon=picture_as_pdf')
 
     async def _descargar_pdf(self, datos, user, org):
         try:
