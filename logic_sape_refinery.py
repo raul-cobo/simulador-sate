@@ -17,12 +17,12 @@ class SAPERefinery:
         
         # 1. MACRO-MÉTRICAS (Potencial, IRE, Fricción, Delta)
         
-        # --- POTENCIAL (Corregido a: Media - Varianza) ---
+        # --- POTENCIAL: Media menos la varianza ---
         media_potencial = sum(puntuaciones) / len(puntuaciones)
-        varianza = statistics.pvariance(puntuaciones) if len(puntuaciones) > 0 else 0
+        varianza = statistics.pvariance(puntuaciones) if len(puntuaciones) > 0 else 0.0
         refined['potencial'] = round(clamp(media_potencial - varianza), 1)
 
-        # --- IRE (Corregido según Documento Maestro: Distancia vs Percentil 90 real) ---
+        # --- IRE: Distancia al Percentil 90 sectorial ---
         if raw_sums and limites:
             ires_rasgo = []
             for k in rasgos_keys:
@@ -30,29 +30,29 @@ class SAPERefinery:
                 max_t = limites.get(k, {}).get('max', 100)
                 user_raw = raw_sums.get(k, min_t)
                 
-                # Fórmula del Doc: Puntuación percentil 90% = D7 + 0.9 * (E7 - D7)
+                # Puntuación percentil 90% = D7 + 0.9 * (E7 - D7)
                 p90 = min_t + 0.9 * (max_t - min_t)
                 
+                # Aplicando la fórmula de la tabla: (Puntuación en crudo / P90) * 100
                 if p90 != 0:
-                    # IRE rasgo = (user_raw / p90) * 100
                     ire_r = (user_raw / p90) * 100
                 else:
                     ire_r = 0.0
                 ires_rasgo.append(ire_r)
             
+            # Media de los IREs de todos los rasgos
             ire_general = sum(ires_rasgo) / len(ires_rasgo) if ires_rasgo else 0
             refined['ire'] = round(clamp(ire_general), 1)
         else:
-            # Fallback de seguridad lineal
+            # Fallback de seguridad por si no llegan los datos brutos
             diferencias_ire = [abs(90.0 - p) for p in puntuaciones]
             media_diferencias = sum(diferencias_ire) / len(diferencias_ire)
             refined['ire'] = round(clamp(100.0 - media_diferencias), 1)
 
+        # --- FRICCIONES ---
         puntuacion_min = min(puntuaciones)
         puntuacion_max = max(puntuaciones)
         
-        # Fricciones con Frontera Clínica
-        # (El resto del código de SAPERefinery se mantiene igual a partir de aquí...)
         if puntuacion_max > 90.0:
             refined['friccion_exceso'] = round(puntuacion_max - refined['potencial'], 1)
         else:
@@ -63,7 +63,7 @@ class SAPERefinery:
         else:
             refined['friccion_defecto'] = 0.0
 
-        # Delta
+        # --- DELTA: Distancia al P80 de los rasgos fuera de la zona óptima ---
         rasgos_desviados = [p for p in puntuaciones if p < 70.0 or p > 90.0]
         if rasgos_desviados:
             media_desviados = sum(rasgos_desviados) / len(rasgos_desviados)
