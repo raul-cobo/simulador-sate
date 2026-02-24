@@ -90,36 +90,46 @@ class SAPEInterface:
             await self._finalizar_test()
 
     async def _finalizar_test(self):
-        # CAMBIO 2: Desempaquetamos los dos valores que nos da el método actualizado
         raw_scores, sumas_brutas = self._calcular_brutos_reales() 
-        
-        # CAMBIO 3: Le pasamos toda la info matemática al Refinador
-        datos_refinados = SAPERefinery.refine_results(
-            raw_scores=raw_scores, 
-            raw_sums=sumas_brutas, 
-            limites=self.limites_sector
-        )
+        datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=self.limites_sector)
         
         username = app.storage.user.get('username', 'anonimo')
         org_id = app.storage.user.get('org_id', 'generica')
 
         if self.supabase:
             try:
+                # 1. GUARDAR LA EVALUACIÓN
                 payload = {"user_id": username, "org_id": org_id, "test_type": "SAPE", "sector": self.sector, "status": "completed", "results": datos_refinados, "raw_answers": self.respuestas_usuario}
                 self.supabase.table("evaluations").insert(payload).execute()
-            except Exception as e: print(f"Error BD: {e}")
+                
+                # 2. RESTAR 1 LICENCIA A LA ORGANIZACIÓN
+                res_org = self.supabase.table('organizations').select('sape_licenses').eq('id', org_id).execute()
+                if res_org.data:
+                    licencias_actuales = res_org.data[0].get('sape_licenses', 0)
+                    if licencias_actuales > 0:
+                        self.supabase.table('organizations').update({'sape_licenses': licencias_actuales - 1}).eq('id', org_id).execute()
 
+                # 3. RESTAR 1 INTENTO AL USUARIO (EN SU JSONB PROFILE_DATA)
+                res_user = self.supabase.table('users').select('profile_data').eq('username', username).execute()
+                if res_user.data:
+                    profile = res_user.data[0].get('profile_data') or {}
+                    intentos_actuales = profile.get('sape_attempts_allowed', 1)
+                    profile['sape_attempts_allowed'] = max(0, intentos_actuales - 1)
+                    self.supabase.table('users').update({'profile_data': profile}).eq('username', username).execute()
+
+            except Exception as e:
+                print(f"Error Crítico guardando en Supabase: {e}")
+
+        # Continuamos con el renderizado visual de resultados
         self.header_contenedor.clear()
         self.contenedor_principal.clear()
         
         with self.contenedor_principal:
-            # 1. Intentamos dibujar el panel. Si hay error de cualquier tipo, lo pasamos por alto.
             try:
                 render_dashboard_resultados(datos_refinados)
             except Exception as e:
                 ui.label(f"⚠️ Error cargando la pantalla de resultados: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
                 
-            # 2. BOTÓN PDF BLINDADO Y SEPARADO
             with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
                 ui.button('DESCARGAR INFORME PDF', on_click=lambda: asyncio.create_task(self._descargar_pdf(datos_refinados, username, org_id))).classes(
                     'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
