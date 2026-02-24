@@ -1,16 +1,17 @@
 from nicegui import ui
+import plotly.graph_objects as go
 from typing import Dict, Any
 from logic_sape_refinery import SAPERefinery
 
 DIMENSION_LABELS = {
-    'achievement': 'Necesidad de Logro',
-    'risk_propensity': 'Propensión al Riesgo',
-    'innovativeness': 'Innovatividad',
-    'locus_control': 'Locus de Control Interno',
+    'achievement': 'Logro',
+    'risk_propensity': 'Riesgo',
+    'innovativeness': 'Innovación',
+    'locus_control': 'Locus Control',
     'self_efficacy': 'Autoeficacia',
     'autonomy': 'Autonomía',
-    'ambiguity_tolerance': 'Tol. Ambigüedad',
-    'emotional_stability': 'Estabilidad Emocional'
+    'ambiguity_tolerance': 'Incertidumbre',
+    'emotional_stability': 'Estabilidad'
 }
 
 def render_dashboard_resultados(refined_data: Dict[str, Any]):
@@ -18,25 +19,25 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
         
         # CABECERA
         with ui.row().classes('w-full justify-between items-center mb-10'):
-            with ui.row().classes('bg-white rounded-xl items-center justify-center').style('width: 265px; height: 189px; padding: 20px; box-sizing: border-box;'):
+            with ui.row().classes('bg-white rounded-xl items-center justify-center p-4').style('width: 265px; height: 180px;'):
                 ui.image('logo_original.png').style('max-width: 100%; max-height: 100%; object-fit: contain;')
                 
             with ui.column().classes('items-end'):
                 ui.label("Perfil Psicométrico S.A.P.E.").classes('text-white font-bold text-[18px]')
-                ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-white text-[14px]').style('margin-top: 4px;')
+                ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-white text-[14px]')
 
         # BLOQUE 1: KPIs
         with ui.row().classes('w-full flex-wrap justify-center gap-6 mb-10'):
-            _render_caja_kpi("Índice de Resiliencia (IRE)", f"{refined_data.get('ire', 0)}", "Capacidad de Resiliencia durante las decisiones críticas de un emprendimiento")
+            _render_caja_kpi("Índice Resiliencia (IRE)", f"{refined_data.get('ire', 0)}", "Capacidad de respuesta ante crisis")
             f_def = refined_data.get('friccion_defecto', 0)
             f_exc = refined_data.get('friccion_exceso', 0)
-            _render_caja_kpi("Fricción (Defecto/Exceso)", f"-{f_def} / +{f_exc}", "Índice de rasgos que interfieren en el emprendimiento")
-            _render_caja_kpi("Delta", f"{refined_data.get('delta', 0)}", "Desviación del perfil óptimo")
+            _render_caja_kpi("Fricción", f"-{f_def} / +{f_exc}", "Interferencias en el desempeño")
+            _render_caja_kpi("Delta", f"{refined_data.get('delta', 0)}", "Desviación del perfil ideal")
 
-        # BLOQUE 2: Gráfica y Rasgos
+        # BLOQUE 2: Gráfica Octogonal (AHORA CON PLOTLY)
         with ui.row().classes('w-full items-stretch gap-8 mb-10 flex-nowrap'):
-            with ui.column().classes('w-3/5 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-4 shadow-lg justify-center'):
-                _render_octagon_chart(refined_data)
+            with ui.column().classes('w-3/5 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-4 shadow-lg'):
+                _render_plotly_radar(refined_data)
 
             with ui.column().classes('w-2/5 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-8 shadow-lg justify-center'):
                 for key, nombre in DIMENSION_LABELS.items():
@@ -47,63 +48,65 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
 
         # BLOQUE 3: Nociones
         with ui.column().classes('w-full bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-8 shadow-lg mb-8'):
-            ui.label("Nociones y Recomendaciones").classes('text-white font-bold text-[16px] mb-4 border-b border-[#83ABF1] pb-2 w-full')
-            
+            ui.label("Nociones y Recomendaciones").classes('text-[#83ABF1] font-bold text-[16px] mb-4 border-b border-[#83ABF1]/30 pb-2 w-full')
             flags = SAPERefinery.get_clinical_flags(refined_data)
             if flags:
                 for flag in flags:
-                    ui.label(f"• {flag}").classes('text-white text-[12px] mb-2 leading-relaxed')
+                    ui.label(f"• {flag}").classes('text-white text-[12px] mb-2')
             else:
-                ui.label("• Perfil equilibrado. No se detectan patrones de riesgo inminente.").classes('text-white text-[12px] italic')
+                ui.label("• Perfil equilibrado.").classes('text-white text-[12px] italic')
 
 def _render_caja_kpi(titulo, valor, desc):
-    with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-6 items-center justify-center text-center shadow-lg').style('width: 280px; height: 280px;'):
+    with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-6 items-center justify-center text-center shadow-lg').style('width: 250px; height: 250px;'):
         ui.label(titulo).classes('text-[#83ABF1] text-[14px] font-bold mb-4')
-        ui.label(str(valor)).classes('text-white text-[18px] font-black mb-4')
-        ui.label(desc).classes('text-[#83ABF1] text-[12px]')
-        
-def _render_octagon_chart(data: Dict[str, Any]):
-    valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
-    indicadores = [{"name": n, "max": 100} for n in list(DIMENSION_LABELS.values())]
+        ui.label(str(valor)).classes('text-white text-[28px] font-black mb-4')
+        ui.label(desc).classes('text-gray-400 text-[12px]')
 
-    # Dividimos en 20 tramos de 5% cada uno para ajustar al píxel las fronteras clínicas
-    colores_area = (
-        ["rgba(200, 50, 50, 0.4)"] * 5 +    # 0% - 25% (Rojo)
-        ["rgba(230, 190, 50, 0.4)"] * 9 +   # 26% - 70% (Amarillo)
-        ["rgba(50, 160, 80, 0.4)"] * 4 +    # 71% - 90% (Verde)
-        ["rgba(200, 50, 50, 0.4)"] * 2      # 91% - 100% (Rojo)
+def _render_plotly_radar(data: Dict[str, Any]):
+    # Preparamos los datos
+    categories = list(DIMENSION_LABELS.values())
+    values = [data.get(k, 50.0) for k in DIMENSION_LABELS.keys()]
+    
+    # Cerramos el círculo de la gráfica
+    categories += [categories[0]]
+    values += [values[0]]
+
+    fig = go.Figure()
+
+    # Añadimos la traza del perfil
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        name='Perfil',
+        line=dict(color='#FFFFFF', width=3),
+        fillcolor='rgba(131, 171, 241, 0.5)', # Color #83ABF1 con opacidad
+        marker=dict(color='#FFFFFF', size=8)
+    ))
+
+    # Configuración estética corporativa Audeo
+    fig.update_layout(
+        polar=dict(
+            bgcolor="#161B22",
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickfont=dict(color="white", size=10),
+                gridcolor="rgba(131, 171, 241, 0.2)",
+                linecolor="rgba(131, 171, 241, 0.2)"
+            ),
+            angularaxis=dict(
+                tickfont=dict(color="white", size=12, family="Arial Black"),
+                gridcolor="rgba(131, 171, 241, 0.2)",
+                linecolor="rgba(131, 171, 241, 0.2)"
+            )
+        ),
+        showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)", # Transparente para que luzca el fondo de NiceGUI
+        plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=60, r=60, t=40, b=40),
+        height=450
     )
 
-    chart_options = {
-        "backgroundColor": "transparent",
-        "tooltip": {},
-        "radar": {
-            "indicator": indicadores,
-            "shape": "polygon",
-            "splitNumber": 20, # Cambiado a 20 para precisión absoluta
-            "axisName": {"color": "#FFFFFF", "fontSize": 12, "fontWeight": "bold"},
-            "splitArea": {
-                "show": True,
-                "areaStyle": {
-                    "color": colores_area
-                }
-            },
-            "axisLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.3)"}},
-            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.05)"}} # Líneas sutiles
-        },
-        "series": [{
-            "type": "radar",
-            "data": [{
-                "value": valores,
-                "name": "Puntuaciones",
-                "itemStyle": {"color": "#FFFFFF"},
-                "lineStyle": {"width": 3, "color": "#FFFFFF"},
-                "label": {"show": True, "color": "#FFFFFF", "fontSize": 12, "formatter": "{c}"}
-            }]
-        }]
-    }
-    
-    try:
-        ui.echarts(chart_options).classes('w-full').style('height: 450px;')
-    except Exception as e:
-        ui.label(f"Error gráfico interno: {e}").classes('text-red-500')
+    # Renderizado con ui.plotly (Mucho más estable que echarts)
+    ui.plotly(fig).classes('w-full')
