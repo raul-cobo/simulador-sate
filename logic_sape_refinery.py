@@ -1,8 +1,9 @@
+import statistics
 from typing import Dict, Any, List
 
 class SAPERefinery:
     @staticmethod
-    def refine_results(raw_scores: Dict[str, float]) -> Dict[str, Any]:
+    def refine_results(raw_scores: Dict[str, float], raw_sums: Dict[str, float] = None, limites: Dict[str, Dict[str, int]] = None) -> Dict[str, Any]:
         refined = raw_scores.copy()
         
         def clamp(value: float) -> float:
@@ -15,16 +16,43 @@ class SAPERefinery:
         puntuaciones = [refined.get(k, 50.0) for k in rasgos_keys]
         
         # 1. MACRO-MÉTRICAS (Potencial, IRE, Fricción, Delta)
-        refined['potencial'] = round(sum(puntuaciones) / len(puntuaciones), 1)
+        
+        # --- POTENCIAL (Corregido a: Media - Varianza) ---
+        media_potencial = sum(puntuaciones) / len(puntuaciones)
+        varianza = statistics.pvariance(puntuaciones) if len(puntuaciones) > 0 else 0
+        refined['potencial'] = round(clamp(media_potencial - varianza), 1)
 
-        diferencias_ire = [abs(90.0 - p) for p in puntuaciones]
-        media_diferencias = sum(diferencias_ire) / len(diferencias_ire)
-        refined['ire'] = round(clamp(100.0 - media_diferencias), 1)
+        # --- IRE (Corregido según Documento Maestro: Distancia vs Percentil 90 real) ---
+        if raw_sums and limites:
+            ires_rasgo = []
+            for k in rasgos_keys:
+                min_t = limites.get(k, {}).get('min', 0)
+                max_t = limites.get(k, {}).get('max', 100)
+                user_raw = raw_sums.get(k, min_t)
+                
+                # Fórmula del Doc: Puntuación percentil 90% = D7 + 0.9 * (E7 - D7)
+                p90 = min_t + 0.9 * (max_t - min_t)
+                
+                if p90 != 0:
+                    # IRE rasgo = (user_raw / p90) * 100
+                    ire_r = (user_raw / p90) * 100
+                else:
+                    ire_r = 0.0
+                ires_rasgo.append(ire_r)
+            
+            ire_general = sum(ires_rasgo) / len(ires_rasgo) if ires_rasgo else 0
+            refined['ire'] = round(clamp(ire_general), 1)
+        else:
+            # Fallback de seguridad lineal
+            diferencias_ire = [abs(90.0 - p) for p in puntuaciones]
+            media_diferencias = sum(diferencias_ire) / len(diferencias_ire)
+            refined['ire'] = round(clamp(100.0 - media_diferencias), 1)
 
         puntuacion_min = min(puntuaciones)
         puntuacion_max = max(puntuaciones)
         
         # Fricciones con Frontera Clínica
+        # (El resto del código de SAPERefinery se mantiene igual a partir de aquí...)
         if puntuacion_max > 90.0:
             refined['friccion_exceso'] = round(puntuacion_max - refined['potencial'], 1)
         else:
