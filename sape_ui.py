@@ -47,7 +47,8 @@ class SAPEInterface:
                 limites[dim]['min'] += min(valores + [0])
         return limites
 
-    def _calcular_brutos_reales(self) -> Dict[str, float]:
+    # CAMBIO 1: Ahora devolvemos una tupla con los scores y las sumas brutas
+    def _calcular_brutos_reales(self) -> tuple[Dict[str, float], Dict[str, float]]:
         sumas_brutas = {}
         for q_id, letra in self.respuestas_usuario.items():
             fila = self.df_sector[self.df_sector['ID'].astype(str) == str(q_id)] if 'ID' in self.df_sector.columns else self.df_sector.iloc[[int(q_id)]]
@@ -66,7 +67,9 @@ class SAPEInterface:
                 rango = self.limites_sector[dim]['max'] - self.limites_sector[dim]['min']
                 val_norm = ((suma - self.limites_sector[dim]['min']) / rango) * 100 if rango != 0 else 50.0
                 scores[dim] = round(max(0.0, min(100.0, val_norm)), 1)
-        return scores
+                
+        # AQUÍ ESTÁ LA MAGIA: Devolvemos ambos para que el Refinador tenga datos precisos
+        return scores, sumas_brutas
 
     def _preparar_opciones_actuales(self):
         if self.current_idx >= self.total_preguntas: return
@@ -87,8 +90,16 @@ class SAPEInterface:
             await self._finalizar_test()
 
     async def _finalizar_test(self):
-        raw_scores = self._calcular_brutos_reales() 
-        datos_refinados = SAPERefinery.refine_results(raw_scores)
+        # CAMBIO 2: Desempaquetamos los dos valores que nos da el método actualizado
+        raw_scores, sumas_brutas = self._calcular_brutos_reales() 
+        
+        # CAMBIO 3: Le pasamos toda la info matemática al Refinador
+        datos_refinados = SAPERefinery.refine_results(
+            raw_scores=raw_scores, 
+            raw_sums=sumas_brutas, 
+            limites=self.limites_sector
+        )
+        
         username = app.storage.user.get('username', 'anonimo')
         org_id = app.storage.user.get('org_id', 'generica')
 
