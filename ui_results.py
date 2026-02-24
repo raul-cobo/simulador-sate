@@ -1,5 +1,4 @@
 from nicegui import ui
-import plotly.graph_objects as go
 from typing import Dict, Any
 from logic_sape_refinery import SAPERefinery
 
@@ -15,11 +14,10 @@ DIMENSION_LABELS = {
 }
 
 def render_dashboard_resultados(refined_data: Dict[str, Any]):
-    with ui.column().classes('w-full max-w-5xl mx-auto p-6 bg-[#0E1117] min-h-screen text-white'):
+    with ui.column().classes('w-full max-w-5xl mx-auto p-6 bg-[#0E1117] text-white'):
         
         # CABECERA
         with ui.row().classes('w-full justify-between items-center mb-10'):
-            # Caja blanca con centrado forzado para el logo
             with ui.row().classes('bg-white rounded-xl items-center justify-center').style('width: 265px; height: 189px; padding: 20px; box-sizing: border-box;'):
                 ui.image('logo_original.png').style('max-width: 100%; max-height: 100%; object-fit: contain;')
                 
@@ -38,7 +36,7 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
         # BLOQUE 2: Gráfica y Rasgos
         with ui.row().classes('w-full items-stretch gap-8 mb-10 flex-nowrap'):
             with ui.column().classes('w-3/5 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-4 shadow-lg justify-center'):
-                _render_octagon_plotly(refined_data)
+                _render_octagon_chart(refined_data)
 
             with ui.column().classes('w-2/5 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-8 shadow-lg justify-center'):
                 for key, nombre in DIMENSION_LABELS.items():
@@ -64,34 +62,54 @@ def _render_caja_kpi(titulo, valor, desc):
         ui.label(str(valor)).classes('text-white text-[18px] font-black mb-4')
         ui.label(desc).classes('text-[#83ABF1] text-[12px]')
         
-def _render_octagon_plotly(data: Dict[str, Any]):
+def _render_octagon_chart(data: Dict[str, Any]):
+    # CORTAFUEGOS: Si la versión de NiceGUI es antigua, mostramos un aviso sin romper la web
+    if not hasattr(ui, 'echarts'):
+        with ui.column().classes('w-full h-full items-center justify-center p-8 text-center bg-red-900/20 border border-red-500/50 rounded-xl'):
+            ui.icon('warning', size='3rem', color='red')
+            ui.label('⚠️ VERSIÓN DEL SERVIDOR OBSOLETA').classes('text-red-400 font-bold text-lg mt-2')
+            ui.label('Para ver la gráfica de araña, necesitas actualizar la versión de NiceGUI.').classes('text-white text-sm')
+            ui.label("Escribe 'nicegui>=1.4.0' en tu archivo requirements.txt").classes('text-gray-400 text-xs mt-2')
+        return
+
     valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
-    nombres = list(DIMENSION_LABELS.values())
+    indicadores = [{"name": n, "max": 100} for n in list(DIMENSION_LABELS.values())]
+
+    chart_options = {
+        "backgroundColor": "transparent",
+        "tooltip": {},
+        "radar": {
+            "indicator": indicadores,
+            "shape": "polygon",
+            "splitNumber": 10,
+            "axisName": {"color": "#FFFFFF", "fontSize": 12, "fontWeight": "bold"},
+            "splitArea": {
+                "show": True,
+                "areaStyle": {
+                    "color": [
+                        "rgba(200, 50, 50, 0.4)", "rgba(200, 50, 50, 0.4)", "rgba(200, 50, 50, 0.4)", # 0-30 Rojo
+                        "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", # 30-70 Amar
+                        "rgba(50, 160, 80, 0.4)", "rgba(50, 160, 80, 0.4)", # 70-90 Verde
+                        "rgba(200, 50, 50, 0.4)" # 90-100 Rojo
+                    ]
+                }
+            },
+            "axisLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.3)"}},
+            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.1)"}}
+        },
+        "series": [{
+            "type": "radar",
+            "data": [{
+                "value": valores,
+                "name": "Puntuaciones",
+                "itemStyle": {"color": "#FFFFFF"},
+                "lineStyle": {"width": 3, "color": "#FFFFFF"},
+                "label": {"show": True, "color": "#FFFFFF", "fontSize": 12, "formatter": "{c}"}
+            }]
+        }]
+    }
     
-    # Cerramos el polígono para que la línea conecte el último punto con el primero
-    valores.append(valores[0])
-    nombres.append(nombres[0])
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=valores,
-        theta=nombres,
-        fill='toself',
-        fillcolor='rgba(131, 171, 241, 0.4)',
-        line=dict(color='#83ABF1', width=3),
-        name='Perfil'
-    ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 100], gridcolor='rgba(255, 255, 255, 0.2)', linecolor='rgba(255, 255, 255, 0.2)', tickfont=dict(color='rgba(255, 255, 255, 0.5)')),
-            angularaxis=dict(gridcolor='rgba(255, 255, 255, 0.2)', linecolor='rgba(255, 255, 255, 0.2)', tickfont=dict(color='#FFFFFF', size=11)),
-            bgcolor='transparent'
-        ),
-        showlegend=False,
-        paper_bgcolor='transparent',
-        plot_bgcolor='transparent',
-        margin=dict(l=30, r=30, t=30, b=30),
-        height=450
-    )
-    ui.plotly(fig).classes('w-full').style('height: 450px;')
+    try:
+        ui.echarts(chart_options).classes('w-full').style('height: 450px;')
+    except Exception as e:
+        ui.label(f"Error gráfico interno: {e}").classes('text-red-500')
