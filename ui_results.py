@@ -63,7 +63,6 @@ def _render_caja_kpi(titulo, valor, desc):
         ui.label(desc).classes('text-[#83ABF1] text-[12px]')
         
 def _render_octagon_chart(data: Dict[str, Any]):
-    # CORTAFUEGOS: Si la versión de NiceGUI es antigua, mostramos un aviso sin romper la web
     if not hasattr(ui, 'echarts'):
         with ui.column().classes('w-full h-full items-center justify-center p-8 text-center bg-red-900/20 border border-red-500/50 rounded-xl'):
             ui.icon('warning', size='3rem', color='red')
@@ -75,27 +74,30 @@ def _render_octagon_chart(data: Dict[str, Any]):
     valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
     indicadores = [{"name": n, "max": 100} for n in list(DIMENSION_LABELS.values())]
 
+    # Dividimos en 20 tramos de 5% cada uno para ajustar al píxel las fronteras clínicas
+    colores_area = (
+        ["rgba(200, 50, 50, 0.4)"] * 5 +    # 0% - 25% (Rojo)
+        ["rgba(230, 190, 50, 0.4)"] * 9 +   # 26% - 70% (Amarillo)
+        ["rgba(50, 160, 80, 0.4)"] * 4 +    # 71% - 90% (Verde)
+        ["rgba(200, 50, 50, 0.4)"] * 2      # 91% - 100% (Rojo)
+    )
+
     chart_options = {
         "backgroundColor": "transparent",
         "tooltip": {},
         "radar": {
             "indicator": indicadores,
             "shape": "polygon",
-            "splitNumber": 10,
+            "splitNumber": 20, # Cambiado a 20 para precisión
             "axisName": {"color": "#FFFFFF", "fontSize": 12, "fontWeight": "bold"},
             "splitArea": {
                 "show": True,
                 "areaStyle": {
-                    "color": [
-                        "rgba(200, 50, 50, 0.4)", "rgba(200, 50, 50, 0.4)", "rgba(200, 50, 50, 0.4)", # 0-30 Rojo
-                        "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", "rgba(230, 190, 50, 0.4)", # 30-70 Amar
-                        "rgba(50, 160, 80, 0.4)", "rgba(50, 160, 80, 0.4)", # 70-90 Verde
-                        "rgba(200, 50, 50, 0.4)" # 90-100 Rojo
-                    ]
+                    "color": colores_area
                 }
             },
             "axisLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.3)"}},
-            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.1)"}}
+            "splitLine": {"lineStyle": {"color": "rgba(255, 255, 255, 0.05)"}} # Líneas divisorias muy sutiles para no ensuciar
         },
         "series": [{
             "type": "radar",
