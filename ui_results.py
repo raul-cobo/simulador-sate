@@ -2,111 +2,143 @@ from nicegui import ui
 from typing import Dict, Any
 from logic_sape_refinery import SAPERefinery
 
-# Diccionario para traducir las variables internas al español en el gráfico
+# Diccionario para traducir las variables internas al español
 DIMENSION_LABELS = {
-    'achievement': 'Logro',
-    'risk_propensity': 'Riesgo',
-    'innovativeness': 'Innovación',
-    'locus_control': 'Locus de Control',
+    'achievement': 'Necesidad de Logro',
+    'risk_propensity': 'Propensión al Riesgo',
+    'innovativeness': 'Innovatividad',
+    'locus_control': 'Locus de Control Interno',
     'self_efficacy': 'Autoeficacia',
     'autonomy': 'Autonomía',
-    'ambiguity_tolerance': 'Tol. Incertidumbre',
-    'emotional_stability': 'Estabilidad Emoc.'
+    'ambiguity_tolerance': 'Tol. Ambigüedad',
+    'emotional_stability': 'Estabilidad Emocional'
 }
 
 def render_dashboard_resultados(refined_data: Dict[str, Any]):
     """
-    Renderiza el Dashboard final del SAPE usando NiceGUI y Tailwind.
-    Espera los datos procesados por logic_sape_refinery.py
+    Renderiza el Dashboard final del SAPE siguiendo el Documento Maestro Audeo.
     """
     with ui.column().classes('w-full max-w-5xl mx-auto p-6 bg-[#0E1117] min-h-screen text-white'):
         
-        # --- CABECERA ---
-        ui.label("Perfil Psicométrico SAPE").classes('text-3xl font-bold text-white mb-2')
-        ui.label("Análisis de Competencias Emprendedoras y Estructura Latente").classes('text-gray-400 mb-8')
+        # ==========================================================
+        # CABECERA
+        # ==========================================================
+        with ui.row().classes('w-full justify-between items-center mb-8'):
+            # Izquierda: Logo en recuadro blanco
+            with ui.column().classes('bg-white rounded-xl p-3 justify-center items-center w-32 h-16'):
+                ui.image('audeo_original.png').classes('w-full h-auto max-h-full object-contain')
+                
+            # Derecha: Títulos
+            with ui.column().classes('items-end justify-center'):
+                ui.label("Perfil Psicométrico S.A.P.E.").classes('text-white text-[14px] font-bold')
+                ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-white text-[14px] mt-[4px]')
 
-        # --- 1. SECCIÓN DE MACRO-CLÚSTERES (Nuevos KPIs Audeo) ---
-        with ui.row().classes('w-full gap-4 mb-8'):
-            _render_kpi_card("Índice de Resiliencia (IRE)", f"{refined_data.get('ire', 0)}%", "Capacidad de supervivencia")
+        # ==========================================================
+        # BLOQUE 1: MACRO-MÉTRICAS (Cajas Cuadradas)
+        # ==========================================================
+        with ui.row().classes('w-full grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'):
             
-            # La fricción tiene dos valores, los mostramos juntos
-            friccion_str = f"-{refined_data.get('friccion_defecto', 0)} / +{refined_data.get('friccion_exceso', 0)}"
-            _render_kpi_card("Fricción (Defecto/Exceso)", friccion_str, "Desgaste interno")
+            # Caja 1: IRE
+            with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-4 aspect-square justify-center items-center text-center shadow-lg'):
+                ui.label("Índice de Resiliencia (IRE)").classes('text-[#83ABF1] text-[14px] font-bold mb-2')
+                ui.label(f"{refined_data.get('ire', 0)}%").classes('text-white text-[18px] font-black mb-2')
+                ui.label("Capacidad de Resiliencia durante las decisiones críticas de un emprendimiento").classes('text-[#83ABF1] text-[12px]')
             
-            _render_kpi_card("Índice Delta", f"{refined_data.get('delta', 0)}", "Desviación del perfil óptimo")
+            # Caja 2: Fricción
+            with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-4 aspect-square justify-center items-center text-center shadow-lg'):
+                friccion_str = f"-{refined_data.get('friccion_defecto', 0)} / +{refined_data.get('friccion_exceso', 0)}"
+                ui.label("Fricción (Defecto/Exceso)").classes('text-[#83ABF1] text-[14px] font-bold mb-2')
+                ui.label(friccion_str).classes('text-white text-[18px] font-black mb-2')
+                ui.label("Índice de rasgos que interfieren en el emprendimiento").classes('text-[#83ABF1] text-[12px]')
+            
+            # Caja 3: Delta
+            with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-4 aspect-square justify-center items-center text-center shadow-lg'):
+                ui.label("Delta").classes('text-[#83ABF1] text-[14px] font-bold mb-2')
+                ui.label(f"{refined_data.get('delta', 0)}").classes('text-white text-[18px] font-black mb-2')
+                ui.label("Desviación del perfil óptimo").classes('text-[#83ABF1] text-[12px]')
 
-        # --- 2. EL OCTÓGONO Y LOS INSIGHTS CLINICOS ---
-        with ui.row().classes('w-full items-stretch gap-6'):
+        # ==========================================================
+        # BLOQUE 2: OCTÓGONO Y PUNTUACIONES DETALLADAS
+        # ==========================================================
+        with ui.row().classes('w-full items-stretch gap-8 mb-8'):
             
-            # Gráfico de Radar (Octógono) - Izquierda (60%)
-            with ui.column().classes('w-full md:w-[60%] bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-6 shadow-lg'):
-                ui.label("Octógono de Rasgos Nucleares").classes('text-xl font-semibold mb-4 text-[#83ABF1]')
+            # Izquierda: Gráfico de Radar (Octógono) - Aprox 60% ancho
+            with ui.column().classes('w-full md:w-[60%] bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-4 shadow-lg justify-center'):
                 _render_octagon_chart(refined_data)
 
-            # Insights y Flags - Derecha (40%)
-            with ui.column().classes('w-full md:flex-1 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-6 shadow-lg'):
-                ui.label("Descarriladores y Alertas").classes('text-xl font-semibold mb-4 text-[#83ABF1]')
-                
-                flags = SAPERefinery.get_clinical_flags(refined_data)
-                
-                if flags:
-                    for flag in flags:
-                        # Estilos dinámicos: Rojo para descarriladores/alertas, Azul/Verde para otros insights si los hubiera
-                        is_alert = "Riesgo" in flag or "Descarrilamiento" in flag or "Bloqueo" in flag
-                        bg_color = "bg-red-900/20" if is_alert else "bg-[#83ABF1]/10"
-                        border_color = "border-red-500/50" if is_alert else "border-[#83ABF1]/50"
-                        icon = "warning" if is_alert else "psychology"
-                        icon_color = "text-red-400" if is_alert else "text-[#83ABF1]"
-                        
-                        with ui.row().classes(f'w-full items-start p-4 mb-3 rounded-lg border {border_color} {bg_color}'):
-                            ui.icon(icon).classes(f'{icon_color} text-2xl mr-3 mt-1')
-                            ui.label(flag).classes('text-sm text-gray-200 leading-relaxed flex-1')
-                else:
-                    ui.label("Perfil equilibrado en la zona de seguridad. No se detectaron descarriladores críticos ni riesgos de bloqueo.").classes('text-gray-400 italic text-sm')
+            # Derecha: Lista de Puntuaciones - Aprox 40% ancho
+            with ui.column().classes('w-full md:flex-1 bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-6 shadow-lg justify-center'):
+                for key, nombre_es in DIMENSION_LABELS.items():
+                    valor = refined_data.get(key, 50.0)
+                    with ui.row().classes('w-full justify-between items-center mb-3 border-b border-gray-700 pb-1'):
+                        ui.label(nombre_es).classes('text-white text-[14px] font-bold')
+                        ui.label(f"{valor}%").classes('text-white text-[14px] font-bold')
+
+        # ==========================================================
+        # BLOQUE 3: NOCIONES Y RECOMENDACIONES
+        # ==========================================================
+        with ui.column().classes('w-full bg-[#161B22] border border-[#83ABF1]/30 rounded-xl p-6 shadow-lg mb-4'):
+            ui.label("Diagnóstico y Recomendaciones Clínicas").classes('text-white text-[14px] font-bold mb-4 border-b border-[#83ABF1] pb-2')
+            
+            # Extraemos las banderas de nuestro motor de refinamiento
+            flags = SAPERefinery.get_clinical_flags(refined_data)
+            
+            if flags:
+                for flag in flags:
+                    ui.label(f"• {flag}").classes('text-white text-[12px] mb-2 leading-relaxed')
+            else:
+                ui.label("• Perfil equilibrado. No se detectan patrones de riesgo inminente ni descarriladores críticos que requieran intervención.").classes('text-white text-[12px] italic')
+            
+            # Recomendación base usando Delta
+            delta = refined_data.get('delta', 0)
+            if delta > 20:
+                ui.label(f"• El Delta actual ({delta}) sugiere que el perfil requiere ajustes estructurales. Se recomienda descargar el informe técnico para auditar las áreas de desarrollo.").classes('text-white text-[12px] mt-2')
+            else:
+                ui.label("• El perfil se encuentra dentro de los márgenes de viabilidad técnica.").classes('text-white text-[12px] mt-2')
 
 # --- FUNCIONES AUXILIARES DE RENDERIZADO ---
 
-def _render_kpi_card(title: str, value: str, subtitle: str):
-    """Renderiza una tarjeta para los KPIs Audeo."""
-    with ui.column().classes('flex-1 bg-[#161B22] border border-[#83ABF1]/50 rounded-xl p-5 items-center justify-center text-center shadow-md'):
-        ui.label(title).classes('text-sm text-[#83ABF1] font-bold uppercase tracking-wider mb-2')
-        ui.label(value).classes('text-3xl font-black text-white mb-1')
-        ui.label(subtitle).classes('text-xs text-gray-400')
-
 def _render_octagon_chart(data: Dict[str, Any]):
-    """Configura e inyecta el gráfico de ECharts."""
+    """Configura e inyecta el gráfico de ECharts con las zonas de color."""
     
-    # Extraer los 8 valores en el orden del diccionario DIMENSION_LABELS
     valores = [data.get(key, 50.0) for key in DIMENSION_LABELS.keys()]
     nombres = list(DIMENSION_LABELS.values())
     
-    # Construcción de los indicadores para ECharts (max 100)
     indicadores = [{"name": nombre, "max": 100} for nombre in nombres]
 
-    # Configuración JSON pura de ECharts adaptada al Dark Mode de Audeo
     chart_options = {
         "backgroundColor": "transparent",
         "tooltip": {},
         "radar": {
             "indicator": indicadores,
-            "shape": "polygon", # Octógono literal
-            "splitNumber": 5,
+            "shape": "polygon",
+            "splitNumber": 5, # Divide en 5 anillos (20, 40, 60, 80, 100)
             "axisName": {
-                "color": "#E0E0E0",
+                "color": "#FFFFFF", # Letras en blanco
                 "fontSize": 12,
                 "fontWeight": "bold"
             },
-            "splitLine": {
-                "lineStyle": {
-                    "color": ["rgba(131, 171, 241, 0.1)", "rgba(131, 171, 241, 0.2)", "rgba(131, 171, 241, 0.3)", "rgba(131, 171, 241, 0.4)", "rgba(131, 171, 241, 0.5)"]
-                }
-            },
             "splitArea": {
-                "show": False
+                "show": True,
+                "areaStyle": {
+                    # Aproximación visual a tus rangos: 0-25 (Rojo), 26-70 (Amar), 71-90 (Verde), 91-100 (Rojo)
+                    "color": [
+                        "rgba(200, 50, 50, 0.2)",    # Anillo interior (aprox 0-20) ROJO
+                        "rgba(230, 190, 50, 0.2)",   # Anillo 2 (aprox 20-40) AMARILLO
+                        "rgba(230, 190, 50, 0.2)",   # Anillo 3 (aprox 40-60) AMARILLO
+                        "rgba(50, 160, 80, 0.2)",    # Anillo 4 (aprox 60-80) VERDE
+                        "rgba(200, 50, 50, 0.2)"     # Anillo exterior (aprox 80-100) ROJO
+                    ]
+                }
             },
             "axisLine": {
                 "lineStyle": {
-                    "color": "rgba(255, 255, 255, 0.2)"
+                    "color": "rgba(255, 255, 255, 0.3)"
+                }
+            },
+            "splitLine": {
+                "lineStyle": {
+                    "color": "rgba(255, 255, 255, 0.1)"
                 }
             }
         },
@@ -115,20 +147,23 @@ def _render_octagon_chart(data: Dict[str, Any]):
             "data": [
                 {
                     "value": valores,
-                    "name": "Perfil del Candidato",
+                    "name": "Puntuaciones",
                     "itemStyle": {
-                        "color": "#83ABF1"
-                    },
-                    "areaStyle": {
-                        "color": "rgba(131, 171, 241, 0.3)" # Transparencia azulada
+                        "color": "#FFFFFF" # Puntos en blanco
                     },
                     "lineStyle": {
-                        "width": 2,
-                        "color": "#83ABF1"
+                        "width": 3,
+                        "color": "#FFFFFF" # Línea principal en blanco
+                    },
+                    "label": {
+                        "show": True,
+                        "color": "#FFFFFF", # Números en blanco
+                        "fontSize": 12,
+                        "formatter": "{c}"
                     }
                 }
             ]
         }]
     }
 
-    ui.echarts(chart_options).classes('w-full h-80')
+    ui.echarts(chart_options).classes('w-full h-96')
