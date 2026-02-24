@@ -9,7 +9,6 @@ from nicegui import ui, app
 from logic_sape_refinery import SAPERefinery
 from ui_results import render_dashboard_resultados
 
-# --- CONSTANTES DE ESTILO ---
 BG_COLOR = "#0E1117"
 ACCENT_COLOR = "#83ABF1"
 
@@ -88,36 +87,37 @@ class SAPEInterface:
             await self._finalizar_test()
 
     async def _finalizar_test(self):
-        # 1. Cálculos e IA
         raw_scores = self._calcular_brutos_reales() 
         datos_refinados = SAPERefinery.refine_results(raw_scores)
         username = app.storage.user.get('username', 'anonimo')
         org_id = app.storage.user.get('org_id', 'generica')
 
-        # 2. Guardado en Supabase
         if self.supabase:
             try:
                 payload = {"user_id": username, "org_id": org_id, "test_type": "SAPE", "sector": self.sector, "status": "completed", "results": datos_refinados, "raw_answers": self.respuestas_usuario}
                 self.supabase.table("evaluations").insert(payload).execute()
-            except Exception as e: print(f"⚠️ Error BD: {e}")
+            except Exception as e: print(f"Error BD: {e}")
 
-        # 3. Limpieza y Renderizado ÚNICO
         self.header_contenedor.clear()
         self.contenedor_principal.clear()
+        
+        # Función "puente" asíncrona para que el botón PDF no falle
+        async def on_download_click():
+            await self._descargar_pdf(datos_refinados, username, org_id)
+
         with self.contenedor_principal:
-            render_dashboard_resultados(
-                datos_refinados, 
-                callback_pdf=lambda: self._descargar_pdf(datos_refinados, username, org_id)
-            )
+            render_dashboard_resultados(datos_refinados, callback_pdf=on_download_click)
 
     async def _descargar_pdf(self, datos, user, org):
         try:
-            ui.notify('Generando informe...', type='info')
+            ui.notify('Generando informe corporativo...', type='info')
             demograficos = {'org': org, 'sector': self.sector, 'fecha': datetime.datetime.now().strftime("%d/%m/%Y")}
             ruta = pdf_generator.generar_pdf_sape(user, datos, SAPERefinery.get_clinical_flags(datos), demograficos)
             ui.download(ruta)
+            ui.notify('Informe descargado con éxito', type='positive')
         except Exception as e:
-            ui.notify(f'Error: {e}', type='negative')
+            ui.notify(f'Error generando PDF.', type='negative')
+            print(f"Error PDF: {e}")
 
     @ui.refreshable
     def header_progress(self):
@@ -133,12 +133,10 @@ class SAPEInterface:
         if self.current_idx >= len(self.df_sector): return
         fila = self.df_sector.iloc[self.current_idx]
         
-        # .strip().capitalize() limpia espacios del CSV y pone la primera letra en mayúscula y el resto en minúsculas
         titulo_txt = str(fila.get('TITULO', 'Sin título')).strip().capitalize()
         narrativa_txt = str(fila.get('NARRATIVA', '...')).strip().capitalize()
 
         with ui.row().classes('w-full max-w-7xl mx-auto flex-1 items-stretch pt-10 gap-12 px-6 flex-nowrap'):
-            
             with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pb-20'):
                 ui.label(titulo_txt).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
                 ui.label(narrativa_txt).classes('text-[18px] text-white leading-relaxed')
@@ -147,17 +145,13 @@ class SAPEInterface:
                 for txt, letra in self.opciones_mezcladas:
                     txt_oracion = str(txt).strip().capitalize()
                     
-                    # Iniciamos el botón anulando su color base por defecto
                     btn = ui.button(on_click=lambda l=letra: self._handle_click(l), color=None)
-                    
-                    # PROPS CLAVE: 'no-caps' evita que Quasar fuerce las mayúsculas
                     btn.props('no-caps')
-                    
                     btn.classes(
                         'w-full text-left p-6 rounded-xl text-white '
-                        '!bg-[#0D248D] hover:!bg-[#5898D4] ' # El '!' fuerza el color azul Audeo por encima del sistema
-                        'hover:scale-[1.15] ' # Ampliación exacta del 15%
-                        'transition-all duration-300 ease-out border-none group shadow-lg'
+                        '!bg-[#0D248D] hover:!bg-[#5898D4] '
+                        'hover:scale-[1.15] '
+                        'transition-all duration-300 ease-out border-none shadow-lg'
                     )
                     
                     with btn: 
