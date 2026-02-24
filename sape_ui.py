@@ -124,16 +124,6 @@ class SAPEInterface:
             await self._finalizar_test()
 
     async def _finalizar_test(self):
-        self.contenedor_principal.clear()
-        self.header_contenedor.clear()
-        
-        with self.contenedor_principal:
-            with ui.column().classes('w-full h-screen items-center justify-center gap-6'):
-                ui.spinner('dots', size='xl', color=ACCENT_COLOR)
-                ui.label("Procesando perfil SAPE...").classes('text-2xl text-white font-bold animate-pulse')
-
-        await asyncio.sleep(1.0)
-
         # 1. MATEMÁTICAS PURAS
         raw_scores = self._calcular_brutos_reales() 
 
@@ -141,11 +131,11 @@ class SAPEInterface:
         datos_refinados = SAPERefinery.refine_results(raw_scores)
 
         # 3. BASE DE DATOS: Guardado REAL en la tabla 'evaluations'
+        username = app.storage.user.get('username', 'anonimo')
+        org_id = app.storage.user.get('org_id', 'generica')
+        
         if self.supabase:
             try:
-                username = app.storage.user.get('username', 'anonimo')
-                org_id = app.storage.user.get('org_id', 'generica')
-                
                 payload = {
                     "user_id": username,
                     "org_id": org_id,
@@ -161,26 +151,21 @@ class SAPEInterface:
             except Exception as e:
                 print(f"⚠️ Error guardando en BD 'evaluations': {e}")
 
-        # 4. RENDERIZADO AL OCTÓGONO Y BOTÓN PDF
+        # 4. RENDERIZADO DE LA PANTALLA FINAL
         self.contenedor_principal.clear()
+        self.header_contenedor.clear()
+        
         with self.contenedor_principal:
-            render_dashboard_resultados(datos_refinados)
-            
-            # --- SECCIÓN DEL BOTÓN PDF ---
-            ui.separator().classes('my-8 bg-gray-700')
-            with ui.row().classes('w-full justify-center pb-12'):
-                ui.button('DESCARGAR INFORME PDF', on_click=lambda: self._descargar_pdf(datos_refinados)).classes(
-                    'bg-[#0D248D] text-white text-lg font-bold py-4 px-8 rounded-xl shadow-2xl hover:scale-105 transition-transform'
-                ).props('icon=picture_as_pdf')
+            render_dashboard_resultados(
+                datos_refinados, 
+                callback_pdf=lambda: self._descargar_pdf(datos_refinados, username, org_id)
+            )
 
-    async def _descargar_pdf(self, datos_refinados):
+    async def _descargar_pdf(self, datos_refinados, username, org_id):
         try:
             ui.notify('Generando informe corporativo...', type='info')
             
-            username = app.storage.user.get('username', 'Candidato')
-            org_id = app.storage.user.get('org_id', 'Organización Desconocida')
-            
-            # Preparamos los datos demográficos ficticios (luego los podemos pedir en pantalla)
+            # Preparamos los datos demográficos
             demograficos = {
                 'org': org_id,
                 'sector': self.sector,
@@ -190,8 +175,8 @@ class SAPEInterface:
             # Llamamos a TU función exacta de pdf_generator.py
             ruta_pdf = pdf_generator.generar_pdf_sape(
                 user_id=username, 
-                scores=datos_refinados, # <-- Le pasamos TODOS los datos refinados (IRE, Delta, etc.)                alertas=datos_refinados.get('alertas', []),
-                alertas=SAPERefinery.get_clinical_flags(datos_refinados), # <-- Sacamos las alertas de texto
+                scores=datos_refinados, 
+                alertas=SAPERefinery.get_clinical_flags(datos_refinados),
                 demograficos=demograficos
             )
             
@@ -228,22 +213,14 @@ class SAPEInterface:
                 ui.label(fila.get('NARRATIVA', '...')).classes('text-2xl text-white leading-relaxed font-light tracking-wide')
 
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-6 pb-20'):
-              for texto_opcion, letra_original in self.opciones_mezcladas:
+                for texto_opcion, letra_original in self.opciones_mezcladas:
                     btn = ui.button(on_click=lambda l=letra_original: self._handle_click(l))
                     
-                    # Forzamos el color mediante style en lugar de classes para asegurar que el navegador lo aplique
                     btn.style('background-color: #0D248D; color: white;')
-                    
                     btn.classes(
                         'w-full text-left p-6 rounded-xl shadow-lg '
-                        'hover:scale-[1.02] ' # Un hover más sutil y elegante
-                        'transition-all duration-300 ease-out '
-                        'border-none group'
+                        'hover:scale-[1.02] transition-all duration-300 ease-out border-none group'
                     )
-                    
-                    # Aseguramos que el texto interior también sea explícitamente blanco
-                    with btn:
-                        ui.label(texto_opcion).classes('text-lg leading-snug whitespace-normal break-words w-full font-medium').style('color: white;')
                     
                     with btn:
                         ui.label(texto_opcion).classes('text-lg leading-snug whitespace-normal break-words w-full font-medium text-white')
