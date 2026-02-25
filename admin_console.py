@@ -116,22 +116,37 @@ class ConsolaAdmin:
                 btn.on('mouseleave', lambda: btn.style('transform: scale(1.0)'))
 
     def verificar_admin(self, user, pwd):
-        """Busca las credenciales en la tabla 'admins' de Supabase"""
+        """Versión de Diagnóstico Avanzado"""
+        print(f"--- Intento de Login Admin ---")
+        print(f"Buscando usuario: {user}")
+        
         if not supabase:
+            print("CRÍTICO: El cliente Supabase no está inicializado. Revisa SUPABASE_URL/KEY en el .env")
             ui.notify('Error de conexión a la base de datos.', type='negative')
             return
             
         try:
-            # Consultamos a Supabase si existe este administrador
+            # Consultamos a Supabase
             res = supabase.table('admins').select('*').eq('username', user).eq('password', pwd).execute()
             
+            print(f"Respuesta de Supabase: {res.data}")
+
             if res.data and len(res.data) > 0:
+                print("Login exitoso. Iniciando sesión de admin.")
                 self.admin_autenticado = True
+                
+                # Guardamos en la sesión persistente de NiceGUI
+                from nicegui import app
+                app.storage.user.update({'role': 'admin', 'authenticated': True})
+                
                 self.contenedor.classes(remove='justify-center items-center', add='p-8 items-start')
                 self.render()
             else:
-                ui.notify('Acceso denegado. Credenciales incorrectas.', type='negative', position='top')
+                print("Fallo de login: Usuario/Password no coinciden o RLS bloqueando lectura.")
+                ui.notify('Acceso denegado. Credenciales incorrectas o RLS activo.', type='negative', position='top')
+                
         except Exception as e:
+            print(f"EXCEPCIÓN en verificar_admin: {str(e)}")
             ui.notify(f'Error al verificar credenciales: {e}', type='negative')
 
     def cerrar_sesion(self):
