@@ -3,8 +3,10 @@ import pandas as pd
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
-
 from admin_console import ConsolaAdmin
+from sape_ui import SAPEInterface
+from admin_console import ConsolaAdmin
+from org_console import ConsolaOrganizacion # <--- Añadir esta línea
 from sape_ui import SAPEInterface
 
 # ==========================================
