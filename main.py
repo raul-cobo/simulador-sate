@@ -72,6 +72,8 @@ def login_page():
         rol = app.storage.user.get('role')
         if rol == 'ADMIN':
             ui.navigate.to('/admin')
+        elif rol == 'ORG_ADMIN':
+            ui.navigate.to('/org-admin')
         else:
             ui.navigate.to('/panel')
         return
@@ -89,7 +91,7 @@ def login_page():
             return
 
         try:
-            # 1. INTENTO EN TABLA USERS (Usuarios y Admin espejo)
+            # 1. INTENTO EN TABLA USERS (Usuarios, Org Admins y Admin espejo)
             res = supabase.table('users').select('*').eq('username', user).eq('password', pwd).eq('is_deleted', False).execute()
             
             user_data = None
@@ -103,17 +105,21 @@ def login_page():
                     user_data['role'] = 'ADMIN' # Forzamos rol si viene de esta tabla
 
             if user_data:
+                rol = user_data.get('role', 'USER')
                 app.storage.user.update({
                     'authenticated': True,
-                    'role': user_data.get('role', 'USER'),
+                    'role': rol,
                     'username': user_data.get('username'),
                     'org_id': user_data.get('org_id', 'sistema')
                 })
                 
                 ui.notify(f'Bienvenido, {user_data.get("username")}', color='positive')
                 
-                if user_data.get('role') == 'ADMIN':
+                # ENRUTAMIENTO POR ROLES
+                if rol == 'ADMIN':
                     ui.navigate.to('/admin')
+                elif rol == 'ORG_ADMIN':
+                    ui.navigate.to('/org-admin')
                 else:
                     ui.navigate.to('/panel')
             else:
