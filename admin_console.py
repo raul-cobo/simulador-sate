@@ -2,10 +2,13 @@ import os
 import pandas as pd
 import io
 import json
-from nicegui import ui
+from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# ==========================================
+# 1. CONFIGURACIÓN E INICIALIZACIÓN
+# ==========================================
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -15,7 +18,7 @@ try:
     if SUPABASE_URL and SUPABASE_KEY:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    print(f"Error Supabase en Admin: {e}")
+    print(f"⚠️ Error Supabase en Admin: {e}")
 
 BG_COLOR = "#0E1117"
 DARK_BLUE = "#0D248D"
@@ -28,9 +31,8 @@ class ConsolaAdmin:
     def render(self):
         self.contenedor.clear()
         
-        # Verificamos si ya estamos logueados como admin en la sesión global
-        from nicegui import app
-        if app.storage.user.get('role') == 'admin':
+        # Verificamos sesión persistente (Rol ADMIN en mayúsculas como en la DB)
+        if app.storage.user.get('role') == 'ADMIN':
             self.admin_autenticado = True
 
         if not self.admin_autenticado:
@@ -38,38 +40,115 @@ class ConsolaAdmin:
         else:
             self.render_dashboard()
 
+    # ==========================================
+    # 2. LÓGICA DE AUTENTICACIÓN
+    # ==========================================
+    def render_login(self):
+        """Pantalla de login centrada"""
+        with self.contenedor.classes('justify-center items-center'):
+            with ui.card().classes('p-10 rounded-3xl bg-white shadow-2xl items-center').style('width: 25vw; min-width: 320px;'):
+                ui.image('logo_original.png').classes('w-48 mb-2')
+                ui.label('CONSOLA MAESTRA').classes('text-xl font-bold text-gray-800 mb-6 tracking-widest')
+                
+                u_in = ui.input('Usuario Admin').classes('w-full mb-4').props('outlined')
+                p_in = ui.input('Contraseña', password=True).classes('w-full mb-6').props('outlined')
+                p_in.on('keydown.enter', lambda: self.verificar_admin(u_in.value, p_in.value))
+                
+                btn = ui.button('ACCEDER AL PANEL', on_click=lambda: self.verificar_admin(u_in.value, p_in.value)) \
+                    .classes('w-full py-4 font-bold text-white rounded-xl transition-all shadow-lg').style(f'background-color: {DARK_BLUE}')
+                btn.on('mouseenter', lambda: btn.style('transform: scale(1.05)'))
+                btn.on('mouseleave', lambda: btn.style('transform: scale(1.0)'))
+
+    def verificar_admin(self, user, pwd):
+        """Validación contra tabla 'admins' con diagnóstico"""
+        if not supabase:
+            ui.notify('Error: No hay conexión a Supabase', type='negative')
+            return
+            
+        try:
+            res = supabase.table('admins').select('*').eq('username', user).eq('password', pwd).execute()
+            
+            if res.data and len(res.data) > 0:
+                self.admin_autenticado = True
+                app.storage.user.update({'role': 'ADMIN', 'authenticated': True, 'username': user})
+                ui.notify(f'Bienvenido, Administrador', type='positive')
+                self.render()
+            else:
+                ui.notify('Credenciales incorrectas', type='negative')
+        except Exception as e:
+            ui.notify(f'Error de verificación: {e}', type='negative')
+
+    def cerrar_sesion(self):
+        app.storage.user.clear()
+        self.admin_autenticado = False
+        self.render()
+
+    # ==========================================
+    # 3. GESTIÓN DE ORGANIZACIONES
+    # ==========================================
+    def obtener_organizaciones(self):
+        if not supabase: return []
+        try:
+            res = supabase.table('organizations').select('*').order('name').execute()
+            return res.data
+        except Exception as e:
+            print(f"Error cargando orgs: {e}")
+            return []
+
+    def crear_organizacion(self, nombre, pwd, sape_lic, sapp_lic, is_demo):
+        if not nombre or not pwd:
+            ui.notify('Nombre y Contraseña obligatorios', type='warning')
+            return
+            
+        nuevo_id = nombre.lower().strip().replace(" ", "_")
+        datos = {
+            "id": nuevo_id,
+            "name": nombre.strip(),
+            "password": pwd.strip(),
+            "sape_licenses": int(sape_lic or 0),
+            "sapp_licenses": int(sapp_lic or 0),
+            "is_demo": bool(is_demo),
+            "is_active": True,
+            "can_use_sape": int(sape_lic or 0) > 0,
+            "can_use_sapp": int(sapp_lic or 0) > 0
+        }
+        
+        try:
+            supabase.table('organizations').insert(datos).execute()
+            ui.notify(f'Organización "{nombre}" registrada', type='positive')
+            self.render()
+        except Exception as e:
+            ui.notify(f'Error: {e}', type='negative')
+
+    # ==========================================
+    # 4. CARGA MASIVA DE USUARIOS
+    # ==========================================
     async def procesar_carga_masiva(self, e):
         ui.notify('Procesando archivo...', type='info')
         try:
-            # Leer archivo según extensión
+            content = io.BytesIO(e.content.read())
             if e.name.endswith('.csv'):
-                df = pd.read_csv(io.BytesIO(e.content.read()), sep=None, engine='python')
-            elif e.name.endswith('.xlsx'):
-                df = pd.read_excel(io.BytesIO(e.content.read()))
+                df = pd.read_csv(content, sep=None, engine='python')
             else:
-                ui.notify('Formato no soportado. Usa CSV o XLSX', type='negative')
-                return
+                df = pd.read_excel(content)
 
-            # Normalizar columnas a minúsculas para evitar errores
             df.columns = df.columns.str.lower().str.strip()
             
-            # Validar columnas mínimas
-            columnas_requeridas = ['username', 'password', 'org_id', 'tests']
-            for col in columnas_requeridas:
-                if col not in df.columns:
-                    ui.notify(f'Falta la columna requerida: {col}', type='negative')
-                    return
+            # Validación de columnas
+            req = ['username', 'password', 'org_id', 'tests']
+            if not all(col in df.columns for col in req):
+                ui.notify('El archivo no tiene las columnas requeridas', type='negative')
+                return
 
-            usuarios_insertados = 0
+            count = 0
             for _, row in df.iterrows():
                 tests = str(row['tests']).upper()
-                sape_active = "SAPE" in tests or "AMBAS" in tests
-                sapp_active = "SAPP" in tests or "AMBAS" in tests
+                sape_active = any(x in tests for x in ["SAPE", "AMBAS"])
+                sapp_active = any(x in tests for x in ["SAPP", "AMBAS"])
 
-                # Construir el nuevo JSONB Estructural y retro-compatible
                 profile_data = {
-                    "sape_attempts_allowed": 1 if sape_active else 0, # Retro-compatibilidad
-                    "sapp_attempts_allowed": 1 if sapp_active else 0, # Retro-compatibilidad
+                    "sape_attempts_allowed": 1 if sape_active else 0,
+                    "sapp_attempts_allowed": 1 if sapp_active else 0,
                     "sape": {
                         "attempts": 1 if sape_active else 0,
                         "sectors": [s.strip() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
@@ -90,152 +169,74 @@ class ConsolaAdmin:
                     "profile_data": profile_data
                 }
                 
-                # Insertar en base de datos (se usa upsert por si el usuario ya existe)
                 supabase.table("users").upsert(payload).execute()
-                usuarios_insertados += 1
+                count += 1
 
-            ui.notify(f'Éxito: {usuarios_insertados} usuarios importados y configurados.', type='positive')
+            ui.notify(f'Éxito: {count} usuarios importados.', type='positive')
+            self.render()
 
         except Exception as ex:
-            print(f"Error procesando carga masiva: {ex}")
-            ui.notify(f'Error en el formato del archivo: {str(ex)}', type='negative')
+            ui.notify(f'Error en importación: {ex}', type='negative')
 
-    def render_login(self):
-        """Pantalla de login conectada a Supabase"""
-        with self.contenedor.classes('justify-center items-center'):
-            with ui.card().classes('p-10 rounded-3xl bg-white shadow-2xl items-center').style('width: 25vw; min-width: 300px;'):
-                ui.image('logo_original.png').classes('w-48 mb-2')
-                ui.label('CONSOLA MAESTRA').classes('text-xl font-bold text-gray-800 mb-6 tracking-widest')
-                
-                u_in = ui.input('Usuario Admin').classes('w-full mb-4').props('outlined')
-                p_in = ui.input('Contraseña', password=True).classes('w-full mb-6').props('outlined')
-                
-                btn = ui.button('ACCEDER AL PANEL', on_click=lambda: self.verificar_admin(u_in.value, p_in.value)) \
-                    .classes('w-full py-4 font-bold text-white rounded-xl transition-all').style(f'background-color: {DARK_BLUE}')
-                btn.on('mouseenter', lambda: btn.style('transform: scale(1.05)'))
-                btn.on('mouseleave', lambda: btn.style('transform: scale(1.0)'))
-
-    def verificar_admin(self, user, pwd):
-        """Versión de Diagnóstico Avanzado"""
-        print(f"--- Intento de Login Admin ---")
-        print(f"Buscando usuario: {user}")
-        
-        if not supabase:
-            print("CRÍTICO: El cliente Supabase no está inicializado. Revisa SUPABASE_URL/KEY en el .env")
-            ui.notify('Error de conexión a la base de datos.', type='negative')
-            return
-            
-        try:
-            # Consultamos a Supabase
-            res = supabase.table('admins').select('*').eq('username', user).eq('password', pwd).execute()
-            
-            print(f"Respuesta de Supabase: {res.data}")
-
-            if res.data and len(res.data) > 0:
-                print("Login exitoso. Iniciando sesión de admin.")
-                self.admin_autenticado = True
-                
-                # Guardamos en la sesión persistente de NiceGUI
-                from nicegui import app
-                app.storage.user.update({'role': 'admin', 'authenticated': True})
-                
-                self.contenedor.classes(remove='justify-center items-center', add='p-8 items-start')
-                self.render()
-            else:
-                print("Fallo de login: Usuario/Password no coinciden o RLS bloqueando lectura.")
-                ui.notify('Acceso denegado. Credenciales incorrectas o RLS activo.', type='negative', position='top')
-                
-        except Exception as e:
-            print(f"EXCEPCIÓN en verificar_admin: {str(e)}")
-            ui.notify(f'Error al verificar credenciales: {e}', type='negative')
-
-    def cerrar_sesion(self):
-        self.admin_autenticado = False
-        self.contenedor.classes(remove='p-8 items-start', add='justify-center items-center')
-        self.render()
-
-    def obtener_organizaciones(self):
-        if not supabase: return []
-        try:
-            res = supabase.table('organizations').select('*').execute()
-            return res.data
-        except Exception as e:
-            ui.notify(f'Error al cargar BD: {e}', type='negative')
-            return []
-
-    def crear_organizacion(self, nombre, pwd, sape_lic, sapp_lic, is_demo):
-        if not supabase: return
-        nuevo_id = nombre.lower().replace(" ", "_")
-        
-        datos = {
-            "id": nuevo_id,
-            "name": nombre,
-            "password": pwd,
-            "sape_licenses": int(sape_lic or 0),
-            "sapp_licenses": int(sapp_lic or 0),
-            "is_demo": is_demo,
-            "is_active": True,
-            "can_use_sape": int(sape_lic or 0) > 0,
-            "can_use_sapp": int(sapp_lic or 0) > 0
-        }
-        
-        try:
-            supabase.table('organizations').insert([datos]).execute()
-            ui.notify(f'Organización "{nombre}" creada con éxito', type='positive')
-            self.render()
-        except Exception as e:
-            ui.notify(f'Error al registrar empresa: {e}', type='negative')
-
+    # ==========================================
+    # 5. RENDER DEL DASHBOARD
+    # ==========================================
     def render_dashboard(self):
-        """El Panel de Control de Administración"""
-        with self.contenedor:
-            # CABECERA
-            with ui.row().classes('w-full justify-between items-center mb-8 px-4'):
-                with ui.row().classes('items-center gap-4'):
-                    ui.image('logo_blanco.png').classes('w-32')
-                    ui.label('ADMINISTRACIÓN B2B').classes('text-2xl text-white font-bold tracking-wide')
-                ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion).classes('bg-red-600 text-white font-bold rounded-lg px-6 py-2')
+        """Panel principal con Grid dinámico"""
+        with self.contenedor.classes('p-8'):
+            # HEADER
+            with ui.row().classes('w-full justify-between items-center mb-10 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-xl'):
+                with ui.row().classes('items-center gap-6'):
+                    ui.image('logo_blanco.png').classes('w-40')
+                    ui.label('CENTRAL DE ADMINISTRACIÓN B2B').classes('text-2xl text-white font-black tracking-tight')
+                ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-8 py-2 font-bold rounded-xl')
 
-            # FILA 1: NUEVA ORGANIZACIÓN + CARTERA DE CLIENTES
-            with ui.row().classes('w-full max-w-7xl mx-auto gap-8 items-stretch mb-8'):
-                # PANEL IZQUIERDO: NUEVA ORGANIZACIÓN
-                with ui.column().classes('w-1/3 min-w-[350px] bg-[#161B22] p-6 rounded-2xl border border-gray-700 shadow-lg'):
-                    ui.label('Alta de Nueva Organización').classes('text-xl text-white font-bold mb-4')
+            # CONTENIDO: ALTA Y LISTADO
+            with ui.row().classes('w-full gap-8 items-stretch mb-8'):
+                # PANEL IZQUIERDO: FORMULARIO
+                with ui.column().classes('w-1/3 min-w-[380px] bg-[#161B22] p-8 rounded-3xl border border-gray-800 shadow-2xl'):
+                    ui.label('Alta de Organización').classes('text-xl text-[#83ABF1] font-bold mb-6 border-b border-gray-800 pb-2 w-full')
                     
-                    nombre_in = ui.input('Nombre de la Empresa').classes('w-full mb-2').props('dark outlined')
-                    pwd_in = ui.input('Contraseña para el cliente').classes('w-full mb-4').props('dark outlined')
+                    nom = ui.input('Nombre Comercial').classes('w-full mb-3').props('dark outlined')
+                    pwd = ui.input('Clave Maestra Cliente').classes('w-full mb-6').props('dark outlined')
                     
-                    with ui.row().classes('w-full justify-between gap-4 mb-4'):
-                        sape_in = ui.number('Licencias SAPE', value=0, min=0).classes('w-[45%]').props('dark outlined')
-                        sapp_in = ui.number('Licencias SAPP', value=0, min=0).classes('w-[45%]').props('dark outlined')
+                    with ui.row().classes('w-full justify-between gap-2 mb-6'):
+                        lic_sape = ui.number('SAPE Lic.', value=0, min=0).classes('w-[45%]').props('dark outlined')
+                        lic_sapp = ui.number('SAPP Lic.', value=0, min=0).classes('w-[45%]').props('dark outlined')
                     
-                    demo_check = ui.checkbox('Es una cuenta DEMO').classes('text-white mb-6')
+                    demo = ui.checkbox('Cuenta de Demostración / Cortesía').classes('text-gray-400 mb-8')
                     
-                    ui.button('REGISTRAR EMPRESA', on_click=lambda: self.crear_organizacion(
-                        nombre_in.value, pwd_in.value, sape_in.value, sapp_in.value, demo_check.value
-                    )).classes('w-full py-3 text-white font-bold rounded-lg transition-all').style(f'background-color: {DARK_BLUE}')
+                    ui.button('REGISTRAR Y ACTIVAR', 
+                              on_click=lambda: self.crear_organizacion(nom.value, pwd.value, lic_sape.value, lic_sapp.value, demo.value)) \
+                              .classes('w-full py-4 text-white font-bold rounded-2xl shadow-lg hover:scale-105 transition-all').style(f'background-color: {DARK_BLUE}')
 
-                # PANEL DERECHO: BASE DE DATOS
-                with ui.column().classes('flex-1 bg-[#161B22] p-6 rounded-2xl border border-gray-700 shadow-lg'):
-                    ui.label('Cartera de Clientes Activos').classes('text-xl text-white font-bold mb-4')
+                # PANEL DERECHO: LISTADO
+                with ui.column().classes('flex-1 bg-[#161B22] p-8 rounded-3xl border border-gray-800 shadow-2xl'):
+                    ui.label('Cartera de Clientes en Tiempo Real').classes('text-xl text-[#83ABF1] font-bold mb-6 border-b border-gray-800 pb-2 w-full')
                     
                     orgs = self.obtener_organizaciones()
                     if not orgs:
-                        ui.label('Aún no hay organizaciones registradas en Supabase.').classes('text-gray-400 italic')
+                        ui.label('No hay organizaciones registradas.').classes('text-gray-500 italic text-center w-full py-10')
                     else:
                         columnas = [
-                            {'name': 'name', 'label': 'Empresa', 'field': 'name', 'align': 'left'},
-                            {'name': 'sape', 'label': 'Lic. SAPE', 'field': 'sape_licenses'},
-                            {'name': 'sapp', 'label': 'Lic. SAPP', 'field': 'sapp_licenses'},
-                            {'name': 'demo', 'label': 'Demo', 'field': 'is_demo'},
-                            {'name': 'estado', 'label': 'Activa', 'field': 'is_active'}
+                            {'name': 'name', 'label': 'ORGANIZACIÓN', 'field': 'name', 'align': 'left', 'sortable': True},
+                            {'name': 'sape', 'label': 'SAPE', 'field': 'sape_licenses'},
+                            {'name': 'sapp', 'label': 'SAPP', 'field': 'sapp_licenses'},
+                            {'name': 'demo', 'label': 'DEMO', 'field': 'is_demo'},
+                            {'name': 'status', 'label': 'ESTADO', 'field': 'is_active'}
                         ]
-                        ui.table(columns=columnas, rows=orgs, row_key='name').classes('w-full bg-[#0E1117] text-white rounded-lg border border-gray-700')
+                        ui.table(columns=columnas, rows=orgs, row_key='name').classes('w-full bg-[#0E1117] text-white rounded-xl border border-gray-800')
 
-            # FILA 2: CARGA MASIVA DE USUARIOS (Independiente)
-            with ui.row().classes('w-full max-w-7xl mx-auto gap-8 items-start'):
-                with ui.column().classes('w-full bg-[#161B22] p-6 rounded-2xl border border-gray-700 shadow-lg'):
-                    ui.label('Carga Masiva de Usuarios (CSV / XLSX)').classes('text-xl text-white font-bold mb-2')
-                    ui.label('Formato requerido: username, password, org_id, tests, sape_sectors, sapp_profile, sapp_groups').classes('text-gray-400 text-sm mb-4')
-                    
-                    ui.upload(on_upload=self.procesar_carga_masiva, label="Seleccionar y subir archivo...", auto_upload=True).classes('w-full max-w-lg')
+            # SECCIÓN INFERIOR: CARGA MASIVA
+            with ui.row().classes('w-full'):
+                with ui.column().classes('w-full bg-[#161B22] p-8 rounded-3xl border border-gray-800 shadow-2xl'):
+                    ui.label('Importación Masiva de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                    with ui.row().classes('items-center gap-10'):
+                        ui.upload(on_upload=self.procesar_carga_masiva, 
+                                  label="Cargar Excel o CSV", 
+                                  auto_upload=True).classes('w-[500px]')
+                        
+                        with ui.column().classes('text-gray-500 text-sm'):
+                            ui.label('• Columnas: username, password, org_id, tests')
+                            ui.label('• Opcionales: sape_sectors, sapp_profile, sapp_groups')
+                            ui.label('• El sistema actualizará datos si el usuario ya existe.')
