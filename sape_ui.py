@@ -102,20 +102,24 @@ class SAPEInterface:
                 payload = {"user_id": username, "org_id": org_id, "test_type": "SAPE", "sector": self.sector, "status": "completed", "results": datos_refinados, "raw_answers": self.respuestas_usuario}
                 self.supabase.table("evaluations").insert(payload).execute()
                 
-                # 2. RESTAR 1 LICENCIA A LA ORGANIZACIÓN
+                # 2. RESTAR 1 LICENCIA Y REGISTRAR HISTORIAL
                 res_org = self.supabase.table('organizations').select('sape_licenses').eq('id', org_id).execute()
                 if res_org.data:
                     licencias_actuales = res_org.data[0].get('sape_licenses', 0)
                     if licencias_actuales > 0:
+                        # Descontar globalmente
                         self.supabase.table('organizations').update({'sape_licenses': licencias_actuales - 1}).eq('id', org_id).execute()
+                        
+                        # ---> NUEVO: Insertar en la tabla de historial (license_logs) <---
+                        log_payload = {
+                            "username": username,
+                            "org_id": org_id,
+                            "test_type": "SAPE",
+                            "metadata": {"sector": self.sector, "action": "consumed"}
+                        }
+                        self.supabase.table('license_logs').insert(log_payload).execute()
 
                 # 3. RESTAR 1 INTENTO AL USUARIO (EN SU JSONB PROFILE_DATA)
-                res_user = self.supabase.table('users').select('profile_data').eq('username', username).execute()
-                if res_user.data:
-                    profile = res_user.data[0].get('profile_data') or {}
-                    intentos_actuales = profile.get('sape_attempts_allowed', 1)
-                    profile['sape_attempts_allowed'] = max(0, intentos_actuales - 1)
-                    self.supabase.table('users').update({'profile_data': profile}).eq('username', username).execute()
 
             except Exception as e:
                 print(f"Error Crítico guardando en Supabase: {e}")
