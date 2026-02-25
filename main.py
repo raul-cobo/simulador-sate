@@ -157,6 +157,25 @@ def admin_page():
     # Instanciamos y renderizamos la consola que ya programamos
     admin_console = ConsolaAdmin()
     admin_console.render()
+# ==========================================
+# 4.5 CONSOLA DE ORGANIZACIÓN (CLIENTES B2B)
+# ==========================================
+@ui.page('/org-admin')
+def org_admin_page():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    
+    # Verificación estricta de seguridad: Solo ORG_ADMIN puede entrar
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ORG_ADMIN':
+        ui.navigate.to('/')
+        return
+
+    # Importación dinámica para evitar bucles circulares en el inicio
+    from org_console import ConsolaOrganizacion
+    
+    # Instanciamos y renderizamos
+    org_console = ConsolaOrganizacion()
+    org_console.render()    
 
 # ==========================================
 # 5. PANEL DE SELECCIÓN (USUARIO)
