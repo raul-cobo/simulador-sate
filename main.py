@@ -134,7 +134,7 @@ def login_page():
             ui.label('ACCESO PLATAFORMA').classes('text-gray-500 font-bold tracking-widest text-xs mb-6')
             
             user_input = ui.input('Usuario').classes('w-full').props('outlined')
-            pwd_input = ui.input('Contraseña', password=True).classes('w-full mb-4').props('outlined')
+            pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('outlined')
             pwd_input.on('keydown.enter', intentar_login)
             
             ui.button('INICIAR SESIÓN', on_click=intentar_login).classes(

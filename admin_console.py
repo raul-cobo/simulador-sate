@@ -43,7 +43,7 @@ class ConsolaAdmin:
                 ui.label('CONSOLA MAESTRA').classes('text-xl font-bold text-gray-800 mb-6 tracking-widest')
                 
                 u_in = ui.input('Usuario Admin').classes('w-full mb-4').props('outlined')
-                p_in = ui.input('Contraseña', password=True).classes('w-full mb-6').props('outlined')
+                p_in = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-6').props('outlined')
                 p_in.on('keydown.enter', lambda: self.verificar_admin(u_in.value, p_in.value))
                 
                 btn = ui.button('ACCEDER AL PANEL', on_click=lambda: self.verificar_admin(u_in.value, p_in.value)) \
