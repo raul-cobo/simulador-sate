@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import io
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -19,8 +20,7 @@ except Exception as e:
     print(f"⚠️ Error Supabase en OrgConsole: {e}")
 
 BG_COLOR = "#0E1117"
-CARD_COLOR = "#161B22"
-ACCENT_COLOR = "#83ABF1"
+DARK_BLUE = "#0D248D"
 
 class ConsolaOrganizacion:
     def __init__(self):
@@ -28,27 +28,53 @@ class ConsolaOrganizacion:
         self.org_id = app.storage.user.get('org_id')
         self.username = app.storage.user.get('username')
         self.org_data = {}
+        self.privilegios = {}
         self.users_data = []
         self.evals_data = []
+        self.logs_data = []
 
     def cargar_datos(self):
-        """Carga solo los datos pertenecientes al org_id de este cliente (Seguridad RLS lógica)"""
+        """Carga solo los datos pertenecientes al org_id de este cliente"""
         if not supabase or not self.org_id: return
         
         try:
-            # 1. Licencias y nombre de la Organización
+            # 1. Datos y Privilegios de la Organización
             res_org = supabase.table('organizations').select('*').eq('id', self.org_id).execute()
-            if res_org.data: self.org_data = res_org.data[0]
+            if res_org.data: 
+                self.org_data = res_org.data[0]
+                self.privilegios = self.org_data.get('privileges', {}) or {}
 
-            # 2. Usuarios de esta Organización
-            res_usr = supabase.table('users').select('username, role, profile_data, created_at, status').eq('org_id', self.org_id).execute()
+            # 2. Usuarios
+            res_usr = supabase.table('users').select('*').eq('org_id', self.org_id).execute()
             if res_usr.data: self.users_data = res_usr.data
 
-            # 3. Evaluaciones completadas por esta Organización
+            # 3. Evaluaciones completadas
             res_eval = supabase.table('evaluations').select('*').eq('org_id', self.org_id).execute()
             if res_eval.data: self.evals_data = res_eval.data
+            
+            # 4. Action Logs (Historial de colores)
+            res_logs = supabase.table('action_logs').select('*').eq('org_id', self.org_id).order('created_at', desc=True).limit(50).execute()
+            if res_logs.data: self.logs_data = res_logs.data
+
         except Exception as e:
             ui.notify(f"Error cargando datos de la organización: {e}", type='negative')
+
+    def registrar_log(self, action_type, target_user, color):
+        if not supabase: return
+        try:
+            supabase.table('action_logs').insert({
+                'org_id': self.org_id,
+                'action_type': action_type,
+                'target_user': target_user,
+                'performed_by': self.username,
+                'status_color': color
+            }).execute()
+        except:
+            pass
+
+    def solicitar_licencias(self):
+        # Aquí en el futuro podemos enviar un email al Admin o registrar la petición en una tabla de facturación
+        ui.notify("Solicitud enviada a Administración. Nos pondremos en contacto para la facturación posterior.", type='positive', icon='check_circle', position='top')
 
     def cerrar_sesion(self):
         app.storage.user.clear()
@@ -56,130 +82,123 @@ class ConsolaOrganizacion:
 
     def render(self):
         self.contenedor.clear()
-        
-        # Verificación estricta de Rol
         if app.storage.user.get('role') != 'ORG_ADMIN':
-            with self.contenedor.classes('items-center justify-center'):
-                ui.label("Acceso Denegado: Privilegios insuficientes").classes('text-red-500 text-2xl font-bold')
+            ui.navigate.to('/')
             return
         
         self.cargar_datos()
         
         with self.contenedor.classes('p-8'):
-            # ==========================================
-            # 1. CABECERA
-            # ==========================================
-            with ui.row().classes('w-full justify-between items-center mb-8 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-xl'):
+            # CABECERA
+            with ui.row().classes('w-full justify-between items-center mb-6 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-xl'):
                 with ui.row().classes('items-center gap-6'):
                     ui.image('logo_blanco.png').classes('w-40')
                     nombre_empresa = self.org_data.get('name', self.org_id).upper()
-                    ui.label(f'PORTAL CORPORATIVO | {nombre_empresa}').classes('text-2xl text-white font-black tracking-tight')
-                with ui.row().classes('items-center gap-6'):
-                    ui.label(f"Responsable: {self.username}").classes('text-[#83ABF1] font-medium')
-                    ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-6 py-2 font-bold rounded-xl')
+                    ui.label(f'PORTAL B2B | {nombre_empresa}').classes('text-2xl text-white font-black tracking-tight')
+                with ui.row().classes('items-center gap-4'):
+                    ui.button('Solicitar + Licencias', on_click=self.solicitar_licencias, icon='add_shopping_cart').classes('bg-green-600 text-white font-bold rounded-lg')
+                    ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('font-bold rounded-lg')
 
-            # ==========================================
-            # 2. KPIs (Métricas Rápidas)
-            # ==========================================
-            lic_sape = self.org_data.get('sape_licenses', 0)
-            total_users = len([u for u in self.users_data if u.get('role') != 'ORG_ADMIN'])
-            total_evals = len(self.evals_data)
+            # KPIs RÁPIDOS
+            with ui.row().classes('w-full gap-4 mb-8'):
+                ui.label(f"🔑 SAPE: {self.org_data.get('sape_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                ui.label(f"🔑 SAPP: {self.org_data.get('sapp_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                ui.label(f"👥 Usuarios: {len(self.users_data)}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
 
-            with ui.row().classes('w-full gap-6 mb-8'):
-                self.crear_kpi_card('Licencias SAPE', str(lic_sape), 'vpn_key', '#83ABF1')
-                self.crear_kpi_card('Usuarios Asignados', str(total_users), 'group', '#4CAF50')
-                self.crear_kpi_card('Pruebas Completadas', str(total_evals), 'task_alt', '#FFC107')
-
-            # ==========================================
-            # 3. PANELES DE GESTIÓN (TABS)
-            # ==========================================
+            # PESTAÑAS
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
-                tab_talento = ui.tab('EXPLORADOR DE TALENTO', icon='troubleshoot')
-                tab_equipo = ui.tab('GESTIÓN DE EQUIPO', icon='manage_accounts')
+                tab_usuarios = ui.tab('USUARIOS', icon='manage_accounts')
+                tab_estadisticas = ui.tab('ESTADÍSTICAS E HISTORIAL', icon='query_stats')
 
-            with ui.tab_panels(tabs, value=tab_talento).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl p-8 shadow-2xl'):
+            with ui.tab_panels(tabs, value=tab_usuarios).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl p-8 shadow-2xl'):
                 
-                # --- TAB 1: RESULTADOS ---
-                with ui.tab_panel(tab_talento):
-                    self.render_explorador_talento()
-                
-                # --- TAB 2: USUARIOS ---
-                with ui.tab_panel(tab_equipo):
-                    self.render_gestion_equipo()
+                # --- PESTAÑA USUARIOS ---
+                with ui.tab_panel(tab_usuarios):
+                    with ui.row().classes('w-full gap-8 items-start'):
+                        
+                        # BLOQUE IZQUIERDO: CREACIÓN MASIVA / INDIVIDUAL (Renderizado Condicional por Privilegios)
+                        with ui.column().classes('w-1/3 min-w-[350px]'):
+                            if self.privilegios.get('can_create_users', False):
+                                # Individual
+                                with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800 mb-6'):
+                                    ui.label('Registrar Usuario Manual').classes('text-lg text-[#83ABF1] font-bold mb-4')
+                                    u_nom = ui.input('Nombre de Usuario').classes('w-full mb-2').props('dark outlined')
+                                    u_pwd = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('dark outlined')
+                                    ui.button('Crear Usuario', on_click=lambda: ui.notify("Función de creación individual en desarrollo", type='info')).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold')
+                                
+                                # Masivo
+                                with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
+                                    ui.label('Carga Masiva (CSV / XLSX)').classes('text-lg text-[#83ABF1] font-bold mb-2')
+                                    ui.button('Descargar Plantilla Corporativa', icon='file_download').classes('w-full mb-4 bg-gray-700 text-white')
+                                    ui.upload(on_upload=self.procesar_carga_masiva_org, label="Sube tu archivo", auto_upload=True).classes('w-full')
+                            else:
+                                with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-red-900/50 items-center text-center'):
+                                    ui.icon('lock', size='3rem', color='red').classes('mb-4 opacity-50')
+                                    ui.label('Creación de usuarios deshabilitada.').classes('text-red-400 font-bold mb-2')
+                                    ui.label('Contacta con administración para habilitar esta función o enviar listados.').classes('text-sm text-gray-500')
 
-    def crear_kpi_card(self, titulo, valor, icono, color):
-        with ui.row().classes('flex-1 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-lg items-center gap-6'):
-            ui.icon(icono, size='3.5rem').style(f'color: {color}')
-            with ui.column().classes('gap-0'):
-                ui.label(titulo).classes('text-gray-400 text-sm font-bold uppercase tracking-wider')
-                ui.label(valor).classes('text-4xl text-white font-black')
+                        # BLOQUE DERECHO: LISTADO DE USUARIOS DE LA EMPRESA
+                        with ui.column().classes('flex-1 bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
+                            ui.label('Directorio de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                            if not self.users_data:
+                                ui.label('No hay usuarios en la organización.').classes('text-gray-500 italic')
+                            else:
+                                filas = []
+                                for u in self.users_data:
+                                    if u.get('role') == 'ORG_ADMIN': continue
+                                    filas.append({
+                                        'user': u.get('username'),
+                                        'role': u.get('role'),
+                                        'status': 'Activo' if not u.get('is_deleted') else 'Eliminado',
+                                        'date': u.get('created_at', '')[:10]
+                                    })
+                                cols = [
+                                    {'name': 'user', 'label': 'Usuario', 'field': 'user', 'align': 'left'},
+                                    {'name': 'status', 'label': 'Estado', 'field': 'status', 'align': 'center'},
+                                    {'name': 'date', 'label': 'Alta', 'field': 'date', 'align': 'right'}
+                                ]
+                                ui.table(columns=cols, rows=filas, row_key='user').classes('w-full bg-[#161B22] text-white')
 
-    def render_explorador_talento(self):
-        ui.label('Resultados de Evaluaciones (SAPE)').classes('text-xl text-white font-bold mb-6')
-        
-        if not self.evals_data:
-            ui.label("Aún no hay evaluaciones completadas en tu organización.").classes('text-gray-500 italic py-4')
-            return
-        
-        filas = []
-        for ev in self.evals_data:
-            res = ev.get('results', {})
-            potencial = res.get('potencial', 0)
-            
-            # Clasificación visual del potencial
-            if potencial >= 75: estado = "🟢 Alto"
-            elif potencial >= 50: estado = "🟡 Medio"
-            else: estado = "🔴 Riesgo"
-            
-            filas.append({
-                'usuario': ev.get('user_id', 'Desconocido'),
-                'sector': ev.get('sector', 'N/A'),
-                'potencial': f"{potencial}%",
-                'ire': res.get('ire_global', 0),
-                'estado': estado,
-                'fecha': ev.get('created_at', '')[:10]
-            })
-        
-        columnas = [
-            {'name': 'usuario', 'label': 'USUARIO EVALUADO', 'field': 'usuario', 'align': 'left', 'sortable': True},
-            {'name': 'sector', 'label': 'SECTOR', 'field': 'sector', 'align': 'center'},
-            {'name': 'potencial', 'label': 'POTENCIAL', 'field': 'potencial', 'align': 'center', 'sortable': True},
-            {'name': 'ire', 'label': 'I.R.E.', 'field': 'ire', 'align': 'center', 'sortable': True},
-            {'name': 'estado', 'label': 'DIAGNÓSTICO', 'field': 'estado', 'align': 'center', 'sortable': True},
-            {'name': 'fecha', 'label': 'FECHA', 'field': 'fecha', 'align': 'right', 'sortable': True},
-        ]
-        
-        ui.table(columns=columnas, rows=filas, row_key='usuario').classes('w-full bg-[#0E1117] text-white rounded-xl border border-gray-800')
+                # --- PESTAÑA ESTADÍSTICAS E HISTORIAL ---
+                with ui.tab_panel(tab_estadisticas):
+                    with ui.row().classes('w-full gap-8'):
+                        
+                        # HISTORIAL (Action Logs de Colores)
+                        with ui.column().classes('w-1/2 bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
+                            ui.label('Historial de Registros').classes('text-xl text-[#83ABF1] font-bold mb-6')
+                            
+                            # Leyenda de Colores
+                            with ui.row().classes('gap-4 mb-6 text-xs text-gray-400 font-bold'):
+                                ui.label('🟢 Activas').classes('bg-green-900/30 px-2 py-1 rounded')
+                                ui.label('🟢🔵 Nuevas').classes('bg-blue-900/30 px-2 py-1 rounded border-l-2 border-green-500')
+                                ui.label('🟢🟡 Editadas').classes('bg-yellow-900/30 px-2 py-1 rounded border-l-2 border-green-500')
+                                ui.label('🟡🔴 Error').classes('bg-red-900/30 px-2 py-1 rounded border-l-2 border-yellow-500')
+                                ui.label('🔴 Eliminadas').classes('bg-red-900/30 px-2 py-1 rounded')
 
-    def render_gestion_equipo(self):
-        ui.label('Directorio de Usuarios').classes('text-xl text-white font-bold mb-6')
-        
-        if not self.users_data:
-            ui.label("No hay usuarios registrados en esta organización.").classes('text-gray-500')
-            return
-        
-        filas = []
-        for u in self.users_data:
-            if u.get('role') == 'ORG_ADMIN': continue # Ocultar al propio admin de la lista
-            
-            p_data = u.get('profile_data', {})
-            # Extraer intentos de forma retro-compatible
-            sape_att = p_data.get('sape', {}).get('attempts', 0) if isinstance(p_data.get('sape'), dict) else p_data.get('sape_attempts_allowed', 0)
-            
-            estado_test = "✅ Completado" if sape_att == 0 else "⏳ Pendiente"
-            
-            filas.append({
-                'username': u.get('username'),
-                'intentos': sape_att,
-                'estado': estado_test,
-                'alta': u.get('created_at', '')[:10]
-            })
+                            if not self.logs_data:
+                                ui.label('No hay registros recientes.').classes('text-gray-500')
+                            else:
+                                for log in self.logs_data:
+                                    color = log.get('status_color', 'green')
+                                    # Mapeo de colores a tailwind
+                                    bg_col = "bg-green-500" if color == "green" else "bg-blue-500" if color == "green-blue" else "bg-yellow-500" if color == "green-yellow" else "bg-red-500"
+                                    
+                                    with ui.row().classes('w-full items-center gap-4 mb-2 p-2 border-b border-gray-800/50 hover:bg-[#161B22]'):
+                                        ui.element('div').classes(f'w-3 h-3 rounded-full {bg_col}')
+                                        ui.label(log.get('created_at', '')[:16].replace('T', ' ')).classes('text-gray-500 text-sm')
+                                        ui.label(log.get('action_type')).classes('text-white font-bold text-sm w-24')
+                                        ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
 
-        columnas = [
-            {'name': 'username', 'label': 'IDENTIFICADOR', 'field': 'username', 'align': 'left', 'sortable': True},
-            {'name': 'estado', 'label': 'ESTADO SAPE', 'field': 'estado', 'align': 'center', 'sortable': True},
-            {'name': 'intentos', 'label': 'INTENTOS RESTANTES', 'field': 'intentos', 'align': 'center'},
-            {'name': 'alta', 'label': 'FECHA REGISTRO', 'field': 'alta', 'align': 'right', 'sortable': True},
-        ]
-        
-        ui.table(columns=columnas, rows=filas, row_key='username').classes('w-full bg-[#0E1117] text-white rounded-xl border border-gray-800')
+                        # ESTADÍSTICAS BÁSICAS (Visibilidad por privilegios)
+                        with ui.column().classes('w-1/2'):
+                            if self.privilegios.get('can_view_org_stats', False):
+                                ui.label('Estadísticas Globales').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                                ui.label('Panel de Business Intelligence en construcción. Mostrará gráficos de pruebas, sectores y usuarios.').classes('text-gray-500 italic p-6 border border-gray-800 rounded-xl')
+                            else:
+                                ui.label('Estadísticas Deshabilitadas').classes('text-xl text-gray-600 font-bold mb-4')
+
+    async def procesar_carga_masiva_org(self, e):
+        # Esta versión fuerza el org_id al del cliente logueado, por seguridad
+        ui.notify('Procesando archivo B2B...', type='info')
+        self.registrar_log('MASIVO', 'Archivo subido', 'green-blue')
+        # La lógica de pandas irá aquí, pero forzando: row['org_id'] = self.org_id
