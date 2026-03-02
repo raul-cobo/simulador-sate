@@ -178,187 +178,209 @@ def org_admin_page():
     org_console.render()    
 
 # ==========================================
-# 5. PORTAL DEL CANDIDATO (ONBOARDING Y SELECCIÓN)
+# 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
 # ==========================================
 @ui.page('/panel')
-def panel_page():
+async def panel_page():
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     
-    if not app.storage.user.get('authenticated'):
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['USER', 'STUDENT']:
         ui.navigate.to('/')
         return
 
     username = app.storage.user.get('username')
     
-    # 1. Extraer todos los datos frescos del usuario desde Supabase
+    # --- 1. CARGA DE DATOS (Usuario y Privilegios de su Organización) ---
     if not supabase: return
     try:
-        res = supabase.table('users').select('*').eq('username', username).execute()
-        if not res.data: return
-        user_db = res.data[0]
+        res_u = supabase.table('users').select('*').eq('username', username).execute()
+        if not res_u.data: return
+        user_db = res_u.data[0]
+        
+        res_o = supabase.table('organizations').select('*').eq('id', user_db['org_id']).execute()
+        org_db = res_o.data[0] if res_o.data else {}
+        privs = org_db.get('privileges', {})
     except Exception as e:
-        ui.label(f'Error de lectura: {e}').classes('text-red-500 m-8')
+        ui.notify(f'Error de conexión: {e}', type='negative')
         return
 
-    org_id = user_db.get('org_id', 'Desconocida')
-    profile_data = user_db.get('profile_data', {})
-    
-    # Evaluar permisos de SAPE
-    sape_data = profile_data.get('sape', {})
-    sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
-    sape_sectors = sape_data.get('sectors', [])
-    
-    # Evaluar permisos de SAPP
-    sapp_data = profile_data.get('sapp', {})
-    sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
-    sapp_profiles_raw = sapp_data.get('profile', '')
-    sapp_profiles_list = [p.strip() for p in sapp_profiles_raw.split(',') if p.strip()] if sapp_profiles_raw else []
+    # --- 2. LISTAS DESPLEGABLES OFICIALES ---
+    LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
+    LISTA_ESTUDIOS = ['Sin estudios', 'Educación Primaria', 'ESO / Secundaria', 'Bachillerato', 'FP Grado Medio', 'FP Grado Superior', 'Grado Universitario', 'Postgrado / Máster', 'Doctorado']
+    LISTA_EMPLEO = ['Empleado por cuenta ajena', 'Autónomo / Emprendedor', 'Desempleado', 'Estudiante', 'Jubilado / Inactivo']
+    LISTA_PROVINCIAS = sorted(["Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Gerona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Jaén", "La Coruña", "La Rioja", "Las Palmas", "León", "Lérida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Orense", "Palencia", "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"])
+    LISTA_HISTORIAL = ['Nunca he emprendido', 'He emprendido sin éxito', 'He emprendido con éxito']
 
-    # 2. Clase para controlar el estado del flujo (Stepper Manual)
-    class OnboardingState:
+    # --- 3. CONTROLADOR DE ESTADO DEL FLUJO ---
+    class OnboardingManager:
         def __init__(self):
-            self.step = 1
-            self.edad = user_db.get('age')
-            self.estado_emp = user_db.get('entrepreneurship_status')
+            # Lógica de salto: Si ya aceptó RGPD, va al paso 1. Si no, empieza en 0.
+            self.step = 0 if not user_db.get('rgpd_accepted_at') else 1
             
-            # Pre-selecciones automáticas basadas en lo que tenga habilitado
-            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else None)
-            self.sector_sape = sape_sectors[0] if sape_sectors else None
-            self.perfil_sapp = sapp_profiles_list[0] if sapp_profiles_list else None
+            self.age = user_db.get('age')
+            self.gender = user_db.get('gender')
+            self.province = user_db.get('province')
+            self.education = user_db.get('education_level')
+            self.employment = user_db.get('employment_status')
+            self.entrepreneurship = user_db.get('entrepreneurship_status')
+            
+            # Selector de pruebas basado en privilegios de la org
+            self.test_type = 'SAPE' if privs.get('can_assign_sape') else ('SAPP' if privs.get('can_assign_sapp') else None)
+            self.sector_sape = None
+            self.perfil_sapp = None
 
-    estado = OnboardingState()
+    state = OnboardingManager()
 
-    # HEADER SUPERIOR (Botón de Salida)
+    # Cabecera Simple para el Candidato
     with ui.row().classes('w-full items-center justify-between p-6 bg-[#161B22] border-b border-gray-800 shadow-md'):
         ui.image('logo_blanco.png').classes('w-32')
         with ui.row().classes('items-center gap-6'):
-            ui.label(f"{username}").classes('text-gray-400 text-sm')
+            ui.label(f"{username} | {user_db.get('org_id', '').upper()}").classes('text-gray-400 text-sm font-bold')
             ui.button(icon='logout', on_click=logout).props('flat round color=white')
 
-    # 3. RENDERIZADO REACTIVO DE LOS PASOS
+    # --- 4. RENDERIZADO REACTIVO ---
     @ui.refreshable
-    def render_onboarding():
-        with ui.column().classes('w-full max-w-3xl mx-auto p-8 items-center mt-4'):
+    def render_stepper():
+        with ui.column().classes('w-full max-w-2xl mx-auto p-4 items-center mt-6'):
             
-            # Indicador de Progreso Visual
-            with ui.row().classes('w-full justify-center gap-4 mb-10'):
-                ui.icon('person', color='#83ABF1' if estado.step >= 1 else 'gray').classes('text-4xl transition-colors')
-                ui.label('—').classes('text-gray-600 self-center font-bold')
-                ui.icon('tune', color='#83ABF1' if estado.step >= 2 else 'gray').classes('text-4xl transition-colors')
-                ui.label('—').classes('text-gray-600 self-center font-bold')
-                ui.icon('flag', color='#83ABF1' if estado.step >= 3 else 'gray').classes('text-4xl transition-colors')
+            # Indicador de Progreso Visual (Solo visible tras RGPD)
+            if state.step > 0:
+                with ui.row().classes('w-full justify-center gap-4 mb-8'):
+                    ui.icon('person', color='#83ABF1' if state.step >= 1 else 'gray').classes('text-3xl transition-colors')
+                    ui.label('—').classes('text-gray-600 self-center font-bold')
+                    ui.icon('work', color='#83ABF1' if state.step >= 2 else 'gray').classes('text-3xl transition-colors')
+                    ui.label('—').classes('text-gray-600 self-center font-bold')
+                    ui.icon('flag', color='#83ABF1' if state.step >= 3 else 'gray').classes('text-3xl transition-colors')
 
             # ==========================================
-            # PASO 1: RECOGIDA DE DATOS
+            # PASO 0: CONSENTIMIENTO RGPD
             # ==========================================
-            if estado.step == 1:
-                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl items-center'):
-                    ui.label('Paso 1: Datos de Perfil').classes('text-2xl text-[#83ABF1] font-bold mb-4')
-                    ui.label(f'Pertences a la organización: {org_id.upper()}').classes('text-gray-400 mb-8 font-mono text-sm bg-[#0E1117] px-4 py-2 rounded-lg')
+            if state.step == 0:
+                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1]/50 shadow-2xl'):
+                    ui.icon('security', size='4rem', color='#83ABF1').classes('mb-4 self-center')
+                    ui.label('Protección de Datos (RGPD)').classes('text-2xl font-bold mb-6 text-center w-full')
                     
-                    edad_in = ui.number('¿Cuál es tu edad actual?', value=estado.edad, min=16, max=99).classes('w-full max-w-sm mb-6').props('dark outlined')
+                    with ui.scroll_area().classes('h-48 w-full bg-[#0E1117] p-4 rounded-lg mb-6 border border-gray-800 text-sm text-gray-400'):
+                        ui.label("AUDEO PROCESSOR garantiza el cumplimiento estricto del Reglamento General de Protección de Datos (RGPD).")
+                        ui.label("1. Sus datos serán tratados de forma totalmente confidencial.")
+                        ui.label("2. La información demográfica recogida se utilizará exclusivamente para generar su informe individual y para crear modelos estadísticos agregados y anónimos para su organización.")
+                        ui.label("3. Usted tiene derecho a solicitar el acceso, rectificación o eliminación de sus datos contactando con la administración de su entidad.")
                     
-                    opciones_emp = ['Nunca he emprendido', 'He emprendido sin éxito', 'He emprendido con éxito']
-                    emp_in = ui.select(opciones_emp, label='Historial de Emprendimiento', value=estado.estado_emp).classes('w-full max-w-sm mb-10').props('dark outlined')
+                    check_rgpd = ui.checkbox('He leído, comprendo y acepto el tratamiento de mis datos personales.').classes('text-white font-bold mb-8')
                     
-                    def guardar_paso_1():
-                        if not edad_in.value or not emp_in.value:
-                            ui.notify('Por favor completa todos los campos para continuar.', type='warning')
+                    async def aceptar_rgpd():
+                        if not check_rgpd.value:
+                            ui.notify('Debe aceptar el consentimiento legal para continuar.', type='warning')
                             return
-                        try:
-                            # Guardamos en base de datos para futuras analíticas
-                            supabase.table('users').update({
-                                'age': int(edad_in.value),
-                                'entrepreneurship_status': emp_in.value
-                            }).eq('username', username).execute()
-                            
-                            estado.edad = edad_in.value
-                            estado.estado_emp = emp_in.value
-                            estado.step = 2
-                            render_onboarding.refresh()
-                        except Exception as e:
-                            ui.notify(f'Error de red: {e}', type='negative')
-
-                    ui.button('CONTINUAR', on_click=guardar_paso_1).classes('w-full max-w-sm bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl hover:scale-105 transition-transform')
-
-            # ==========================================
-            # PASO 2: CONFIGURACIÓN DE LA PRUEBA
-            # ==========================================
-            elif estado.step == 2:
-                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl items-center'):
-                    ui.label('Paso 2: Selección de Prueba').classes('text-2xl text-[#83ABF1] font-bold mb-8')
+                        from datetime import datetime
+                        await supabase.table('users').update({'rgpd_accepted_at': datetime.now().isoformat()}).eq('username', username).execute()
+                        state.step = 1
+                        render_stepper.refresh()
                     
-                    if not estado.test_type:
-                        ui.label('No tienes pruebas asignadas.').classes('text-red-400 font-bold mb-4')
-                        ui.label('Contacta con el administrador de tu organización.').classes('text-gray-500 mb-8')
-                        ui.button('VOLVER AL INICIO', on_click=logout).classes('w-full max-w-sm bg-gray-600 text-white font-bold py-3 rounded-xl')
+                    ui.button('ACEPTAR Y CONTINUAR', on_click=aceptar_rgpd).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
+
+            # ==========================================
+            # PASO 1: BLOQUE A (Datos Demográficos)
+            # ==========================================
+            elif state.step == 1:
+                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
+                    ui.label('BLOQUE A: Datos Personales').classes('text-xl font-bold mb-8 text-[#83ABF1]')
+                    
+                    age_in = ui.number('Edad actual', value=state.age, min=16, max=99).classes('w-full mb-4').props('dark outlined')
+                    gen_in = ui.select(LISTA_GENERO, label='Género', value=state.gender).classes('w-full mb-4').props('dark outlined')
+                    prov_in = ui.select(LISTA_PROVINCIAS, label='Provincia de residencia', value=state.province).classes('w-full mb-8').props('dark outlined')
+                    
+                    def ir_a_bloque_b():
+                        if not age_in.value or not gen_in.value or not prov_in.value:
+                            ui.notify('Por favor, completa todos los campos demográficos.', type='warning')
+                            return
+                        state.age, state.gender, state.province = age_in.value, gen_in.value, prov_in.value
+                        state.step = 2
+                        render_stepper.refresh()
+                        
+                    ui.button('SIGUIENTE PASO', on_click=ir_a_bloque_b).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
+
+            # ==========================================
+            # PASO 2: BLOQUE B (Contexto Profesional)
+            # ==========================================
+            elif state.step == 2:
+                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
+                    ui.label('BLOQUE B: Perfil Profesional').classes('text-xl font-bold mb-8 text-[#83ABF1]')
+                    
+                    edu_in = ui.select(LISTA_ESTUDIOS, label='Nivel de estudios finalizados', value=state.education).classes('w-full mb-4').props('dark outlined')
+                    emp_in = ui.select(LISTA_EMPLEO, label='Situación laboral actual', value=state.employment).classes('w-full mb-4').props('dark outlined')
+                    hist_in = ui.select(LISTA_HISTORIAL, label='Historial de emprendimiento', value=state.entrepreneurship).classes('w-full mb-8').props('dark outlined')
+                    
+                    async def ir_a_bloque_c():
+                        if not edu_in.value or not emp_in.value or not hist_in.value:
+                            ui.notify('Por favor, completa todo tu perfil profesional.', type='warning')
+                            return
+                            
+                        # Guardado masivo y persistente en Supabase
+                        await supabase.table('users').update({
+                            'age': int(state.age), 'gender': state.gender, 'province': state.province,
+                            'education_level': edu_in.value, 'employment_status': emp_in.value, 'entrepreneurship_status': hist_in.value
+                        }).eq('username', username).execute()
+                        
+                        state.education, state.employment, state.entrepreneurship = edu_in.value, emp_in.value, hist_in.value
+                        state.step = 3
+                        render_stepper.refresh()
+
+                    with ui.row().classes('w-full gap-4'):
+                        ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
+                        ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
+
+            # ==========================================
+            # PASO 3: BLOQUE C (Selección de Prueba)
+            # ==========================================
+            elif state.step == 3:
+                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
+                    ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
+                    
+                    if not state.test_type:
+                        ui.label('No tienes pruebas asignadas por tu organización.').classes('text-red-400 font-bold mb-8')
                         return
 
-                    opciones_test = []
-                    if sape_allowed: opciones_test.append('SAPE')
-                    if sapp_allowed: opciones_test.append('SAPP')
+                    opciones_radio = []
+                    if privs.get('can_assign_sape'): opciones_radio.append('SAPE')
+                    if privs.get('can_assign_sapp'): opciones_radio.append('SAPP')
                     
-                    ui.label('Selecciona la prueba a realizar:').classes('text-gray-400 mb-2')
-                    test_radio = ui.radio(opciones_test, value=estado.test_type).classes('text-white mb-8 font-bold text-lg').props('dark inline')
+                    tipo_radio = ui.radio(opciones_radio, value=state.test_type).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    sector_sel = ui.select(sape_sectors, label='Sector SAPE Habilitado', value=estado.sector_sape).classes('w-full max-w-sm mb-10').props('dark outlined')
-                    perfil_sel = ui.select(sapp_profiles_list, label='Perfil SAPP Habilitado', value=estado.perfil_sapp).classes('w-full max-w-sm mb-10').props('dark outlined')
+                    # MAGIA B2B: Extraer SOLAMENTE lo que el Super-Admin le permitió a esta empresa
+                    sectores_habilitados = privs.get('allowed_sape_sectors', [])
+                    perfiles_habilitados = privs.get('allowed_sapp_profiles', [])
                     
-                    # Mostrar el desplegable correcto según la prueba elegida
-                    sector_sel.bind_visibility_from(test_radio, 'value', value=lambda v: v == 'SAPE')
-                    perfil_sel.bind_visibility_from(test_radio, 'value', value=lambda v: v == 'SAPP')
+                    sel_sector = ui.select(sectores_habilitados, label='Selecciona el sector de tu proyecto', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
+                    sel_perfil = ui.select(perfiles_habilitados, label='Selecciona tu perfil a analizar', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
                     
-                    def guardar_paso_2():
-                        estado.test_type = test_radio.value
-                        estado.sector_sape = sector_sel.value
-                        estado.perfil_sapp = perfil_sel.value
-                        
-                        if estado.test_type == 'SAPE' and not estado.sector_sape:
-                            ui.notify('Selecciona el sector para la prueba SAPE.', type='warning')
-                            return
-                        if estado.test_type == 'SAPP' and not estado.perfil_sapp:
-                            ui.notify('Selecciona el perfil para la prueba SAPP.', type='warning')
-                            return
-                            
-                        estado.step = 3
-                        render_onboarding.refresh()
-
-                    with ui.row().classes('w-full max-w-sm gap-4'):
-                        ui.button('ATRÁS', on_click=lambda: [setattr(estado, 'step', 1), render_onboarding.refresh()]).classes('flex-1 bg-[#0E1117] text-white border border-gray-600 font-bold py-4 rounded-xl')
-                        ui.button('CONTINUAR', on_click=guardar_paso_2).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
-
-            # ==========================================
-            # PASO 3: INSTRUCCIONES
-            # ==========================================
-            elif estado.step == 3:
-                with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1] shadow-[0_0_30px_rgba(131,171,241,0.1)] items-center text-center'):
-                    ui.icon('info', size='4rem', color='#83ABF1').classes('mb-4')
-                    ui.label('Instrucciones Finales').classes('text-3xl text-white font-black mb-8')
+                    # Mostrar y ocultar campos según la prueba seleccionada
+                    sel_sector.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPE')
+                    sel_perfil.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPP')
                     
-                    if estado.test_type == 'SAPE':
-                        with ui.column().classes('text-gray-300 text-base gap-6 text-left max-w-xl bg-[#0E1117] p-8 rounded-xl border border-gray-800 mb-8'):
-                            ui.markdown('**1. Sinceridad ante todo:** No pienses demasiado, la primera respuesta que te venga a la mente suele ser la más precisa.')
-                            ui.markdown('**2. Sin respuestas correctas:** Aquí no se aprueba ni se suspende. Se evalúa tu perfil natural y potencial de emprendimiento.')
-                            ui.markdown('**3. Sin interrupciones:** Asegúrate de tener unos 15 minutos libres y buena conexión a internet para completar la prueba.')
-                    else:
-                        with ui.column().classes('text-gray-300 text-base gap-6 text-left max-w-xl bg-[#0E1117] p-8 rounded-xl border border-gray-800 mb-8'):
-                            ui.markdown('**1. Casos Prácticos:** Responderás a escenarios reales del ejercicio profesional en psicología.')
-                            ui.markdown('**2. Base Científica:** Tus respuestas se contrastarán con el *Cubo de Competencias* (Rodolfa et al.).')
-                            ui.markdown('**3. Tiempo Estimado:** Este cuestionario requiere concentración. Tomará aproximadamente unos 25 minutos.')
+                    # Instrucciones Dinámicas
+                    ui.label('Instrucciones Importantes:').classes('text-sm text-gray-400 font-bold mb-2')
+                    ui.label('• Sé sincero, no hay respuestas correctas o incorrectas.').classes('text-xs text-gray-500 mb-1')
+                    ui.label('• Asegúrate de tener 15 minutos sin interrupciones.').classes('text-xs text-gray-500 mb-8')
+                    
+                    def comenzar():
+                        if tipo_radio.value == 'SAPE':
+                            if not sel_sector.value:
+                                ui.notify('Debes seleccionar un sector para la prueba SAPE.', type='warning')
+                                return
+                            ui.navigate.to(f'/sape-test?sector={sel_sector.value}')
+                        elif tipo_radio.value == 'SAPP':
+                            if not sel_perfil.value:
+                                ui.notify('Debes seleccionar un perfil para la prueba SAPP.', type='warning')
+                                return
+                            ui.notify('Motor SAPP en construcción.', type='info') # Placeholder
 
-                    def iniciar_prueba():
-                        if estado.test_type == 'SAPE':
-                            ui.navigate.to(f'/sape-test?sector={estado.sector_sape}')
-                        else:
-                            ui.notify('Módulo SAPP en construcción.', type='info') # Aquí enlazaremos sapp-test en el futuro
+                    with ui.row().classes('w-full gap-4'):
+                        ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 2), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl')
+                        ui.button('INICIAR EVALUACIÓN', on_click=comenzar).classes('flex-1 bg-green-600 text-white font-black py-4 rounded-xl hover:scale-105 transition-transform shadow-lg')
 
-                    with ui.row().classes('w-full max-w-md gap-4'):
-                        ui.button('ATRÁS', on_click=lambda: [setattr(estado, 'step', 2), render_onboarding.refresh()]).classes('w-1/3 bg-[#0E1117] text-white border border-gray-600 font-bold py-4 rounded-xl')
-                        ui.button('¡COMENZAR PRUEBA!', on_click=iniciar_prueba).classes('flex-1 bg-green-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:scale-105 transition-transform')
-
-    # Ejecutar el renderizado
-    render_onboarding()
+    render_stepper()
 
 # ==========================================
 # 6. ENTORNO DE EXAMEN (SAPE)
