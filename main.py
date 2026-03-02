@@ -223,15 +223,18 @@ async def panel_page():
                     
                     check_rgpd = ui.checkbox('He leído, comprendo y acepto el tratamiento de mis datos personales.').classes('text-white font-bold mb-8')
                     
-                    async def aceptar_rgpd():
+                    def aceptar_rgpd():
                         if not check_rgpd.value:
                             ui.notify('Debe aceptar el consentimiento legal para continuar.', type='warning')
                             return
-                        await supabase.table('users').update({'rgpd_accepted_at': datetime.now().isoformat()}).eq('username', username).execute()
-                        state.step = 1
-                        render_stepper.refresh()
-                    
-                    ui.button('ACEPTAR Y CONTINUAR', on_click=aceptar_rgpd).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
+                        try:
+                            from datetime import datetime
+                            # Sin 'await', llamada directa a la base de datos
+                            supabase.table('users').update({'rgpd_accepted_at': datetime.now().isoformat()}).eq('username', username).execute()
+                            state.step = 1
+                            render_stepper.refresh()
+                        except Exception as e:
+                            ui.notify(f'Error guardando consentimiento: {e}', type='negative')
 
             # PASO 1: BLOQUE A
             elif state.step == 1:
