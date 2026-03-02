@@ -19,6 +19,19 @@ except Exception as e:
 BG_COLOR = "#0E1117"
 DARK_BLUE = "#0D248D"
 
+# --- LISTAS OFICIALES ---
+SECTORES_SAPE = [
+    'TECH', 'CONSULTORIA', 'PYME', 'HOSTELERIA', 'AUTOEMPLEO', 
+    'SOCIAL', 'INTRA', 'SALUD', 'PSICOLOGIA_SANITARIA', 'PSICOLOGÍA_NO_SANITARIA'
+]
+PERFILES_SAPP = [
+    'Psicología educativa', 'Psicología organizacional', 
+    'Psicología sanitaria', 'Psicología social'
+]
+COMPETENCIAS_SAPP = [
+    'Competencias personales', 'Competencias profesionales', 'Competencias técnicas'
+]
+
 class ConsolaAdmin:
     def __init__(self):
         self.contenedor = ui.column().classes('w-full min-h-screen p-0 m-0').style(f'background-color: {BG_COLOR}')
@@ -74,9 +87,16 @@ class ConsolaAdmin:
         
         p = org.get('privileges', {})
         inputs['p_usr'].value = p.get('can_create_users', False)
-        inputs['p_test'].value = p.get('can_assign_tests', False)
         inputs['p_stat'].value = p.get('can_view_org_stats', False)
         inputs['p_comp'].value = p.get('can_compare_anon', False)
+        
+        # Nuevos privilegios granulares
+        inputs['p_sape'].value = p.get('can_assign_sape', False)
+        inputs['p_sape_sectores'].value = p.get('allowed_sape_sectors', [])
+        
+        inputs['p_sapp'].value = p.get('can_assign_sapp', False)
+        inputs['p_sapp_perfiles'].value = p.get('allowed_sapp_profiles', [])
+        inputs['p_sapp_comp'].value = p.get('allowed_sapp_comps', [])
         
         ui.notify(f"Modo Edición: {org['name']}", type='info')
 
@@ -93,10 +113,16 @@ class ConsolaAdmin:
             "is_demo": inputs['demo'].value,
             "privileges": {
                 "can_create_users": inputs['p_usr'].value,
-                "can_assign_tests": inputs['p_test'].value,
                 "can_view_org_stats": inputs['p_stat'].value,
                 "can_compare_anon": inputs['p_comp'].value,
-                "can_request_custom": True
+                "can_request_custom": True,
+                # Bloque Granular SAPE
+                "can_assign_sape": inputs['p_sape'].value,
+                "allowed_sape_sectors": inputs['p_sape_sectores'].value if inputs['p_sape'].value else [],
+                # Bloque Granular SAPP
+                "can_assign_sapp": inputs['p_sapp'].value,
+                "allowed_sapp_profiles": inputs['p_sapp_perfiles'].value if inputs['p_sapp'].value else [],
+                "allowed_sapp_comps": inputs['p_sapp_comp'].value if inputs['p_sapp'].value else []
             }
         }
         
@@ -124,8 +150,8 @@ class ConsolaAdmin:
             "password": ["ClaveSegura1*", "ClaveSegura2*"],
             "tests": ["SAPE", "AMBAS"],
             "sape_sectors": ["TECH, CONSULTORIA", "HOSTELERIA"],
-            "sapp_profile": ["", "sanitaria, no_sanitaria"],
-            "sapp_groups": ["", "personales, profesionales"]
+            "sapp_profile": ["", "Psicología sanitaria, Psicología educativa"],
+            "sapp_groups": ["", "Competencias personales, Competencias profesionales"]
         })
         file_path = "Plantilla_Audeo_Corporativa.xlsx"
         df.to_excel(file_path, index=False)
@@ -147,7 +173,6 @@ class ConsolaAdmin:
 
             df.columns = df.columns.str.lower().str.strip()
             
-            # Validación de columnas obligatorias (org_id ya no es necesario en el excel)
             req = ['username', 'password', 'tests']
             if not all(col in df.columns for col in req):
                 ui.notify('El archivo no tiene las columnas mínimas: username, password, tests', type='negative')
@@ -176,16 +201,14 @@ class ConsolaAdmin:
                 payload = {
                     "username": str(row['username']).strip(),
                     "password": str(row['password']).strip(),
-                    "org_id": org_id, # INYECCIÓN DIRECTA Y SEGURA
+                    "org_id": org_id,
                     "role": "USER",
                     "is_deleted": False,
                     "profile_data": profile_data
                 }
                 
-                # Insertamos en Supabase
                 supabase.table("users").upsert(payload).execute()
                 
-                # Registramos en el Action Log (Historial Verde-Azul de Creación)
                 supabase.table('action_logs').insert({
                     'org_id': org_id, 'action_type': 'REGISTER_BULK', 'target_user': payload['username'], 
                     'performed_by': 'SUPER_ADMIN', 'status_color': 'green-blue'
@@ -198,7 +221,6 @@ class ConsolaAdmin:
 
         except Exception as ex:
             ui.notify(f'Error procesando Excel: {ex}', type='negative')
-            # Log de error (Amarillo-Rojo)
             supabase.table('action_logs').insert({
                 'org_id': org_id, 'action_type': 'ERROR_BULK', 'target_user': 'ARCHIVO_MASIVO', 
                 'performed_by': 'SUPER_ADMIN', 'status_color': 'yellow-red', 'metadata': {'error': str(ex)}
@@ -209,14 +231,12 @@ class ConsolaAdmin:
     # ==========================================
     def render_dashboard(self):
         with self.contenedor.classes('p-8'):
-            # Header
             with ui.row().classes('w-full justify-between items-center mb-6 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-xl'):
                 with ui.row().classes('items-center gap-6'):
                     ui.image('logo_blanco.png').classes('w-40')
                     ui.label('ERP DE ADMINISTRACIÓN AUDEO').classes('text-2xl text-white font-black tracking-tight')
                 ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-8 py-2 font-bold rounded-xl')
 
-            # SISTEMA DE PESTAÑAS
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_orgs = ui.tab('ORGANIZACIONES', icon='domain')
                 t_users = ui.tab('USUARIOS GLOBALES', icon='people')
@@ -224,33 +244,42 @@ class ConsolaAdmin:
 
             with ui.tab_panels(tabs, value=t_orgs).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-0'):
                 
-                # ----------------------------------------------------------------
-                # PESTAÑA 1: ORGANIZACIONES
-                # ----------------------------------------------------------------
                 with ui.tab_panel(t_orgs).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # Formulario de Alta y Edición
-                        with ui.column().classes('w-1/3 min-w-[400px] bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
-                            ui.label('Configuración de Organización').classes('text-xl text-[#83ABF1] font-bold mb-4 border-b border-gray-800 pb-2')
+                        # --- FORMULARIO DE ALTA/EDICIÓN ---
+                        with ui.column().classes('w-1/3 min-w-[420px] bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
+                            ui.label('Configuración Básica').classes('text-lg text-[#83ABF1] font-bold mb-4 border-b border-gray-800 pb-2 w-full')
                             
                             inputs = {
                                 'nom': ui.input('Nombre Comercial').classes('w-full mb-2').props('dark outlined'),
                                 'pwd': ui.input('Clave Maestra').classes('w-full mb-4').props('dark outlined'),
                                 'sape': ui.number('Lic. SAPE', value=0, min=0).classes('w-full mb-2').props('dark outlined'),
                                 'sapp': ui.number('Lic. SAPP', value=0, min=0).classes('w-full mb-4').props('dark outlined'),
-                                'demo': ui.checkbox('Cuenta DEMO (Pruebas al 10%)').classes('text-white mb-4 border-b border-gray-800 pb-4 w-full'),
+                                'demo': ui.checkbox('Cuenta DEMO (Pruebas al 10%)').classes('text-white mb-6 w-full'),
                                 
                                 'p_usr': ui.checkbox('Puede crear/editar usuarios').classes('text-white'),
-                                'p_test': ui.checkbox('Puede asignar pruebas/sectores').classes('text-white'),
                                 'p_stat': ui.checkbox('Ver estadísticas de su organización').classes('text-white'),
-                                'p_comp': ui.checkbox('Ver comparativas anónimas sectoriales').classes('text-white')
+                                'p_comp': ui.checkbox('Ver comparativas anónimas sectoriales').classes('text-white mb-4'),
+                                
+                                # --- PRIVILEGIOS DE ASIGNACIÓN GRANULARES ---
+                                'p_sape': ui.checkbox('Habilitar asignación de SAPE').classes('text-[#83ABF1] font-bold mt-2'),
+                                'p_sape_sectores': ui.select(SECTORES_SAPE, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-4 ml-4').props('dark outlined use-chips'),
+                                
+                                'p_sapp': ui.checkbox('Habilitar asignación de SAPP').classes('text-green-400 font-bold mt-2'),
+                                'p_sapp_perfiles': ui.select(PERFILES_SAPP, multiple=True, label='Sectores SAPP Permitidos').classes('w-full mb-2 ml-4').props('dark outlined use-chips'),
+                                'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips')
                             }
+                            
+                            # Lógica visual: Mostrar desplegables solo si el checkbox padre está activo
+                            inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
+                            inputs['p_sapp_perfiles'].bind_visibility_from(inputs['p_sapp'], 'value')
+                            inputs['p_sapp_comp'].bind_visibility_from(inputs['p_sapp'], 'value')
                             
                             ui.button('GUARDAR ORGANIZACIÓN', on_click=lambda: self.guardar_organizacion(inputs)).classes('w-full py-4 text-white font-bold rounded-xl mt-6').style(f'background-color: {DARK_BLUE}')
                             ui.button('LIMPIAR FORMULARIO', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
 
-                        # Listado de Organizaciones Activas
+                        # --- LISTADO DE ORGANIZACIONES ---
                         with ui.column().classes('flex-1 bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
                             ui.label('Cartera de Clientes Activos').classes('text-xl text-[#83ABF1] font-bold mb-4')
                             try:
@@ -260,35 +289,28 @@ class ConsolaAdmin:
                                         with ui.row().classes('w-full justify-between items-center p-4 border-b border-gray-800 hover:bg-[#161B22] rounded-lg transition-colors'):
                                             with ui.column().classes('gap-1'):
                                                 ui.label(o['name'].upper()).classes('text-white font-bold text-lg')
-                                                ui.label(f"Org_ID: {o['id']} | Demos: {'Activado' if o.get('is_demo') else 'No'}").classes('text-xs text-gray-500')
+                                                ui.label(f"Org_ID: {o['id']}").classes('text-xs text-gray-500')
                                                 ui.label(f"SAPE: {o['sape_licenses']} | SAPP: {o['sapp_licenses']}").classes('text-sm text-[#83ABF1]')
                                             with ui.row().classes('gap-2'):
                                                 ui.button(icon='edit', on_click=lambda o=o: self.preparar_edicion(o, inputs)).props('flat round color=blue')
-                                                # No incluimos borrar por defecto en ERP B2B para evitar borrar datos en cascada, pero lo dejamos preparado
                                 else:
                                     ui.label("Aún no hay organizaciones creadas.").classes('text-gray-500 italic')
                             except Exception as e:
                                 ui.label(f"Error cargando base de datos: {e}").classes('text-red-500')
 
                 # ----------------------------------------------------------------
-                # PESTAÑA 2: USUARIOS GLOBALES Y CARGA MASIVA
+                # PESTAÑA 2: USUARIOS GLOBALES
                 # ----------------------------------------------------------------
                 with ui.tab_panel(t_users).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
-                        
-                        # Carga Masiva Dirigida
                         with ui.column().classes('w-1/3 bg-[#0E1117] p-6 rounded-xl border border-gray-800'):
                             ui.label('Carga Masiva Dirigida').classes('text-xl text-[#83ABF1] font-bold mb-4')
-                            
                             org_options = {o['id']: o['name'] for o in orgs} if orgs else {}
                             target_org = ui.select(org_options, label='1. Selecciona Organización Destino').classes('w-full mb-6').props('dark outlined')
-                            
                             ui.label('2. Sube el Excel para inyectar').classes('text-sm text-gray-400 mb-2')
                             ui.upload(on_upload=lambda e: self.procesar_carga_masiva_dirigida(e, target_org.value), label="Subir Archivo", auto_upload=True).classes('w-full mb-6')
-                            
                             ui.button('Descargar Plantilla XLSX', icon='download', on_click=self.descargar_plantilla).classes('w-full bg-green-700 text-white font-bold')
 
-                        # Buscador Global de Usuarios
                         with ui.column().classes('flex-1 bg-[#0E1117] p-6 rounded-xl border border-gray-800'):
                             ui.label('Directorio Global de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
                             try:
@@ -300,7 +322,6 @@ class ConsolaAdmin:
                                         {'name': 'role', 'label': 'Rol', 'field': 'role', 'align': 'center'},
                                         {'name': 'created_at', 'label': 'Fecha Alta', 'field': 'created_at', 'align': 'right'}
                                     ]
-                                    # Limpiamos las fechas
                                     for row in usr_data: row['created_at'] = row['created_at'][:10]
                                     ui.table(columns=cols_usr, rows=usr_data, row_key='username').classes('w-full bg-[#161B22] text-white')
                                 else:
@@ -308,12 +329,10 @@ class ConsolaAdmin:
                             except Exception as e: ui.label(f'Error leyendo usuarios: {e}')
 
                 # ----------------------------------------------------------------
-                # PESTAÑA 3: ESTADÍSTICAS Y LOGS (HISTORIAL COLORES)
+                # PESTAÑA 3: ESTADÍSTICAS Y LOGS
                 # ----------------------------------------------------------------
                 with ui.tab_panel(t_stats).classes('p-8'):
                     ui.label('Monitor de Actividad B2B').classes('text-xl text-[#83ABF1] font-bold mb-6')
-                    
-                    # Leyenda de Colores Documento Maestro
                     with ui.row().classes('gap-6 mb-8 w-full justify-center bg-[#0E1117] p-4 rounded-xl border border-gray-800'):
                         ui.label('🟢 Activas').classes('text-green-400 font-bold')
                         ui.label('🟢🔵 Nuevas').classes('text-blue-400 font-bold')
@@ -321,7 +340,6 @@ class ConsolaAdmin:
                         ui.label('🟡🔴 Error').classes('text-orange-500 font-bold')
                         ui.label('🔴 Eliminadas').classes('text-red-500 font-bold')
 
-                    # Tabla de Action Logs
                     with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-xl border border-gray-800'):
                         try:
                             logs = supabase.table('action_logs').select('*').order('created_at', desc=True).limit(50).execute().data
