@@ -1,13 +1,12 @@
 import os
 import pandas as pd
 import io
+import json
+from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# ==========================================
-# CONFIGURACIÓN E INICIALIZACIÓN
-# ==========================================
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -32,34 +31,28 @@ class ConsolaOrganizacion:
         self.users_data = []
         self.evals_data = []
         self.logs_data = []
+        self.editing_user = None
 
     def cargar_datos(self):
-        """Carga solo los datos pertenecientes al org_id de este cliente"""
         if not supabase or not self.org_id: return
-        
         try:
-            # 1. Datos y Privilegios de la Organización
             res_org = supabase.table('organizations').select('*').eq('id', self.org_id).execute()
             if res_org.data: 
                 self.org_data = res_org.data[0]
                 self.privilegios = self.org_data.get('privileges', {}) or {}
 
-            # 2. Usuarios
-            res_usr = supabase.table('users').select('*').eq('org_id', self.org_id).execute()
+            res_usr = supabase.table('users').select('*').eq('org_id', self.org_id).order('created_at', desc=True).execute()
             if res_usr.data: self.users_data = res_usr.data
 
-            # 3. Evaluaciones completadas
             res_eval = supabase.table('evaluations').select('*').eq('org_id', self.org_id).execute()
             if res_eval.data: self.evals_data = res_eval.data
             
-            # 4. Action Logs (Historial de colores)
             res_logs = supabase.table('action_logs').select('*').eq('org_id', self.org_id).order('created_at', desc=True).limit(50).execute()
             if res_logs.data: self.logs_data = res_logs.data
-
         except Exception as e:
-            ui.notify(f"Error cargando datos de la organización: {e}", type='negative')
+            ui.notify(f"Error cargando datos: {e}", type='negative')
 
-    def registrar_log(self, action_type, target_user, color):
+    def registrar_log(self, action_type, target_user, color, error_msg=""):
         if not supabase: return
         try:
             supabase.table('action_logs').insert({
@@ -67,19 +60,169 @@ class ConsolaOrganizacion:
                 'action_type': action_type,
                 'target_user': target_user,
                 'performed_by': self.username,
-                'status_color': color
+                'status_color': color,
+                'metadata': {'error': error_msg} if error_msg else {}
             }).execute()
-        except:
-            pass
+        except: pass
 
     def solicitar_licencias(self):
-        # Aquí en el futuro podemos enviar un email al Admin o registrar la petición en una tabla de facturación
-        ui.notify("Solicitud enviada a Administración. Nos pondremos en contacto para la facturación posterior.", type='positive', icon='check_circle', position='top')
+        self.registrar_log('SOLICITUD_LICENCIAS', 'SAPE/SAPP', 'green')
+        ui.notify("Solicitud enviada. Se emitirá la facturación posterior correspondiente.", type='positive', icon='check_circle')
 
     def cerrar_sesion(self):
         app.storage.user.clear()
         ui.navigate.to('/')
 
+    # ==========================================
+    # GESTIÓN INDIVIDUAL DE USUARIOS
+    # ==========================================
+    def preparar_edicion_usuario(self, user, inputs):
+        self.editing_user = user['username']
+        inputs['u_nom'].value = user['username']
+        inputs['u_pwd'].value = user['password']
+        
+        p_data = user.get('profile_data', {})
+        sape_data = p_data.get('sape', {})
+        sapp_data = p_data.get('sapp', {})
+        
+        inputs['u_tests'].value = 'AMBAS' if sape_data.get('attempts',0)>0 and sapp_data.get('attempts',0)>0 else 'SAPE' if sape_data.get('attempts',0)>0 else 'SAPP' if sapp_data.get('attempts',0)>0 else 'SAPE'
+        inputs['u_intentos'].value = max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0))
+        inputs['u_sectores'].value = ", ".join(sape_data.get('sectors', []))
+        inputs['u_perfil'].value = sapp_data.get('profile', '')
+        ui.notify(f"Editando usuario: {user['username']}", type='info')
+
+    def guardar_usuario_manual(self, inputs):
+        if not inputs['u_nom'].value or not inputs['u_pwd'].value:
+            ui.notify('Usuario y Contraseña requeridos', type='warning')
+            return
+
+        test_val = inputs['u_tests'].value
+        intentos = int(inputs['u_intentos'].value)
+        
+        sape_active = test_val in ["SAPE", "AMBAS"]
+        sapp_active = test_val in ["SAPP", "AMBAS"]
+
+        profile_data = {
+            "sape_attempts_allowed": intentos if sape_active else 0,
+            "sapp_attempts_allowed": intentos if sapp_active else 0,
+            "sape": {
+                "attempts": intentos if sape_active else 0,
+                "sectors": [s.strip() for s in inputs['u_sectores'].value.split(',')] if inputs['u_sectores'].value else []
+            },
+            "sapp": {
+                "attempts": intentos if sapp_active else 0,
+                "profile": inputs['u_perfil'].value.strip(),
+                "groups": [] # Se puede ampliar si se pide en UI
+            }
+        }
+
+        payload = {
+            "username": inputs['u_nom'].value.strip(),
+            "password": inputs['u_pwd'].value.strip(),
+            "org_id": self.org_id,
+            "role": "USER",
+            "is_deleted": False,
+            "profile_data": profile_data
+        }
+
+        try:
+            if self.editing_user:
+                # Actualizar (Verde clarito con punto amarillo -> 'green-yellow')
+                supabase.table('users').update(payload).eq('username', self.editing_user).execute()
+                self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
+                ui.notify('Usuario actualizado', type='positive')
+            else:
+                # Nuevo (Verde con punto azul -> 'green-blue')
+                supabase.table('users').insert(payload).execute()
+                self.registrar_log('NEW_USER', payload['username'], 'green-blue')
+                ui.notify('Usuario creado', type='positive')
+            
+            self.editing_user = None
+            self.render()
+        except Exception as e:
+            self.registrar_log('ERROR', payload['username'], 'yellow-red', str(e))
+            ui.notify(f'Error guardando usuario: {e}', type='negative')
+
+    def eliminar_usuario(self, username):
+        try:
+            # Eliminado (Rojo -> 'red')
+            supabase.table('users').update({'is_deleted': True}).eq('username', username).execute()
+            self.registrar_log('DELETE_USER', username, 'red')
+            ui.notify(f'Usuario {username} eliminado', type='positive')
+            self.render()
+        except Exception as e:
+            ui.notify(f'Error al eliminar: {e}', type='negative')
+
+    # ==========================================
+    # CARGA MASIVA Y PLANTILLAS
+    # ==========================================
+    def descargar_plantilla_org(self):
+        df = pd.DataFrame({
+            "username": ["usuario_01", "usuario_02"],
+            "password": ["Pass123*", "Pass456*"],
+            "tests": ["SAPE", "AMBAS"],
+            "sape_sectors": ["TECH", "SALUD, SOCIAL"],
+            "sapp_profile": ["", "Psicología sanitaria"],
+            "sapp_groups": ["", "competencias personales, técnicas"]
+        })
+        file_path = f"Plantilla_Carga_{self.org_id}.xlsx"
+        df.to_excel(file_path, index=False)
+        ui.download(file_path)
+        ui.notify('Plantilla corporativa descargada', type='positive')
+
+    async def procesar_carga_masiva(self, e):
+        ui.notify('Procesando archivo masivo...', type='info')
+        try:
+            content = io.BytesIO(e.content.read())
+            df = pd.read_excel(content) if e.name.endswith('.xlsx') else pd.read_csv(content, sep=None, engine='python')
+            df.columns = df.columns.str.lower().str.strip()
+            
+            req = ['username', 'password', 'tests']
+            if not all(col in df.columns for col in req):
+                raise ValueError("Faltan columnas requeridas (username, password, tests)")
+
+            count = 0
+            for _, row in df.iterrows():
+                tests = str(row['tests']).upper()
+                sape_active = any(x in tests for x in ["SAPE", "AMBAS"])
+                sapp_active = any(x in tests for x in ["SAPP", "AMBAS"])
+
+                profile_data = {
+                    "sape": {
+                        "attempts": 1 if sape_active else 0,
+                        "sectors": [s.strip() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
+                    },
+                    "sapp": {
+                        "attempts": 1 if sapp_active else 0,
+                        "profile": str(row.get('sapp_profile', '')).strip(),
+                        "groups": [g.strip() for g in str(row.get('sapp_groups', '')).split(',')] if pd.notna(row.get('sapp_groups')) else []
+                    }
+                }
+
+                payload = {
+                    "username": str(row['username']).strip(),
+                    "password": str(row['password']).strip(),
+                    "org_id": self.org_id, # Forzado a la organización actual
+                    "role": "USER",
+                    "is_deleted": False,
+                    "profile_data": profile_data
+                }
+                
+                # Usamos upsert. Si existe, lo cuenta como editado.
+                res = supabase.table("users").upsert(payload).execute()
+                count += 1
+
+            self.registrar_log('BULK_UPLOAD', f'{count} usuarios', 'green-blue')
+            ui.notify(f'Éxito: {count} usuarios sincronizados.', type='positive')
+            self.render()
+
+        except Exception as ex:
+            self.registrar_log('ERROR_BULK', 'Archivo', 'yellow-red', str(ex))
+            ui.notify(f'Error en archivo: {ex}', type='negative')
+
+    # ==========================================
+    # RENDER PRINCIPAL
+    # ==========================================
     def render(self):
         self.contenedor.clear()
         if app.storage.user.get('role') != 'ORG_ADMIN':
@@ -93,112 +236,148 @@ class ConsolaOrganizacion:
             with ui.row().classes('w-full justify-between items-center mb-6 bg-[#161B22] p-6 rounded-2xl border border-gray-800 shadow-xl'):
                 with ui.row().classes('items-center gap-6'):
                     ui.image('logo_blanco.png').classes('w-40')
-                    nombre_empresa = self.org_data.get('name', self.org_id).upper()
-                    ui.label(f'PORTAL B2B | {nombre_empresa}').classes('text-2xl text-white font-black tracking-tight')
+                    ui.label(f"PORTAL B2B | {self.org_data.get('name', self.org_id).upper()}").classes('text-2xl text-white font-black tracking-tight')
                 with ui.row().classes('items-center gap-4'):
-                    ui.button('Solicitar + Licencias', on_click=self.solicitar_licencias, icon='add_shopping_cart').classes('bg-green-600 text-white font-bold rounded-lg')
+                    ui.button('Solicitar + Licencias', on_click=self.solicitar_licencias, icon='add_shopping_cart').classes('bg-green-700 text-white font-bold rounded-lg')
                     ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('font-bold rounded-lg')
 
             # KPIs RÁPIDOS
             with ui.row().classes('w-full gap-4 mb-8'):
-                ui.label(f"🔑 SAPE: {self.org_data.get('sape_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
-                ui.label(f"🔑 SAPP: {self.org_data.get('sapp_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
-                ui.label(f"👥 Usuarios: {len(self.users_data)}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                ui.label(f"Licencias SAPE: {self.org_data.get('sape_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                ui.label(f"Licencias SAPP: {self.org_data.get('sapp_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                usuarios_activos = len([u for u in self.users_data if not u.get('is_deleted')])
+                ui.label(f"Usuarios Activos: {usuarios_activos}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
 
-            # PESTAÑAS
+            # SISTEMA DE PESTAÑAS
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
-                tab_usuarios = ui.tab('USUARIOS', icon='manage_accounts')
-                tab_estadisticas = ui.tab('ESTADÍSTICAS E HISTORIAL', icon='query_stats')
+                t_users = ui.tab('USUARIOS E HISTORIAL', icon='manage_accounts')
+                t_stats = ui.tab('ESTADÍSTICAS', icon='analytics')
 
-            with ui.tab_panels(tabs, value=tab_usuarios).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl p-8 shadow-2xl'):
+            with ui.tab_panels(tabs, value=t_users).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-8'):
                 
-                # --- PESTAÑA USUARIOS ---
-                with ui.tab_panel(tab_usuarios):
+                # ----------------------------------------------------------------
+                # PESTAÑA 1: USUARIOS E HISTORIAL DE REGISTROS
+                # ----------------------------------------------------------------
+                with ui.tab_panel(t_users):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # BLOQUE IZQUIERDO: CREACIÓN MASIVA / INDIVIDUAL (Renderizado Condicional por Privilegios)
+                        # COLUMNA IZQUIERDA: CREACIÓN Y CARGA (Controlada por Privilegios)
                         with ui.column().classes('w-1/3 min-w-[350px]'):
                             if self.privilegios.get('can_create_users', False):
-                                # Individual
+                                # Gestión Manual
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800 mb-6'):
-                                    ui.label('Registrar Usuario Manual').classes('text-lg text-[#83ABF1] font-bold mb-4')
-                                    u_nom = ui.input('Nombre de Usuario').classes('w-full mb-2').props('dark outlined')
-                                    u_pwd = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('dark outlined')
-                                    ui.button('Crear Usuario', on_click=lambda: ui.notify("Función de creación individual en desarrollo", type='info')).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold')
-                                
-                                # Masivo
+                                    ui.label('Gestión Individual').classes('text-lg text-[#83ABF1] font-bold mb-4')
+                                    inputs = {
+                                        'u_nom': ui.input('Nombre de Usuario').classes('w-full mb-2').props('dark outlined'),
+                                        'u_pwd': ui.input('Contraseña').classes('w-full mb-4').props('dark outlined'),
+                                    }
+                                    
+                                    if self.privilegios.get('can_assign_tests', False):
+                                        inputs['u_tests'] = ui.select(['SAPE', 'SAPP', 'AMBAS'], label='Prueba Asignada', value='SAPE').classes('w-full mb-2').props('dark outlined')
+                                        inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
+                                        inputs['u_sectores'] = ui.input('Sector SAPE (Ej: TECH, SALUD)').classes('w-full mb-2').props('dark outlined')
+                                        inputs['u_perfil'] = ui.input('Perfil SAPP (Ej: Sanitaria)').classes('w-full mb-4').props('dark outlined')
+                                    else:
+                                        # Valores por defecto si no puede asignar
+                                        inputs['u_tests'] = ui.label('Prueba: SAPE (Por defecto)')
+                                        inputs['u_intentos'] = ui.label('Intentos: 1')
+                                        inputs['u_sectores'] = ui.label('')
+                                        inputs['u_perfil'] = ui.label('')
+
+                                    ui.button('GUARDAR USUARIO', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold mt-2')
+                                    ui.button('LIMPIAR', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
+
+                                # Carga Masiva
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
-                                    ui.label('Carga Masiva (CSV / XLSX)').classes('text-lg text-[#83ABF1] font-bold mb-2')
-                                    ui.button('Descargar Plantilla Corporativa', icon='file_download').classes('w-full mb-4 bg-gray-700 text-white')
-                                    ui.upload(on_upload=self.procesar_carga_masiva_org, label="Sube tu archivo", auto_upload=True).classes('w-full')
+                                    ui.label('Carga Masiva (CSV / XLSX)').classes('text-lg text-[#83ABF1] font-bold mb-4')
+                                    ui.button('Descargar Plantilla XLSX', icon='download', on_click=self.descargar_plantilla_org).classes('w-full mb-4 bg-green-700 text-white')
+                                    ui.upload(on_upload=self.procesar_carga_masiva, label="Subir Archivo", auto_upload=True).classes('w-full')
                             else:
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-red-900/50 items-center text-center'):
                                     ui.icon('lock', size='3rem', color='red').classes('mb-4 opacity-50')
-                                    ui.label('Creación de usuarios deshabilitada.').classes('text-red-400 font-bold mb-2')
-                                    ui.label('Contacta con administración para habilitar esta función o enviar listados.').classes('text-sm text-gray-500')
+                                    ui.label('Privilegios insuficientes').classes('text-red-400 font-bold mb-2')
+                                    ui.label('No puedes registrar ni editar usuarios. Contacta con Administración.').classes('text-sm text-gray-500')
 
-                        # BLOQUE DERECHO: LISTADO DE USUARIOS DE LA EMPRESA
-                        with ui.column().classes('flex-1 bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
-                            ui.label('Directorio de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
-                            if not self.users_data:
-                                ui.label('No hay usuarios en la organización.').classes('text-gray-500 italic')
-                            else:
-                                filas = []
-                                for u in self.users_data:
-                                    if u.get('role') == 'ORG_ADMIN': continue
-                                    filas.append({
-                                        'user': u.get('username'),
-                                        'role': u.get('role'),
-                                        'status': 'Activo' if not u.get('is_deleted') else 'Eliminado',
-                                        'date': u.get('created_at', '')[:10]
-                                    })
-                                cols = [
-                                    {'name': 'user', 'label': 'Usuario', 'field': 'user', 'align': 'left'},
-                                    {'name': 'status', 'label': 'Estado', 'field': 'status', 'align': 'center'},
-                                    {'name': 'date', 'label': 'Alta', 'field': 'date', 'align': 'right'}
-                                ]
-                                ui.table(columns=cols, rows=filas, row_key='user').classes('w-full bg-[#161B22] text-white')
+                        # COLUMNA DERECHA: DIRECTORIO E HISTORIAL
+                        with ui.column().classes('flex-1'):
+                            # Tabla de Usuarios
+                            with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800 mb-6'):
+                                ui.label('Directorio de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                                if not self.users_data:
+                                    ui.label('No hay usuarios registrados.').classes('text-gray-500')
+                                else:
+                                    for u in self.users_data:
+                                        if u.get('role') == 'ORG_ADMIN' or u.get('is_deleted'): continue
+                                        with ui.row().classes('w-full justify-between items-center p-3 border-b border-gray-800 hover:bg-[#161B22]'):
+                                            ui.label(u['username']).classes('text-white font-bold')
+                                            if self.privilegios.get('can_create_users', False):
+                                                with ui.row().classes('gap-2'):
+                                                    ui.button(icon='edit', on_click=lambda u=u: self.preparar_edicion_usuario(u, inputs)).props('flat round color=blue size=sm')
+                                                    ui.button(icon='delete', on_click=lambda user=u['username']: self.eliminar_usuario(user)).props('flat round color=red size=sm')
 
-                # --- PESTAÑA ESTADÍSTICAS E HISTORIAL ---
-                with ui.tab_panel(tab_estadisticas):
-                    with ui.row().classes('w-full gap-8'):
-                        
-                        # HISTORIAL (Action Logs de Colores)
-                        with ui.column().classes('w-1/2 bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
-                            ui.label('Historial de Registros').classes('text-xl text-[#83ABF1] font-bold mb-6')
+                            # Historial de Registros (Colores Exactos del Doc Maestro)
+                            with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
+                                ui.label('Historial de Registros').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                                
+                                # Leyenda Oficial
+                                with ui.row().classes('gap-4 mb-4 text-xs font-bold bg-[#161B22] p-3 rounded-lg w-full justify-center'):
+                                    ui.label('🟢 Activas').classes('text-green-500')
+                                    ui.label('🟢🔵 Nuevas').classes('text-blue-400')
+                                    ui.label('🟢🟡 Editadas').classes('text-yellow-400')
+                                    ui.label('🟡🔴 Error').classes('text-orange-500')
+                                    ui.label('🔴 Eliminadas').classes('text-red-500')
+
+                                if not self.logs_data:
+                                    ui.label('Sin actividad reciente.').classes('text-gray-500')
+                                else:
+                                    for log in self.logs_data:
+                                        c = log.get('status_color')
+                                        bg = "bg-green-500" if c=="green" else "bg-blue-400" if c=="green-blue" else "bg-yellow-400" if c=="green-yellow" else "bg-orange-500" if c=="yellow-red" else "bg-red-500"
+                                        
+                                        with ui.row().classes('w-full items-center gap-4 py-2 border-b border-gray-800/30'):
+                                            ui.element('div').classes(f'w-3 h-3 rounded-full {bg} shadow-sm')
+                                            ui.label(log.get('created_at', '')[:16].replace('T', ' ')).classes('text-gray-500 text-xs w-32')
+                                            ui.label(log.get('action_type')).classes('text-white text-xs font-bold w-24')
+                                            ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
+
+                # ----------------------------------------------------------------
+                # PESTAÑA 2: ESTADÍSTICAS BÁSICAS
+                # ----------------------------------------------------------------
+                with ui.tab_panel(t_stats):
+                    if not self.privilegios.get('can_view_org_stats', False):
+                        with ui.column().classes('w-full items-center text-center py-10'):
+                            ui.icon('visibility_off', size='4rem', color='gray').classes('mb-4')
+                            ui.label('Estadísticas bloqueadas').classes('text-xl text-gray-400 font-bold')
+                            ui.label('No tienes privilegios para ver las analíticas.').classes('text-gray-600')
+                    else:
+                        with ui.column().classes('w-full bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
+                            ui.label('Panel Analítico').classes('text-2xl text-[#83ABF1] font-bold mb-6')
                             
-                            # Leyenda de Colores
-                            with ui.row().classes('gap-4 mb-6 text-xs text-gray-400 font-bold'):
-                                ui.label('🟢 Activas').classes('bg-green-900/30 px-2 py-1 rounded')
-                                ui.label('🟢🔵 Nuevas').classes('bg-blue-900/30 px-2 py-1 rounded border-l-2 border-green-500')
-                                ui.label('🟢🟡 Editadas').classes('bg-yellow-900/30 px-2 py-1 rounded border-l-2 border-green-500')
-                                ui.label('🟡🔴 Error').classes('bg-red-900/30 px-2 py-1 rounded border-l-2 border-yellow-500')
-                                ui.label('🔴 Eliminadas').classes('bg-red-900/30 px-2 py-1 rounded')
+                            # Filtros Visuales
+                            with ui.row().classes('w-full gap-4 mb-8 bg-[#161B22] p-4 rounded-xl'):
+                                ui.select(['Todas', 'SAPE', 'SAPP'], label='Por Prueba', value='Todas').classes('w-48').props('dark outlined')
+                                ui.select(['Todos', 'TECH', 'SALUD'], label='Por Sector', value='Todos').classes('w-48').props('dark outlined')
+                                ui.input('Filtrar Fecha').classes('w-48').props('dark outlined type=date')
+                                ui.select(['Todos los usuarios'], label='Por Usuario', value='Todos los usuarios').classes('w-64').props('dark outlined')
 
-                            if not self.logs_data:
-                                ui.label('No hay registros recientes.').classes('text-gray-500')
+                            # Tabla de Resultados
+                            if not self.evals_data:
+                                ui.label('No hay evaluaciones completadas para mostrar estadísticas.').classes('text-gray-500 italic')
                             else:
-                                for log in self.logs_data:
-                                    color = log.get('status_color', 'green')
-                                    # Mapeo de colores a tailwind
-                                    bg_col = "bg-green-500" if color == "green" else "bg-blue-500" if color == "green-blue" else "bg-yellow-500" if color == "green-yellow" else "bg-red-500"
-                                    
-                                    with ui.row().classes('w-full items-center gap-4 mb-2 p-2 border-b border-gray-800/50 hover:bg-[#161B22]'):
-                                        ui.element('div').classes(f'w-3 h-3 rounded-full {bg_col}')
-                                        ui.label(log.get('created_at', '')[:16].replace('T', ' ')).classes('text-gray-500 text-sm')
-                                        ui.label(log.get('action_type')).classes('text-white font-bold text-sm w-24')
-                                        ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
-
-                        # ESTADÍSTICAS BÁSICAS (Visibilidad por privilegios)
-                        with ui.column().classes('w-1/2'):
-                            if self.privilegios.get('can_view_org_stats', False):
-                                ui.label('Estadísticas Globales').classes('text-xl text-[#83ABF1] font-bold mb-4')
-                                ui.label('Panel de Business Intelligence en construcción. Mostrará gráficos de pruebas, sectores y usuarios.').classes('text-gray-500 italic p-6 border border-gray-800 rounded-xl')
-                            else:
-                                ui.label('Estadísticas Deshabilitadas').classes('text-xl text-gray-600 font-bold mb-4')
-
-    async def procesar_carga_masiva_org(self, e):
-        # Esta versión fuerza el org_id al del cliente logueado, por seguridad
-        ui.notify('Procesando archivo B2B...', type='info')
-        self.registrar_log('MASIVO', 'Archivo subido', 'green-blue')
-        # La lógica de pandas irá aquí, pero forzando: row['org_id'] = self.org_id
+                                ui.label('Evaluaciones Completadas:').classes('text-lg text-white font-bold mb-4')
+                                filas_ev = []
+                                for ev in self.evals_data:
+                                    res = ev.get('results', {})
+                                    filas_ev.append({
+                                        'user': ev.get('user_id'),
+                                        'test': 'SAPE', # o SAPP dependiendo de la data
+                                        'score': f"{res.get('potencial', 0)}% Potencial",
+                                        'date': ev.get('created_at', '')[:10]
+                                    })
+                                cols_ev = [
+                                    {'name': 'user', 'label': 'Usuario', 'field': 'user', 'align': 'left'},
+                                    {'name': 'test', 'label': 'Prueba', 'field': 'test', 'align': 'center'},
+                                    {'name': 'score', 'label': 'Resultado', 'field': 'score', 'align': 'center'},
+                                    {'name': 'date', 'label': 'Fecha', 'field': 'date', 'align': 'right'},
+                                ]
+                                ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white')
