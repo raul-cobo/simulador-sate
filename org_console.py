@@ -21,6 +21,10 @@ except Exception as e:
 BG_COLOR = "#0E1117"
 DARK_BLUE = "#0D248D"
 
+# Listas Oficiales de Audeo
+SECTORES_OFICIALES = ['TECH', 'CONSULTORIA', 'HOSTELERIA', 'INTRA', 'AUTOEMPLEO', 'PYME', 'SALUD', 'SOCIAL']
+PERFILES_SAPP = ['Organizacional', 'Educativo', 'Social', 'Sanitario']
+
 class ConsolaOrganizacion:
     def __init__(self):
         self.contenedor = ui.column().classes('w-full min-h-screen p-0 m-0').style(f'background-color: {BG_COLOR}')
@@ -87,8 +91,13 @@ class ConsolaOrganizacion:
         
         inputs['u_tests'].value = 'AMBAS' if sape_data.get('attempts',0)>0 and sapp_data.get('attempts',0)>0 else 'SAPE' if sape_data.get('attempts',0)>0 else 'SAPP' if sapp_data.get('attempts',0)>0 else 'SAPE'
         inputs['u_intentos'].value = max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0))
-        inputs['u_sectores'].value = ", ".join(sape_data.get('sectors', []))
-        inputs['u_perfil'].value = sapp_data.get('profile', '')
+        
+        # Cargar los selectores múltiples
+        inputs['u_sectores'].value = sape_data.get('sectors', [])
+        
+        perfil_guardado = sapp_data.get('profile', '')
+        inputs['u_perfil'].value = [p.strip() for p in perfil_guardado.split(',') if p.strip()] if perfil_guardado else []
+        
         ui.notify(f"Editando usuario: {user['username']}", type='info')
 
     def guardar_usuario_manual(self, inputs):
@@ -102,17 +111,20 @@ class ConsolaOrganizacion:
         sape_active = test_val in ["SAPE", "AMBAS"]
         sapp_active = test_val in ["SAPP", "AMBAS"]
 
+        sectores_seleccionados = inputs['u_sectores'].value or []
+        perfiles_seleccionados = inputs['u_perfil'].value or []
+
         profile_data = {
             "sape_attempts_allowed": intentos if sape_active else 0,
             "sapp_attempts_allowed": intentos if sapp_active else 0,
             "sape": {
                 "attempts": intentos if sape_active else 0,
-                "sectors": [s.strip() for s in inputs['u_sectores'].value.split(',')] if inputs['u_sectores'].value else []
+                "sectors": sectores_seleccionados
             },
             "sapp": {
                 "attempts": intentos if sapp_active else 0,
-                "profile": inputs['u_perfil'].value.strip(),
-                "groups": [] # Se puede ampliar si se pide en UI
+                "profile": ", ".join(perfiles_seleccionados),
+                "groups": [] 
             }
         }
 
@@ -127,12 +139,10 @@ class ConsolaOrganizacion:
 
         try:
             if self.editing_user:
-                # Actualizar (Verde clarito con punto amarillo -> 'green-yellow')
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
                 ui.notify('Usuario actualizado', type='positive')
             else:
-                # Nuevo (Verde con punto azul -> 'green-blue')
                 supabase.table('users').insert(payload).execute()
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
                 ui.notify('Usuario creado', type='positive')
@@ -145,7 +155,6 @@ class ConsolaOrganizacion:
 
     def eliminar_usuario(self, username):
         try:
-            # Eliminado (Rojo -> 'red')
             supabase.table('users').update({'is_deleted': True}).eq('username', username).execute()
             self.registrar_log('DELETE_USER', username, 'red')
             ui.notify(f'Usuario {username} eliminado', type='positive')
@@ -161,8 +170,8 @@ class ConsolaOrganizacion:
             "username": ["usuario_01", "usuario_02"],
             "password": ["Pass123*", "Pass456*"],
             "tests": ["SAPE", "AMBAS"],
-            "sape_sectors": ["TECH", "SALUD, SOCIAL"],
-            "sapp_profile": ["", "Psicología sanitaria"],
+            "sape_sectors": ["TECH, SOCIAL", "SALUD"],
+            "sapp_profile": ["", "Sanitario, Educativo"],
             "sapp_groups": ["", "competencias personales, técnicas"]
         })
         file_path = f"Plantilla_Carga_{self.org_id}.xlsx"
@@ -190,11 +199,11 @@ class ConsolaOrganizacion:
                 profile_data = {
                     "sape": {
                         "attempts": 1 if sape_active else 0,
-                        "sectors": [s.strip() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
+                        "sectors": [s.strip().upper() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
                     },
                     "sapp": {
                         "attempts": 1 if sapp_active else 0,
-                        "profile": str(row.get('sapp_profile', '')).strip(),
+                        "profile": str(row.get('sapp_profile', '')).strip().title(),
                         "groups": [g.strip() for g in str(row.get('sapp_groups', '')).split(',')] if pd.notna(row.get('sapp_groups')) else []
                     }
                 }
@@ -202,14 +211,13 @@ class ConsolaOrganizacion:
                 payload = {
                     "username": str(row['username']).strip(),
                     "password": str(row['password']).strip(),
-                    "org_id": self.org_id, # Forzado a la organización actual
+                    "org_id": self.org_id, 
                     "role": "USER",
                     "is_deleted": False,
                     "profile_data": profile_data
                 }
                 
-                # Usamos upsert. Si existe, lo cuenta como editado.
-                res = supabase.table("users").upsert(payload).execute()
+                supabase.table("users").upsert(payload).execute()
                 count += 1
 
             self.registrar_log('BULK_UPLOAD', f'{count} usuarios', 'green-blue')
@@ -255,13 +263,10 @@ class ConsolaOrganizacion:
 
             with ui.tab_panels(tabs, value=t_users).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-8'):
                 
-                # ----------------------------------------------------------------
-                # PESTAÑA 1: USUARIOS E HISTORIAL DE REGISTROS
-                # ----------------------------------------------------------------
                 with ui.tab_panel(t_users):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # COLUMNA IZQUIERDA: CREACIÓN Y CARGA (Controlada por Privilegios)
+                        # COLUMNA IZQUIERDA: CREACIÓN Y CARGA
                         with ui.column().classes('w-1/3 min-w-[350px]'):
                             if self.privilegios.get('can_create_users', False):
                                 # Gestión Manual
@@ -269,16 +274,17 @@ class ConsolaOrganizacion:
                                     ui.label('Gestión Individual').classes('text-lg text-[#83ABF1] font-bold mb-4')
                                     inputs = {
                                         'u_nom': ui.input('Nombre de Usuario').classes('w-full mb-2').props('dark outlined'),
-                                        'u_pwd': ui.input('Contraseña').classes('w-full mb-4').props('dark outlined'),
+                                        'u_pwd': ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('dark outlined'),
                                     }
                                     
                                     if self.privilegios.get('can_assign_tests', False):
                                         inputs['u_tests'] = ui.select(['SAPE', 'SAPP', 'AMBAS'], label='Prueba Asignada', value='SAPE').classes('w-full mb-2').props('dark outlined')
                                         inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
-                                        inputs['u_sectores'] = ui.input('Sector SAPE (Ej: TECH, SALUD)').classes('w-full mb-2').props('dark outlined')
-                                        inputs['u_perfil'] = ui.input('Perfil SAPP (Ej: Sanitaria)').classes('w-full mb-4').props('dark outlined')
+                                        
+                                        # ¡AQUÍ ESTÁ LA MEJORA PRO! Selectores Múltiples
+                                        inputs['u_sectores'] = ui.select(SECTORES_OFICIALES, multiple=True, label='Sectores SAPE Habilitados').classes('w-full mb-2').props('dark outlined use-chips')
+                                        inputs['u_perfil'] = ui.select(PERFILES_SAPP, multiple=True, label='Perfiles SAPP Habilitados').classes('w-full mb-4').props('dark outlined use-chips')
                                     else:
-                                        # Valores por defecto si no puede asignar
                                         inputs['u_tests'] = ui.label('Prueba: SAPE (Por defecto)')
                                         inputs['u_intentos'] = ui.label('Intentos: 1')
                                         inputs['u_sectores'] = ui.label('')
@@ -315,11 +321,10 @@ class ConsolaOrganizacion:
                                                     ui.button(icon='edit', on_click=lambda u=u: self.preparar_edicion_usuario(u, inputs)).props('flat round color=blue size=sm')
                                                     ui.button(icon='delete', on_click=lambda user=u['username']: self.eliminar_usuario(user)).props('flat round color=red size=sm')
 
-                            # Historial de Registros (Colores Exactos del Doc Maestro)
+                            # Historial de Registros
                             with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
                                 ui.label('Historial de Registros').classes('text-xl text-[#83ABF1] font-bold mb-4')
                                 
-                                # Leyenda Oficial
                                 with ui.row().classes('gap-4 mb-4 text-xs font-bold bg-[#161B22] p-3 rounded-lg w-full justify-center'):
                                     ui.label('🟢 Activas').classes('text-green-500')
                                     ui.label('🟢🔵 Nuevas').classes('text-blue-400')
@@ -341,26 +346,23 @@ class ConsolaOrganizacion:
                                             ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
 
                 # ----------------------------------------------------------------
-                # PESTAÑA 2: ESTADÍSTICAS BÁSICAS
+                # PESTAÑA 2: ESTADÍSTICAS
                 # ----------------------------------------------------------------
                 with ui.tab_panel(t_stats):
                     if not self.privilegios.get('can_view_org_stats', False):
                         with ui.column().classes('w-full items-center text-center py-10'):
                             ui.icon('visibility_off', size='4rem', color='gray').classes('mb-4')
                             ui.label('Estadísticas bloqueadas').classes('text-xl text-gray-400 font-bold')
-                            ui.label('No tienes privilegios para ver las analíticas.').classes('text-gray-600')
                     else:
                         with ui.column().classes('w-full bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
                             ui.label('Panel Analítico').classes('text-2xl text-[#83ABF1] font-bold mb-6')
                             
-                            # Filtros Visuales
                             with ui.row().classes('w-full gap-4 mb-8 bg-[#161B22] p-4 rounded-xl'):
                                 ui.select(['Todas', 'SAPE', 'SAPP'], label='Por Prueba', value='Todas').classes('w-48').props('dark outlined')
-                                ui.select(['Todos', 'TECH', 'SALUD'], label='Por Sector', value='Todos').classes('w-48').props('dark outlined')
+                                ui.select(['Todos'] + SECTORES_OFICIALES, label='Por Sector', value='Todos').classes('w-48').props('dark outlined')
                                 ui.input('Filtrar Fecha').classes('w-48').props('dark outlined type=date')
                                 ui.select(['Todos los usuarios'], label='Por Usuario', value='Todos los usuarios').classes('w-64').props('dark outlined')
 
-                            # Tabla de Resultados
                             if not self.evals_data:
                                 ui.label('No hay evaluaciones completadas para mostrar estadísticas.').classes('text-gray-500 italic')
                             else:
@@ -370,7 +372,7 @@ class ConsolaOrganizacion:
                                     res = ev.get('results', {})
                                     filas_ev.append({
                                         'user': ev.get('user_id'),
-                                        'test': 'SAPE', # o SAPP dependiendo de la data
+                                        'test': 'SAPE',
                                         'score': f"{res.get('potencial', 0)}% Potencial",
                                         'date': ev.get('created_at', '')[:10]
                                     })
