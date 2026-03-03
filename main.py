@@ -4,10 +4,10 @@ from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
-
 from admin_console import ConsolaAdmin
 from org_console import ConsolaOrganizacion
 from sape_ui import SAPEInterface
+from sapp_ui import SAPPInterface
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO
@@ -372,6 +372,26 @@ def sape_test(sector: str = 'TECH'):
         interfaz.render()
     except Exception as e:
         ui.label(f'Error crítico al cargar el motor SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
+
+@ui.page('/sapp-test')
+def sapp_test(sector: str = 'Psicología organizacional'):
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    
+    if not app.storage.user.get('authenticated'):
+        ui.navigate.to('/')
+        return
+    
+    archivo_preguntas_sapp = 'Prueba_SAPP.csv' 
+    
+    try:
+        # supabase ya está instanciado globalmente en main.py
+        interfaz = SAPPInterface(df_path=archivo_preguntas_sapp, sector=sector, supabase_client=supabase)
+        interfaz.render()
+    except Exception as e:
+        with ui.column().classes('w-full items-center mt-20'):
+            ui.label(f'Error crítico al cargar SAPP: {e}').classes('text-red-500 text-xl font-bold')
+            ui.button('Volver', on_click=lambda: ui.navigate.to('/')).classes('mt-4')      
 
 # ==========================================
 # INICIADOR DEL SERVIDOR
