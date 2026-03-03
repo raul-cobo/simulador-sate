@@ -349,6 +349,8 @@ def panel_page():
                         ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl font-bold')
                         ui.button('INICIAR EVALUACIÓN', on_click=comenzar).classes('flex-1 bg-green-600 text-white font-black py-4 rounded-xl hover:scale-105 transition-transform shadow-lg')
 
+    render_stepper()
+
 # ==========================================
 # 6. ENRUTAMIENTO HACIA LOS MOTORES (CORREGIDO)
 # ==========================================
