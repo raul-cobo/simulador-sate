@@ -146,7 +146,7 @@ def org_admin_page():
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
 # ==========================================
 @ui.page('/panel')
-async def panel_page():
+def panel_page():
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     
@@ -156,6 +156,7 @@ async def panel_page():
 
     username = app.storage.user.get('username')
     
+    # --- 1. CARGA DE DATOS ---
     if not supabase: return
     try:
         res_u = supabase.table('users').select('*').eq('username', username).execute()
@@ -169,15 +170,27 @@ async def panel_page():
         ui.notify(f'Error de conexión: {e}', type='negative')
         return
 
+    # --- 2. LISTAS DESPLEGABLES OFICIALES ---
     LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
     LISTA_ESTUDIOS = ['Sin estudios', 'Educación Primaria', 'ESO / Secundaria', 'Bachillerato', 'FP Grado Medio', 'FP Grado Superior', 'Grado Universitario', 'Postgrado / Máster', 'Doctorado']
     LISTA_EMPLEO = ['Empleado por cuenta ajena', 'Autónomo / Emprendedor', 'Desempleado', 'Estudiante', 'Jubilado / Inactivo']
     LISTA_PROVINCIAS = sorted(["Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Gerona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Jaén", "La Coruña", "La Rioja", "Las Palmas", "León", "Lérida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Orense", "Palencia", "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"])
     LISTA_HISTORIAL = ['Nunca he emprendido', 'He emprendido sin éxito', 'He emprendido con éxito']
 
+    # --- 3. CONTROLADOR DE ESTADO INTELIGENTE (Smart Onboarding) ---
     class OnboardingManager:
         def __init__(self):
-            self.step = 0 if not user_db.get('rgpd_accepted_at') else 1
+            # Lógica de salto automático si ya tenemos sus datos
+            if not user_db.get('rgpd_accepted_at'):
+                self.step = 0
+            elif not user_db.get('age') or not user_db.get('province'):
+                self.step = 1
+            elif not user_db.get('education_level') or not user_db.get('entrepreneurship_status'):
+                self.step = 2
+            else:
+                self.step = 3 # Si ya lo rellenó todo en el pasado, va directo a la prueba
+            
+            # Variables de estado
             self.age = user_db.get('age')
             self.gender = user_db.get('gender')
             self.province = user_db.get('province')
@@ -185,18 +198,21 @@ async def panel_page():
             self.employment = user_db.get('employment_status')
             self.entrepreneurship = user_db.get('entrepreneurship_status')
             
+            # Selector de pruebas basado en privilegios
             self.test_type = 'SAPE' if privs.get('can_assign_sape') else ('SAPP' if privs.get('can_assign_sapp') else None)
             self.sector_sape = None
             self.perfil_sapp = None
 
     state = OnboardingManager()
 
+    # Cabecera del Candidato
     with ui.row().classes('w-full items-center justify-between p-6 bg-[#161B22] border-b border-gray-800 shadow-md'):
         ui.image('logo_blanco.png').classes('w-32')
         with ui.row().classes('items-center gap-6'):
             ui.label(f"{username} | {user_db.get('org_id', '').upper()}").classes('text-gray-400 text-sm font-bold')
             ui.button(icon='logout', on_click=logout).props('flat round color=white')
 
+    # --- 4. RENDERIZADO REACTIVO ---
     @ui.refreshable
     def render_stepper():
         with ui.column().classes('w-full max-w-2xl mx-auto p-4 items-center mt-6'):
@@ -209,7 +225,9 @@ async def panel_page():
                     ui.label('—').classes('text-gray-600 self-center font-bold')
                     ui.icon('flag', color='#83ABF1' if state.step >= 3 else 'gray').classes('text-3xl transition-colors')
 
-            # PASO 0: RGPD
+            # ==========================================
+            # PASO 0: CONSENTIMIENTO RGPD
+            # ==========================================
             if state.step == 0:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1]/50 shadow-2xl'):
                     ui.icon('security', size='4rem', color='#83ABF1').classes('mb-4 self-center')
@@ -218,10 +236,9 @@ async def panel_page():
                     with ui.scroll_area().classes('h-48 w-full bg-[#0E1117] p-4 rounded-lg mb-6 border border-gray-800 text-sm text-gray-400'):
                         ui.label("AUDEO PROCESSOR garantiza el cumplimiento estricto del Reglamento General de Protección de Datos (RGPD).")
                         ui.label("1. Sus datos serán tratados de forma totalmente confidencial.")
-                        ui.label("2. La información demográfica recogida se utilizará exclusivamente para generar su informe individual y para crear modelos estadísticos agregados y anónimos para su organización.")
-                        ui.label("3. Usted tiene derecho a solicitar el acceso, rectificación o eliminación de sus datos contactando con la administración de su entidad.")
+                        ui.label("2. La información demográfica recogida se utilizará exclusivamente para generar su informe individual y modelos estadísticos.")
                     
-                    check_rgpd = ui.checkbox('He leído, comprendo y acepto el tratamiento de mis datos personales.').classes('text-white font-bold mb-8')
+                    check_rgpd = ui.checkbox('He leído y acepto el tratamiento de mis datos personales.').classes('text-white font-bold mb-8')
                     
                     def aceptar_rgpd():
                         if not check_rgpd.value:
@@ -229,14 +246,17 @@ async def panel_page():
                             return
                         try:
                             from datetime import datetime
-                            # Sin 'await', llamada directa a la base de datos
                             supabase.table('users').update({'rgpd_accepted_at': datetime.now().isoformat()}).eq('username', username).execute()
                             state.step = 1
                             render_stepper.refresh()
                         except Exception as e:
-                            ui.notify(f'Error guardando consentimiento: {e}', type='negative')
+                            ui.notify(f'Error en BD: {e}', type='negative')
+                    
+                    ui.button('ACEPTAR Y CONTINUAR', on_click=aceptar_rgpd).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
 
-            # PASO 1: BLOQUE A
+            # ==========================================
+            # PASO 1: BLOQUE A (Datos Demográficos)
+            # ==========================================
             elif state.step == 1:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
                     ui.label('BLOQUE A: Datos Personales').classes('text-xl font-bold mb-8 text-[#83ABF1]')
@@ -247,7 +267,7 @@ async def panel_page():
                     
                     def ir_a_bloque_b():
                         if not age_in.value or not gen_in.value or not prov_in.value:
-                            ui.notify('Por favor, completa todos los campos demográficos.', type='warning')
+                            ui.notify('Por favor, completa todos los campos.', type='warning')
                             return
                         state.age, state.gender, state.province = age_in.value, gen_in.value, prov_in.value
                         state.step = 2
@@ -255,7 +275,9 @@ async def panel_page():
                         
                     ui.button('SIGUIENTE PASO', on_click=ir_a_bloque_b).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # PASO 2: BLOQUE B
+            # ==========================================
+            # PASO 2: BLOQUE B (Contexto Profesional)
+            # ==========================================
             elif state.step == 2:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
                     ui.label('BLOQUE B: Perfil Profesional').classes('text-xl font-bold mb-8 text-[#83ABF1]')
@@ -264,25 +286,39 @@ async def panel_page():
                     emp_in = ui.select(LISTA_EMPLEO, label='Situación laboral actual', value=state.employment).classes('w-full mb-4').props('dark outlined')
                     hist_in = ui.select(LISTA_HISTORIAL, label='Historial de emprendimiento', value=state.entrepreneurship).classes('w-full mb-8').props('dark outlined')
                     
-                    async def ir_a_bloque_c():
+                    def ir_a_bloque_c():
                         if not edu_in.value or not emp_in.value or not hist_in.value:
-                            ui.notify('Por favor, completa todo tu perfil profesional.', type='warning')
+                            ui.notify('Por favor, completa todo tu perfil.', type='warning')
                             return
-                            
-                        await supabase.table('users').update({
-                            'age': int(state.age), 'gender': state.gender, 'province': state.province,
-                            'education_level': edu_in.value, 'employment_status': emp_in.value, 'entrepreneurship_status': hist_in.value
-                        }).eq('username', username).execute()
                         
-                        state.education, state.employment, state.entrepreneurship = edu_in.value, emp_in.value, hist_in.value
-                        state.step = 3
-                        render_stepper.refresh()
+                        try:
+                            # Conversión segura y guardado
+                            edad_segura = int(state.age) if state.age else 0
+                            supabase.table('users').update({
+                                'age': edad_segura,
+                                'gender': state.gender,
+                                'province': state.province,
+                                'education_level': edu_in.value,
+                                'employment_status': emp_in.value,
+                                'entrepreneurship_status': hist_in.value
+                            }).eq('username', username).execute()
+                            
+                            state.education = edu_in.value
+                            state.employment = emp_in.value
+                            state.entrepreneurship = hist_in.value
+                            state.step = 3
+                            ui.notify('Perfil guardado correctamente', type='positive')
+                            render_stepper.refresh()
+                        except Exception as e:
+                            ui.notify(f'Error al guardar en Base de Datos: {e}', type='negative')
 
                     with ui.row().classes('w-full gap-4'):
                         ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # PASO 3: BLOQUE C
+            # ==========================================
+            # PASO 3: BLOQUE C (Selección de Prueba)
+            # ==========================================
             elif state.step == 3:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
                     ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
@@ -300,8 +336,8 @@ async def panel_page():
                     sectores_habilitados = privs.get('allowed_sape_sectors', [])
                     perfiles_habilitados = privs.get('allowed_sapp_profiles', [])
                     
-                    sel_sector = ui.select(sectores_habilitados, label='Selecciona el sector de tu proyecto', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
-                    sel_perfil = ui.select(perfiles_habilitados, label='Selecciona tu perfil a analizar', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
+                    sel_sector = ui.select(sectores_habilitados, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
+                    sel_perfil = ui.select(perfiles_habilitados, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
                     
                     sel_sector.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPE')
                     sel_perfil.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPP')
@@ -323,7 +359,7 @@ async def panel_page():
                             ui.notify('Motor SAPP en construcción.', type='info')
 
                     with ui.row().classes('w-full gap-4'):
-                        ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 2), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl')
+                        ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('INICIAR EVALUACIÓN', on_click=comenzar).classes('flex-1 bg-green-600 text-white font-black py-4 rounded-xl hover:scale-105 transition-transform shadow-lg')
 
     render_stepper()
