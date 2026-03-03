@@ -156,7 +156,7 @@ def panel_page():
 
     username = app.storage.user.get('username')
     
-    # --- 1. CARGA DE DATOS ---
+    # --- 1. CARGA DE DATOS Y PRIVILEGIOS INDIVIDUALES ---
     if not supabase: return
     try:
         res_u = supabase.table('users').select('*').eq('username', username).execute()
@@ -170,6 +170,18 @@ def panel_page():
         ui.notify(f'Error de conexión: {e}', type='negative')
         return
 
+    # LÓGICA CORREGIDA: Leer intentos y asignaciones individuales del usuario
+    profile_data = user_db.get('profile_data', {})
+    sape_data = profile_data.get('sape', {})
+    sapp_data = profile_data.get('sapp', {})
+    
+    sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
+    sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
+    
+    sectores_usuario = sape_data.get('sectors', [])
+    perfiles_raw = sapp_data.get('profile', '')
+    perfiles_usuario = [p.strip() for p in perfiles_raw.split(',') if p.strip()] if perfiles_raw else []
+
     # --- 2. LISTAS DESPLEGABLES OFICIALES ---
     LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
     LISTA_ESTUDIOS = ['Sin estudios', 'Educación Primaria', 'ESO / Secundaria', 'Bachillerato', 'FP Grado Medio', 'FP Grado Superior', 'Grado Universitario', 'Postgrado / Máster', 'Doctorado']
@@ -177,10 +189,10 @@ def panel_page():
     LISTA_PROVINCIAS = sorted(["Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Gerona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Jaén", "La Coruña", "La Rioja", "Las Palmas", "León", "Lérida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Orense", "Palencia", "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"])
     LISTA_HISTORIAL = ['Nunca he emprendido', 'He emprendido sin éxito', 'He emprendido con éxito']
 
-    # --- 3. CONTROLADOR DE ESTADO INTELIGENTE (Smart Onboarding) ---
+    # --- 3. CONTROLADOR DE ESTADO INTELIGENTE ---
     class OnboardingManager:
         def __init__(self):
-            # Lógica de salto automático si ya tenemos sus datos
+            # Salto automático
             if not user_db.get('rgpd_accepted_at'):
                 self.step = 0
             elif not user_db.get('age') or not user_db.get('province'):
@@ -188,9 +200,8 @@ def panel_page():
             elif not user_db.get('education_level') or not user_db.get('entrepreneurship_status'):
                 self.step = 2
             else:
-                self.step = 3 # Si ya lo rellenó todo en el pasado, va directo a la prueba
+                self.step = 3 
             
-            # Variables de estado
             self.age = user_db.get('age')
             self.gender = user_db.get('gender')
             self.province = user_db.get('province')
@@ -198,21 +209,19 @@ def panel_page():
             self.employment = user_db.get('employment_status')
             self.entrepreneurship = user_db.get('entrepreneurship_status')
             
-            # Selector de pruebas basado en privilegios
-            self.test_type = 'SAPE' if privs.get('can_assign_sape') else ('SAPP' if privs.get('can_assign_sapp') else None)
+            # Asignación corregida usando los permisos individuales
+            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else None)
             self.sector_sape = None
             self.perfil_sapp = None
 
     state = OnboardingManager()
 
-    # Cabecera del Candidato
     with ui.row().classes('w-full items-center justify-between p-6 bg-[#161B22] border-b border-gray-800 shadow-md'):
         ui.image('logo_blanco.png').classes('w-32')
         with ui.row().classes('items-center gap-6'):
             ui.label(f"{username} | {user_db.get('org_id', '').upper()}").classes('text-gray-400 text-sm font-bold')
             ui.button(icon='logout', on_click=logout).props('flat round color=white')
 
-    # --- 4. RENDERIZADO REACTIVO ---
     @ui.refreshable
     def render_stepper():
         with ui.column().classes('w-full max-w-2xl mx-auto p-4 items-center mt-6'):
@@ -225,9 +234,7 @@ def panel_page():
                     ui.label('—').classes('text-gray-600 self-center font-bold')
                     ui.icon('flag', color='#83ABF1' if state.step >= 3 else 'gray').classes('text-3xl transition-colors')
 
-            # ==========================================
-            # PASO 0: CONSENTIMIENTO RGPD
-            # ==========================================
+            # PASO 0: RGPD
             if state.step == 0:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1]/50 shadow-2xl'):
                     ui.icon('security', size='4rem', color='#83ABF1').classes('mb-4 self-center')
@@ -254,9 +261,7 @@ def panel_page():
                     
                     ui.button('ACEPTAR Y CONTINUAR', on_click=aceptar_rgpd).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
 
-            # ==========================================
-            # PASO 1: BLOQUE A (Datos Demográficos)
-            # ==========================================
+            # PASO 1: BLOQUE A
             elif state.step == 1:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
                     ui.label('BLOQUE A: Datos Personales').classes('text-xl font-bold mb-8 text-[#83ABF1]')
@@ -275,9 +280,7 @@ def panel_page():
                         
                     ui.button('SIGUIENTE PASO', on_click=ir_a_bloque_b).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # ==========================================
-            # PASO 2: BLOQUE B (Contexto Profesional)
-            # ==========================================
+            # PASO 2: BLOQUE B
             elif state.step == 2:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-gray-800 shadow-2xl'):
                     ui.label('BLOQUE B: Perfil Profesional').classes('text-xl font-bold mb-8 text-[#83ABF1]')
@@ -292,7 +295,6 @@ def panel_page():
                             return
                         
                         try:
-                            # Conversión segura y guardado
                             edad_segura = int(state.age) if state.age else 0
                             supabase.table('users').update({
                                 'age': edad_segura,
@@ -316,9 +318,7 @@ def panel_page():
                         ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # ==========================================
             # PASO 3: BLOQUE C (Selección de Prueba)
-            # ==========================================
             elif state.step == 3:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
                     ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
@@ -327,14 +327,16 @@ def panel_page():
                         ui.label('No tienes pruebas asignadas por tu organización.').classes('text-red-400 font-bold mb-8')
                         return
 
+                    # Usamos los permisos individuales del usuario en lugar de los globales de la org
                     opciones_radio = []
-                    if privs.get('can_assign_sape'): opciones_radio.append('SAPE')
-                    if privs.get('can_assign_sapp'): opciones_radio.append('SAPP')
+                    if sape_allowed: opciones_radio.append('SAPE')
+                    if sapp_allowed: opciones_radio.append('SAPP')
                     
                     tipo_radio = ui.radio(opciones_radio, value=state.test_type).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    sectores_habilitados = privs.get('allowed_sape_sectors', [])
-                    perfiles_habilitados = privs.get('allowed_sapp_profiles', [])
+                    # Sectores y Perfiles: Si el usuario tiene asignados específicamente usa esos, si no (carga masiva antigua), usa los de la organización.
+                    sectores_habilitados = sectores_usuario if sectores_usuario else privs.get('allowed_sape_sectors', [])
+                    perfiles_habilitados = perfiles_usuario if perfiles_usuario else privs.get('allowed_sapp_profiles', [])
                     
                     sel_sector = ui.select(sectores_habilitados, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
                     sel_perfil = ui.select(perfiles_habilitados, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
