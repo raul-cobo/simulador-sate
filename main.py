@@ -170,11 +170,17 @@ def panel_page():
     perf_org = safe_list(privs.get('allowed_sapp_profiles'))
 
     # Listas por defecto
-    SECTORES_SAPE_DEFAULT = ['TECH', 'CONSULTORIA', 'PYME', 'HOSTELERIA', 'AUTOEMPLEO', 'SOCIAL', 'INTRA', 'SALUD', 'PSICOLOGIA_SANITARIA']
+    SECTORES_SAPE_DEFAULT = ['TECH', 'CONSULTORIA', 'PYME', 'HOSTELERIA', 'AUTOEMPLEO', 'SOCIAL', 'INTRA', 'SALUD', 'PSICOLOGIA_SANITARIA', 'PSICOLOGÍA_NO_SANITARIA']
     PERFILES_SAPP_DEFAULT = ['Psicología educativa', 'Psicología organizacional', 'Psicología sanitaria', 'Psicología social']
 
+    # BLINDAJE ABSOLUTO (Triple Fallback)
     sectores_finales = sec_user if sec_user else (sec_org if sec_org else SECTORES_SAPE_DEFAULT)
+    if not sectores_finales or len(sectores_finales) == 0:
+        sectores_finales = SECTORES_SAPE_DEFAULT
+
     perfiles_finales = perf_user if perf_user else (perf_org if perf_org else PERFILES_SAPP_DEFAULT)
+    if not perfiles_finales or len(perfiles_finales) == 0:
+        perfiles_finales = PERFILES_SAPP_DEFAULT
 
     # Listas Demográficas
     LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
@@ -308,7 +314,6 @@ def panel_page():
                     def comenzar():
                         if tipo_radio.value == 'SAPE':
                             if not sel_sector.value: return ui.notify('Selecciona un sector SAPE.', type='warning')
-                            # Enviamos por URL y guardamos en caché local para asegurar compatibilidad
                             app.storage.user.update({'current_sector': sel_sector.value})
                             ui.navigate.to(f'/sape-test?sector={sel_sector.value}')
                         elif tipo_radio.value == 'SAPP':
@@ -322,21 +327,26 @@ def panel_page():
     render_stepper()
 
 # ==========================================
-# 6. ENRUTAMIENTO HACIA LOS MOTORES (CORREGIDO ERROR 500)
+# 6. ENRUTAMIENTO HACIA LOS MOTORES (CORREGIDO)
 # ==========================================
 @ui.page('/sape-test')
 def sape_test(sector: str = 'TECH'):
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
+    
     if not app.storage.user.get('authenticated'):
         ui.navigate.to('/')
         return
     
-    # Hemos quitado el argumento 'sector_context' que provocaba el Error 500
-    # Instanciamos la clase limpia. Si sape_ui.py necesita el sector, 
-    # recomendamos que lo lea de app.storage.user.get('current_sector')
-    interfaz = SAPEInterface()
-    interfaz.render()
+    # Nombre del archivo donde están tus 160 preguntas (cambiar si es necesario)
+    archivo_preguntas = 'preguntas_sape.csv' 
+    
+    try:
+        # Instanciamos el motor inyectándole los parámetros correctos
+        interfaz = SAPEInterface(df_path=archivo_preguntas, sector=sector)
+        interfaz.render()
+    except Exception as e:
+        ui.label(f'Error crítico al cargar el motor SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
 
 # ==========================================
 # INICIADOR DEL SERVIDOR
