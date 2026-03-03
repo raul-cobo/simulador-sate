@@ -176,16 +176,20 @@ def panel_page():
     
     sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
     sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
-    
-    # Limpieza estricta de datos vacíos
-    sectores_usuario = [s.strip() for s in sape_data.get('sectors', []) if s and s.strip()]
-    perfiles_raw = sapp_data.get('profile', '')
-    if isinstance(perfiles_raw, list):
-        perfiles_usuario = [p.strip() for p in perfiles_raw if p and p.strip()]
-    else:
-        perfiles_usuario = [p.strip() for p in perfiles_raw.split(',') if p and p.strip()]
 
-    # --- 2. LISTAS OFICIALES (Respaldo de Seguridad) ---
+    # LIMPIADOR ULTRA-SEGURO DE LISTAS (Blindaje contra datos corruptos en BD)
+    def safe_list(data):
+        if not data: return []
+        if isinstance(data, str): return [x.strip() for x in data.split(',') if x.strip()]
+        if isinstance(data, list): return [str(x).strip() for x in data if str(x).strip()]
+        return []
+
+    sec_user = safe_list(sape_data.get('sectors'))
+    sec_org = safe_list(privs.get('allowed_sape_sectors'))
+    perf_user = safe_list(sapp_data.get('profile'))
+    perf_org = safe_list(privs.get('allowed_sapp_profiles'))
+
+    # --- 2. LISTAS OFICIALES (Respaldo) ---
     LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
     LISTA_ESTUDIOS = ['Sin estudios', 'Educación Primaria', 'ESO / Secundaria', 'Bachillerato', 'FP Grado Medio', 'FP Grado Superior', 'Grado Universitario', 'Postgrado / Máster', 'Doctorado']
     LISTA_EMPLEO = ['Empleado por cuenta ajena', 'Autónomo / Emprendedor', 'Desempleado', 'Estudiante', 'Jubilado / Inactivo']
@@ -194,6 +198,10 @@ def panel_page():
     
     SECTORES_SAPE_DEFAULT = ['TECH', 'CONSULTORIA', 'PYME', 'HOSTELERIA', 'AUTOEMPLEO', 'SOCIAL', 'INTRA', 'SALUD', 'PSICOLOGIA_SANITARIA', 'PSICOLOGÍA_NO_SANITARIA']
     PERFILES_SAPP_DEFAULT = ['Psicología educativa', 'Psicología organizacional', 'Psicología sanitaria', 'Psicología social']
+
+    # MAGIA DEL FALLBACK Y AUTO-SELECCIÓN
+    sectores_finales = sec_user if sec_user else (sec_org if sec_org else SECTORES_SAPE_DEFAULT)
+    perfiles_finales = perf_user if perf_user else (perf_org if perf_org else PERFILES_SAPP_DEFAULT)
 
     # --- 3. ESTADO INTELIGENTE ---
     class OnboardingManager:
@@ -215,8 +223,10 @@ def panel_page():
             self.entrepreneurship = user_db.get('entrepreneurship_status')
             
             self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else None)
-            self.sector_sape = None
-            self.perfil_sapp = None
+            
+            # Autoseleccionar la primera opción para que el usuario no tenga que hacer clic si no quiere
+            self.sector_sape = sectores_finales[0] if sectores_finales else None
+            self.perfil_sapp = perfiles_finales[0] if perfiles_finales else None
 
     state = OnboardingManager()
 
@@ -238,25 +248,20 @@ def panel_page():
                     ui.label('—').classes('text-gray-600 self-center font-bold')
                     ui.icon('flag', color='#83ABF1' if state.step >= 3 else 'gray').classes('text-3xl transition-colors')
 
-            # PASO 0, 1 Y 2 MANTENIDOS EXACTAMENTE IGUAL...
+            # PASO 0, 1 y 2 Mantenidos exactamente igual (Simplificados en vista)
             if state.step == 0:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1]/50 shadow-2xl'):
                     ui.icon('security', size='4rem', color='#83ABF1').classes('mb-4 self-center')
                     ui.label('Protección de Datos (RGPD)').classes('text-2xl font-bold mb-6 text-center w-full')
                     with ui.scroll_area().classes('h-48 w-full bg-[#0E1117] p-4 rounded-lg mb-6 border border-gray-800 text-sm text-gray-400'):
                         ui.label("AUDEO PROCESSOR garantiza el cumplimiento estricto del Reglamento General de Protección de Datos (RGPD).")
-                        ui.label("1. Sus datos serán tratados de forma totalmente confidencial.")
-                        ui.label("2. La información demográfica recogida se utilizará exclusivamente para generar su informe individual y modelos estadísticos.")
                     check_rgpd = ui.checkbox('He leído y acepto el tratamiento de mis datos personales.').classes('text-white font-bold mb-8')
                     def aceptar_rgpd():
-                        if not check_rgpd.value:
-                            ui.notify('Debe aceptar el consentimiento legal para continuar.', type='warning')
-                            return
+                        if not check_rgpd.value: return ui.notify('Debe aceptar legal para continuar.', type='warning')
                         try:
                             from datetime import datetime
                             supabase.table('users').update({'rgpd_accepted_at': datetime.now().isoformat()}).eq('username', username).execute()
-                            state.step = 1
-                            render_stepper.refresh()
+                            state.step = 1; render_stepper.refresh()
                         except Exception as e: ui.notify(f'Error en BD: {e}', type='negative')
                     ui.button('ACEPTAR Y CONTINUAR', on_click=aceptar_rgpd).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl')
 
@@ -267,12 +272,9 @@ def panel_page():
                     gen_in = ui.select(LISTA_GENERO, label='Género', value=state.gender).classes('w-full mb-4').props('dark outlined')
                     prov_in = ui.select(LISTA_PROVINCIAS, label='Provincia de residencia', value=state.province).classes('w-full mb-8').props('dark outlined')
                     def ir_a_bloque_b():
-                        if not age_in.value or not gen_in.value or not prov_in.value:
-                            ui.notify('Por favor, completa todos los campos.', type='warning')
-                            return
+                        if not age_in.value or not gen_in.value or not prov_in.value: return ui.notify('Completa todos los campos.', type='warning')
                         state.age, state.gender, state.province = age_in.value, gen_in.value, prov_in.value
-                        state.step = 2
-                        render_stepper.refresh()
+                        state.step = 2; render_stepper.refresh()
                     ui.button('SIGUIENTE PASO', on_click=ir_a_bloque_b).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
             elif state.step == 2:
@@ -282,26 +284,21 @@ def panel_page():
                     emp_in = ui.select(LISTA_EMPLEO, label='Situación laboral actual', value=state.employment).classes('w-full mb-4').props('dark outlined')
                     hist_in = ui.select(LISTA_HISTORIAL, label='Historial de emprendimiento', value=state.entrepreneurship).classes('w-full mb-8').props('dark outlined')
                     def ir_a_bloque_c():
-                        if not edu_in.value or not emp_in.value or not hist_in.value:
-                            ui.notify('Por favor, completa todo tu perfil.', type='warning')
-                            return
+                        if not edu_in.value or not emp_in.value or not hist_in.value: return ui.notify('Completa todo tu perfil.', type='warning')
                         try:
-                            edad_segura = int(state.age) if state.age else 0
                             supabase.table('users').update({
-                                'age': edad_segura, 'gender': state.gender, 'province': state.province,
+                                'age': int(state.age) if state.age else 0, 'gender': state.gender, 'province': state.province,
                                 'education_level': edu_in.value, 'employment_status': emp_in.value, 'entrepreneurship_status': hist_in.value
                             }).eq('username', username).execute()
                             state.education, state.employment, state.entrepreneurship = edu_in.value, emp_in.value, hist_in.value
-                            state.step = 3
-                            ui.notify('Perfil guardado correctamente', type='positive')
-                            render_stepper.refresh()
+                            state.step = 3; render_stepper.refresh()
                         except Exception as e: ui.notify(f'Error al guardar en BD: {e}', type='negative')
                     with ui.row().classes('w-full gap-4'):
                         ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
             # ==========================================
-            # PASO 3: BLOQUE C (LÓGICA TRIPLE FALLBACK)
+            # PASO 3: BLOQUE C (COMPLETAMENTE BLINDADO)
             # ==========================================
             elif state.step == 3:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
@@ -317,15 +314,9 @@ def panel_page():
                     
                     tipo_radio = ui.radio(opciones_radio, value=state.test_type).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    # MAGIA DEL FALLBACK: 1. Usuario -> 2. Organización -> 3. Oficiales
-                    sec_org = [s for s in privs.get('allowed_sape_sectors', []) if s.strip()]
-                    sectores_habilitados = sectores_usuario if sectores_usuario else (sec_org if sec_org else SECTORES_SAPE_DEFAULT)
-                    
-                    perf_org = [p for p in privs.get('allowed_sapp_profiles', []) if p.strip()]
-                    perfiles_habilitados = perfiles_usuario if perfiles_usuario else (perf_org if perf_org else PERFILES_SAPP_DEFAULT)
-                    
-                    sel_sector = ui.select(sectores_habilitados, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
-                    sel_perfil = ui.select(perfiles_habilitados, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
+                    # Desplegables alimentados por los arrays 100% seguros
+                    sel_sector = ui.select(sectores_finales, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
+                    sel_perfil = ui.select(perfiles_finales, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
                     
                     sel_sector.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPE')
                     sel_perfil.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPP')
