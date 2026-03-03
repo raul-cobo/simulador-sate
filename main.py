@@ -339,7 +339,7 @@ def sape_test(sector: str = 'TECH'):
         return
     
     # Nombre del archivo donde están tus 160 preguntas (cambiar si es necesario)
-    archivo_preguntas = 'preguntas_sape.csv' 
+    archivo_preguntas = 'prueba_sape.csv' 
     
     try:
         # Instanciamos el motor inyectándole los parámetros correctos
