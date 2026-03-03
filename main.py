@@ -288,7 +288,9 @@ def panel_page():
                         ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # PASO 3
+            # ==========================================
+            # PASO 3: BLOQUE C (SELECTOR DESPLEGABLE REFORZADO)
+            # ==========================================
             elif state.step == 3:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
                     ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
@@ -301,31 +303,51 @@ def panel_page():
                     if sape_allowed: opciones_radio.append('SAPE')
                     if sapp_allowed: opciones_radio.append('SAPP')
                     
-                    tipo_radio = ui.radio(opciones_radio, value=state.test_type).classes('text-white mb-6 font-bold text-lg').props('dark inline')
+                    # Función para refrescar la pantalla cuando cambias de prueba
+                    def cambiar_prueba(e):
+                        state.test_type = e.value
+                        render_stepper.refresh()
                     
-                    sel_sector = ui.select(sectores_finales, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined').bind_value(state, 'sector_sape')
-                    sel_perfil = ui.select(perfiles_finales, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined').bind_value(state, 'perfil_sapp')
+                    tipo_radio = ui.radio(opciones_radio, value=state.test_type, on_change=cambiar_prueba).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    sel_sector.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPE')
-                    sel_perfil.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPP')
+                    # DESPLEGABLES NATIVOS: Se dibujan con condicionales puros de Python, sin ocultamientos raros.
+                    if state.test_type == 'SAPE':
+                        ui.label('Despliega la lista y selecciona tu sector:').classes('text-gray-400 text-sm mb-2')
+                        desplegable_sector = ui.select(
+                            options=sectores_finales, 
+                            label='Sectores Disponibles', 
+                            value=state.sector_sape,
+                            on_change=lambda e: setattr(state, 'sector_sape', e.value)
+                        ).classes('w-full mb-8 bg-[#0E1117] text-white text-lg').props('dark outlined')
                     
-                    ui.label('Instrucciones: Sé sincero. Asegúrate de tener 15 min sin interrupciones.').classes('text-xs text-gray-400 mb-8')
+                    elif state.test_type == 'SAPP':
+                        ui.label('Despliega la lista y selecciona tu perfil:').classes('text-gray-400 text-sm mb-2')
+                        desplegable_perfil = ui.select(
+                            options=perfiles_finales, 
+                            label='Perfiles Disponibles', 
+                            value=state.perfil_sapp,
+                            on_change=lambda e: setattr(state, 'perfil_sapp', e.value)
+                        ).classes('w-full mb-8 bg-[#0E1117] text-white text-lg').props('dark outlined')
+                    
+                    ui.label('Instrucciones: Sé sincero. Asegúrate de tener 15 min sin interrupciones.').classes('text-xs text-gray-500 mb-8')
                     
                     def comenzar():
-                        if tipo_radio.value == 'SAPE':
-                            if not state.sector_sape: return ui.notify('Selecciona un sector SAPE.', type='warning')
+                        if state.test_type == 'SAPE':
+                            if not state.sector_sape: 
+                                ui.notify('Abre el desplegable y elige un sector.', type='warning')
+                                return
                             app.storage.user.update({'current_sector': state.sector_sape})
-                            # Ahora viaja exactamente el sector que tienes en state.sector_sape
                             ui.navigate.to(f'/sape-test?sector={state.sector_sape}')
-                        elif tipo_radio.value == 'SAPP':
-                            if not state.perfil_sapp: return ui.notify('Selecciona un perfil SAPP.', type='warning')
+                        
+                        elif state.test_type == 'SAPP':
+                            if not state.perfil_sapp: 
+                                ui.notify('Abre el desplegable y elige un perfil.', type='warning')
+                                return
                             ui.notify('Motor SAPP en construcción.', type='info')
 
                     with ui.row().classes('w-full gap-4'):
-                        ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl')
+                        ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl font-bold')
                         ui.button('INICIAR EVALUACIÓN', on_click=comenzar).classes('flex-1 bg-green-600 text-white font-black py-4 rounded-xl hover:scale-105 transition-transform shadow-lg')
-
-    render_stepper()
 
 # ==========================================
 # 6. ENRUTAMIENTO HACIA LOS MOTORES (CORREGIDO)
