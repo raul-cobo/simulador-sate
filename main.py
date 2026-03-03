@@ -303,8 +303,8 @@ def panel_page():
                     
                     tipo_radio = ui.radio(opciones_radio, value=state.test_type).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    sel_sector = ui.select(sectores_finales, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined')
-                    sel_perfil = ui.select(perfiles_finales, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined')
+                    sel_sector = ui.select(sectores_finales, label='Selecciona el sector', value=state.sector_sape).classes('w-full mb-8').props('dark outlined').bind_value(state, 'sector_sape')
+                    sel_perfil = ui.select(perfiles_finales, label='Selecciona tu perfil', value=state.perfil_sapp).classes('w-full mb-8').props('dark outlined').bind_value(state, 'perfil_sapp')
                     
                     sel_sector.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPE')
                     sel_perfil.bind_visibility_from(tipo_radio, 'value', value=lambda v: v == 'SAPP')
@@ -313,11 +313,12 @@ def panel_page():
                     
                     def comenzar():
                         if tipo_radio.value == 'SAPE':
-                            if not sel_sector.value: return ui.notify('Selecciona un sector SAPE.', type='warning')
-                            app.storage.user.update({'current_sector': sel_sector.value})
-                            ui.navigate.to(f'/sape-test?sector={sel_sector.value}')
+                            if not state.sector_sape: return ui.notify('Selecciona un sector SAPE.', type='warning')
+                            app.storage.user.update({'current_sector': state.sector_sape})
+                            # Ahora viaja exactamente el sector que tienes en state.sector_sape
+                            ui.navigate.to(f'/sape-test?sector={state.sector_sape}')
                         elif tipo_radio.value == 'SAPP':
-                            if not sel_perfil.value: return ui.notify('Selecciona un perfil SAPP.', type='warning')
+                            if not state.perfil_sapp: return ui.notify('Selecciona un perfil SAPP.', type='warning')
                             ui.notify('Motor SAPP en construcción.', type='info')
 
                     with ui.row().classes('w-full gap-4'):
