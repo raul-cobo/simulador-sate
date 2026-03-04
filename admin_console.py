@@ -4,6 +4,7 @@ import io
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -80,7 +81,7 @@ class ConsolaAdmin:
     def preparar_edicion(self, org, inputs):
         self.editing_org_id = org['id']
         inputs['nom'].value = org['name']
-        inputs['pwd'].value = org['password']
+        inputs['pwd'].value = org.get('password', '')
         inputs['sape'].value = org['sape_licenses']
         inputs['sapp'].value = org['sapp_licenses']
         inputs['demo'].value = org.get('is_demo', False)
@@ -90,7 +91,7 @@ class ConsolaAdmin:
         inputs['p_stat'].value = p.get('can_view_org_stats', False)
         inputs['p_comp'].value = p.get('can_compare_anon', False)
         
-        # Nuevos privilegios granulares
+        # Privilegios granulares
         inputs['p_sape'].value = p.get('can_assign_sape', False)
         inputs['p_sape_sectores'].value = p.get('allowed_sape_sectors', [])
         
@@ -100,46 +101,79 @@ class ConsolaAdmin:
         
         ui.notify(f"Modo Edición: {org['name']}", type='info')
 
-    def guardar_organizacion(self, inputs):
-        if not inputs['nom'].value or not inputs['pwd'].value:
-            ui.notify('Nombre y Contraseña son obligatorios', type='warning')
+    def guardar_organizacion(self, inputs: dict) -> None:
+        """
+        Crea o actualiza una organización y provisiona su usuario administrador automáticamente.
+        """
+        if not inputs['nom'].value:
+            ui.notify('El nombre comercial es obligatorio', type='warning')
             return
 
-        datos = {
+        # 1. Preparar el JSON de la Organización mapeando TUS claves
+        org_payload = {
             "name": inputs['nom'].value.strip(),
-            "password": inputs['pwd'].value.strip(),
-            "sape_licenses": int(inputs['sape'].value),
-            "sapp_licenses": int(inputs['sapp'].value),
+            "password": inputs['pwd'].value.strip() if inputs['pwd'].value else "",
+            "sape_licenses": int(inputs['sape'].value or 0),
+            "sapp_licenses": int(inputs['sapp'].value or 0),
             "is_demo": inputs['demo'].value,
             "privileges": {
                 "can_create_users": inputs['p_usr'].value,
                 "can_view_org_stats": inputs['p_stat'].value,
                 "can_compare_anon": inputs['p_comp'].value,
                 "can_request_custom": True,
-                # Bloque Granular SAPE
                 "can_assign_sape": inputs['p_sape'].value,
-                "allowed_sape_sectors": inputs['p_sape_sectores'].value if inputs['p_sape'].value else [],
-                # Bloque Granular SAPP
+                "allowed_sape_sectors": inputs['p_sape_sectores'].value or [],
                 "can_assign_sapp": inputs['p_sapp'].value,
-                "allowed_sapp_profiles": inputs['p_sapp_perfiles'].value if inputs['p_sapp'].value else [],
-                "allowed_sapp_comps": inputs['p_sapp_comp'].value if inputs['p_sapp'].value else []
+                "allowed_sapp_profiles": inputs['p_sapp_perfiles'].value or [],
+                "allowed_sapp_comps": inputs['p_sapp_comp'].value or []
             }
         }
-        
+
         try:
-            if self.editing_org_id:
-                supabase.table('organizations').update(datos).eq('id', self.editing_org_id).execute()
-                ui.notify("Organización actualizada correctamente", type='positive')
+            if getattr(self, 'editing_org_id', None):
+                # ACTUALIZACIÓN DE ORGANIZACIÓN EXISTENTE
+                supabase.table('organizations').update(org_payload).eq('id', self.editing_org_id).execute()
+                ui.notify('Organización actualizada', type='positive')
             else:
-                datos["id"] = datos["name"].lower().replace(" ", "_")
-                datos["is_active"] = True
-                supabase.table('organizations').insert(datos).execute()
-                ui.notify("Nueva organización registrada", type='positive')
-            
+                # CREACIÓN NUEVA + AUTO-PROVISIONAMIENTO
+                # Añadimos un ID generado manualmente o dejamos que Supabase lo cree si es UUID
+                org_payload["id"] = org_payload["name"].lower().replace(" ", "_")
+                org_payload["is_active"] = True
+
+                res_org = supabase.table('organizations').insert(org_payload).execute()
+                
+                if not res_org.data:
+                    raise Exception("Fallo al obtener la organización guardada.")
+                
+                new_org_id = res_org.data[0]['id']
+                
+                admin_username = inputs.get('admin_user').value.strip()
+                admin_password = inputs.get('admin_pass').value.strip()
+
+                if not admin_username or not admin_password:
+                    raise Exception("Debes especificar el Usuario y Contraseña del Administrador.")
+
+                # Insertamos al usuario en la tabla users atado al nuevo org_id
+                user_payload = {
+                    "username": admin_username,
+                    "password": admin_password,
+                    "org_id": new_org_id,
+                    "role": "ORG_ADMIN",
+                    "is_deleted": False,
+                    "profile_data": {
+                        "is_main_admin": True,
+                        "created_at": datetime.now().isoformat()
+                    }
+                }
+
+                supabase.table('users').insert(user_payload).execute()
+                ui.notify(f'Organización y Administrador "{admin_username}" creados con éxito', type='positive')
+
             self.editing_org_id = None
-            self.render()
+            self.render() # Refrescamos la consola
+            
         except Exception as e:
-            ui.notify(f"Error de base de datos: {e}", type='negative')
+            ui.notify(f'Error de base de datos: {e}', type='negative')
 
     # ==========================================
     # CARGA MASIVA DIRIGIDA Y PLANTILLAS
@@ -275,8 +309,16 @@ class ConsolaAdmin:
                             inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
                             inputs['p_sapp_perfiles'].bind_visibility_from(inputs['p_sapp'], 'value')
                             inputs['p_sapp_comp'].bind_visibility_from(inputs['p_sapp'], 'value')
+
+                            # --- NUEVO BLOQUE: CREDENCIALES DEL ADMINISTRADOR ---
+                            with ui.column().classes('w-full mt-6 p-6 border border-[#83ABF1]/30 rounded-xl bg-[#161B22] shadow-lg'):
+                                ui.label('CREDENCIALES DE ACCESO').classes('text-[#83ABF1] text-xs font-black tracking-widest mb-1')
+                                ui.label('Crea el usuario que gestionará esta organización.').classes('text-gray-400 text-xs mb-4')
+                                
+                                inputs['admin_user'] = ui.input('Usuario Admin (ej: ugr_admin)').props('dark outlined').classes('w-full mb-3')
+                                inputs['admin_pass'] = ui.input('Contraseña Admin', password=True).props('dark outlined password-toggle-button').classes('w-full')
                             
-                            ui.button('GUARDAR ORGANIZACIÓN', on_click=lambda: self.guardar_organizacion(inputs)).classes('w-full py-4 text-white font-bold rounded-xl mt-6').style(f'background-color: {DARK_BLUE}')
+                            ui.button('GUARDAR ORGANIZACIÓN', on_click=lambda: self.guardar_organizacion(inputs)).classes('w-full py-4 text-[#0E1117] font-bold rounded-xl mt-6').style(f'background-color: {ACCENT_COLOR if "ACCENT_COLOR" in globals() else "#83ABF1"}')
                             ui.button('LIMPIAR FORMULARIO', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
 
                         # --- LISTADO DE ORGANIZACIONES ---
@@ -305,7 +347,12 @@ class ConsolaAdmin:
                     with ui.row().classes('w-full gap-8 items-start'):
                         with ui.column().classes('w-1/3 bg-[#0E1117] p-6 rounded-xl border border-gray-800'):
                             ui.label('Carga Masiva Dirigida').classes('text-xl text-[#83ABF1] font-bold mb-4')
-                            org_options = {o['id']: o['name'] for o in orgs} if orgs else {}
+                            try:
+                                orgs = supabase.table('organizations').select('id, name').order('name').execute().data
+                                org_options = {o['id']: o['name'] for o in orgs} if orgs else {}
+                            except:
+                                org_options = {}
+
                             target_org = ui.select(org_options, label='1. Selecciona Organización Destino').classes('w-full mb-6').props('dark outlined')
                             ui.label('2. Sube el Excel para inyectar').classes('text-sm text-gray-400 mb-2')
                             ui.upload(on_upload=lambda e: self.procesar_carga_masiva_dirigida(e, target_org.value), label="Subir Archivo", auto_upload=True).classes('w-full mb-6')
