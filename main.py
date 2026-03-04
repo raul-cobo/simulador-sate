@@ -373,25 +373,36 @@ def sape_test(sector: str = 'TECH'):
     except Exception as e:
         ui.label(f'Error crítico al cargar el motor SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
 
-@ui.page('/sapp-test')
-def sapp_test(sector: str = 'Psicología organizacional'):
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    inicializar_sesion()
-    
+@ui.page('/sapp')
+def pagina_sapp():
+    # 1. Seguridad: Verificar si el usuario está logueado
     if not app.storage.user.get('authenticated'):
         ui.navigate.to('/')
         return
+
+    # 2. Extraer el perfil asignado al usuario
+    user_data = app.storage.user.get('profile_data', {})
+    sapp_data = user_data.get('sapp', {})
     
-    archivo_preguntas_sapp = 'Prueba_SAPP.csv' 
-    
+    # El perfil suele ser una cadena (ej: "Psicología organizacional"). 
+    # Si tiene varios, cogemos el primero para arrancar.
+    perfil_str = sapp_data.get('profile', 'Psicología organizacional')
+    perfiles_lista = [p.strip() for p in perfil_str.split(',') if p.strip()]
+    perfil_principal = perfiles_lista[0] if perfiles_lista else 'Psicología organizacional'
+
+    # 3. Lanzar el Motor SAPP Real
     try:
-        # supabase ya está instanciado globalmente en main.py
-        interfaz = SAPPInterface(df_path=archivo_preguntas_sapp, sector=sector, supabase_client=supabase)
-        interfaz.render()
+        motor_sapp = SAPPInterface(
+            df_path='Prueba_SAPP.csv', 
+            sector=perfil_principal, 
+            supabase_client=supabase
+        )
+        motor_sapp.render()
     except Exception as e:
-        with ui.column().classes('w-full items-center mt-20'):
-            ui.label(f'Error crítico al cargar SAPP: {e}').classes('text-red-500 text-xl font-bold')
-            ui.button('Volver', on_click=lambda: ui.navigate.to('/')).classes('mt-4')      
+        with ui.column().classes('w-full min-h-screen items-center justify-center bg-[#0E1117]'):
+            ui.label('Error iniciando SAPP').classes('text-red-500 text-2xl font-bold')
+            ui.label(str(e)).classes('text-gray-400')
+            ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-4 bg-[#83ABF1] text-black')
 
 # ==========================================
 # INICIADOR DEL SERVIDOR (ADAPTADO PARA RAILWAY)
