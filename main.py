@@ -394,7 +394,16 @@ def sapp_test(sector: str = 'Psicología organizacional'):
             ui.button('Volver', on_click=lambda: ui.navigate.to('/')).classes('mt-4')      
 
 # ==========================================
-# INICIADOR DEL SERVIDOR
+# INICIADOR DEL SERVIDOR (ADAPTADO PARA RAILWAY)
 # ==========================================
+import os
+
 if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(title='Audeo Processor', storage_secret='audeo_secret_key_2026', port=8080)
+    # host='0.0.0.0' es OBLIGATORIO en Railway para abrir la conexión al exterior.
+    # El puerto lo dictamina la variable de entorno PORT de Railway (con 8080 de respaldo local)
+    ui.run(
+        host='0.0.0.0', 
+        port=int(os.environ.get("PORT", 8080)), 
+        title='Audeo Processor', 
+        storage_secret='audeo_secret_key_2026'
+    )
