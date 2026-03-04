@@ -136,13 +136,18 @@ class ConsolaOrganizacion:
             return
 
         test_val = inputs['u_tests'].value
+        if test_val == 'NINGUNA':
+            ui.notify('Error: No puedes crear usuarios sin licencias de pruebas asignadas.', type='negative')
+            return
+
         intentos = int(inputs['u_intentos'].value)
         
         sape_active = test_val in ["SAPE", "AMBAS"]
         sapp_active = test_val in ["SAPP", "AMBAS"]
 
-        sectores_seleccionados = inputs['u_sectores'].value or []
-        perfiles_seleccionados = inputs['u_perfil'].value or []
+        # Evitamos errores si el usuario no seleccionó ningún sector en el desplegable múltiple
+        sectores_seleccionados = inputs['u_sectores'].value if inputs['u_sectores'].value else []
+        perfiles_seleccionados = inputs['u_perfil'].value if inputs['u_perfil'].value else []
 
         profile_data = {
             "sape_attempts_allowed": intentos if sape_active else 0,
@@ -168,20 +173,21 @@ class ConsolaOrganizacion:
         }
 
         try:
-            if self.editing_user:
+            if getattr(self, 'editing_user', None):
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
-                ui.notify('Usuario actualizado', type='positive')
+                ui.notify('Usuario actualizado correctamente', type='positive')
             else:
                 supabase.table('users').insert(payload).execute()
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
-                ui.notify('Usuario creado', type='positive')
+                ui.notify('Usuario creado con éxito', type='positive')
             
             self.editing_user = None
             self.render()
         except Exception as e:
             self.registrar_log('ERROR', payload['username'], 'yellow-red', str(e))
-            ui.notify(f'Error guardando usuario: {e}', type='negative')
+            ui.notify(f'Error de base de datos: {e}', type='negative')
+            print(f"Error Guardando User: {e}")
 
     def eliminar_usuario(self, username):
         try:
@@ -307,25 +313,49 @@ class ConsolaOrganizacion:
                                         'u_pwd': ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('dark outlined'),
                                     }
                                     
-                                    if self.privilegios.get('can_assign_tests', False):
-                                        inputs['u_tests'] = ui.select(['SAPE', 'SAPP', 'AMBAS'], label='Prueba Asignada', value='SAPE').classes('w-full mb-2').props('dark outlined')
+                                    # LECTURA DE PRIVILEGIOS GRANULARES
+                                    can_sape = self.privilegios.get('can_assign_sape', False)
+                                    can_sapp = self.privilegios.get('can_assign_sapp', False)
+                                    
+                                    opciones_test = []
+                                    if can_sape: opciones_test.append('SAPE')
+                                    if can_sapp: opciones_test.append('SAPP')
+                                    if can_sape and can_sapp: opciones_test.append('AMBAS')
+                                    
+                                    if opciones_test:
+                                        inputs['u_tests'] = ui.select(opciones_test, label='Prueba Asignada', value=opciones_test[0]).classes('w-full mb-2').props('dark outlined')
                                         inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
                                         
-                                        inputs['u_sectores'] = ui.select(SECTORES_OFICIALES, multiple=True, label='Sectores SAPE Habilitados').classes('w-full mb-2').props('dark outlined use-chips')
-                                        inputs['u_perfil'] = ui.select(PERFILES_SAPP, multiple=True, label='Perfiles SAPP Habilitados').classes('w-full mb-4').props('dark outlined use-chips')
-                                    else:
-                                        inputs['u_tests'] = ui.label('Prueba: SAPE (Por defecto)')
-                                        inputs['u_intentos'] = ui.label('Intentos: 1')
-                                        inputs['u_sectores'] = ui.label('')
-                                        inputs['u_perfil'] = ui.label('')
+                                        # Renderizar Sectores SAPE solo si tiene permiso
+                                        if can_sape:
+                                            sectores_permitidos = self.privilegios.get('allowed_sape_sectors', SECTORES_OFICIALES)
+                                            # Si la lista está vacía, le damos todos
+                                            if not sectores_permitidos: sectores_permitidos = SECTORES_OFICIALES
+                                            inputs['u_sectores'] = ui.select(sectores_permitidos, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-2').props('dark outlined use-chips')
+                                        else:
+                                            inputs['u_sectores'] = ui.select([], multiple=True).classes('hidden')
 
-                                    ui.button('GUARDAR USUARIO', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold mt-2')
+                                        # Renderizar Perfiles SAPP solo si tiene permiso
+                                        if can_sapp:
+                                            perfiles_permitidos = self.privilegios.get('allowed_sapp_profiles', PERFILES_SAPP)
+                                            if not perfiles_permitidos: perfiles_permitidos = PERFILES_SAPP
+                                            inputs['u_perfil'] = ui.select(perfiles_permitidos, multiple=True, label='Perfiles SAPP Permitidos').classes('w-full mb-4').props('dark outlined use-chips')
+                                        else:
+                                            inputs['u_perfil'] = ui.select([], multiple=True).classes('hidden')
+                                    else:
+                                        ui.label('Tu organización no tiene pruebas asignadas. Contacta con Audeo.').classes('text-red-400 text-sm mb-4 font-bold')
+                                        inputs['u_tests'] = ui.select(['NINGUNA'], value='NINGUNA').classes('hidden')
+                                        inputs['u_intentos'] = ui.number(value=0).classes('hidden')
+                                        inputs['u_sectores'] = ui.select([], multiple=True).classes('hidden')
+                                        inputs['u_perfil'] = ui.select([], multiple=True).classes('hidden')
+
+                                    ui.button('GUARDAR USUARIO', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold mt-2 hover:scale-105 transition-all')
                                     ui.button('LIMPIAR', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
 
                                 # Carga Masiva
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
                                     ui.label('Carga Masiva (CSV / XLSX)').classes('text-lg text-[#83ABF1] font-bold mb-4')
-                                    ui.button('Descargar Plantilla XLSX', icon='download', on_click=self.descargar_plantilla_org).classes('w-full mb-4 bg-green-700 text-white')
+                                    ui.button('Descargar Plantilla XLSX', icon='download', on_click=self.descargar_plantilla_org).classes('w-full mb-4 bg-green-700 text-white font-bold')
                                     ui.upload(on_upload=self.procesar_carga_masiva, label="Subir Archivo", auto_upload=True).classes('w-full')
                             else:
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-red-900/50 items-center text-center'):
