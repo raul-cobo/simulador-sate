@@ -6,6 +6,7 @@ from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
+import pdf_generator
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -24,6 +25,36 @@ DARK_BLUE = "#0D248D"
 # Listas Oficiales de Audeo
 SECTORES_OFICIALES = ['TECH', 'CONSULTORIA', 'HOSTELERIA', 'INTRA', 'AUTOEMPLEO', 'PYME', 'SALUD', 'SOCIAL']
 PERFILES_SAPP = ['Organizacional', 'Educativo', 'Social', 'Sanitario']
+
+# ==========================================
+# FUNCIÓN CONECTORA PARA PDF
+# ==========================================
+def descargar_informe_desde_consola(row_data):
+    """
+    Recibe los datos de la fila seleccionada, extrae el JSON original
+    y dispara el pdf_generator pasándole si es SAPE o SAPP.
+    """
+    ev_data = row_data.get('raw_data', {})
+    test_type = ev_data.get('test_type', 'SAPE')
+    
+    # Extraemos los resultados según la estructura que tenga la DB
+    if test_type == 'SAPP':
+        results = ev_data.get('refined_metrics', ev_data.get('results', {}))
+    else:
+        results = ev_data.get('results', ev_data.get('calculated_scores', {}))
+        
+    user_info = {
+        'user_id': ev_data.get('user_id', 'N/A'),
+        'username': 'Candidato Evaluación' # Si tienes un cruce con la tabla users, se muestra aquí
+    }
+    
+    try:
+        ui.notify(f"Generando informe {test_type}...", color="info")
+        ruta_pdf = pdf_generator.generar_informe(user_info, results, test_type=test_type)
+        ui.download(ruta_pdf)
+    except Exception as e:
+        ui.notify(f"Error generando PDF: {e}", color="negative")
+
 
 class ConsolaOrganizacion:
     def __init__(self):
@@ -92,7 +123,6 @@ class ConsolaOrganizacion:
         inputs['u_tests'].value = 'AMBAS' if sape_data.get('attempts',0)>0 and sapp_data.get('attempts',0)>0 else 'SAPE' if sape_data.get('attempts',0)>0 else 'SAPP' if sapp_data.get('attempts',0)>0 else 'SAPE'
         inputs['u_intentos'].value = max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0))
         
-        # Cargar los selectores múltiples
         inputs['u_sectores'].value = sape_data.get('sectors', [])
         
         perfil_guardado = sapp_data.get('profile', '')
@@ -281,7 +311,6 @@ class ConsolaOrganizacion:
                                         inputs['u_tests'] = ui.select(['SAPE', 'SAPP', 'AMBAS'], label='Prueba Asignada', value='SAPE').classes('w-full mb-2').props('dark outlined')
                                         inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
                                         
-                                        # ¡AQUÍ ESTÁ LA MEJORA PRO! Selectores Múltiples
                                         inputs['u_sectores'] = ui.select(SECTORES_OFICIALES, multiple=True, label='Sectores SAPE Habilitados').classes('w-full mb-2').props('dark outlined use-chips')
                                         inputs['u_perfil'] = ui.select(PERFILES_SAPP, multiple=True, label='Perfiles SAPP Habilitados').classes('w-full mb-4').props('dark outlined use-chips')
                                     else:
@@ -346,7 +375,7 @@ class ConsolaOrganizacion:
                                             ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
 
                 # ----------------------------------------------------------------
-                # PESTAÑA 2: ESTADÍSTICAS
+                # PESTAÑA 2: ESTADÍSTICAS (POLIMÓRFICAS SAPE Y SAPP)
                 # ----------------------------------------------------------------
                 with ui.tab_panel(t_stats):
                     if not self.privilegios.get('can_view_org_stats', False):
@@ -366,20 +395,51 @@ class ConsolaOrganizacion:
                             if not self.evals_data:
                                 ui.label('No hay evaluaciones completadas para mostrar estadísticas.').classes('text-gray-500 italic')
                             else:
-                                ui.label('Evaluaciones Completadas:').classes('text-lg text-white font-bold mb-4')
+                                ui.label('Evaluaciones Completadas:').classes('text-lg text-[#83ABF1] font-bold mb-4 tracking-widest uppercase')
                                 filas_ev = []
+                                
                                 for ev in self.evals_data:
-                                    res = ev.get('results', {})
+                                    test_type = ev.get('test_type', 'SAPE')
+                                    sector = ev.get('sector_profile', 'N/A')
+                                    fecha = ev.get('created_at', '')[:10]
+                                    user_id = ev.get('user_id', 'Desconocido')
+                                    
+                                    if test_type == 'SAPP':
+                                        res_sapp = ev.get('refined_metrics', ev.get('results', {})) 
+                                        is_apt = res_sapp.get('global_compliance', False)
+                                        score_str = "🟢 APTO" if is_apt else "🔴 NO APTO (Riesgo)"
+                                    else:
+                                        res_sape = ev.get('results', ev.get('calculated_scores', {}))
+                                        potencial = res_sape.get('potencial', 0)
+                                        score_str = f"🚀 {potencial}% Potencial"
+
                                     filas_ev.append({
-                                        'user': ev.get('user_id'),
-                                        'test': 'SAPE',
-                                        'score': f"{res.get('potencial', 0)}% Potencial",
-                                        'date': ev.get('created_at', '')[:10]
+                                        'user': user_id, 
+                                        'test': f"{test_type} - {sector}",
+                                        'score': score_str,
+                                        'date': fecha,
+                                        'raw_data': ev 
                                     })
+
                                 cols_ev = [
-                                    {'name': 'user', 'label': 'Usuario', 'field': 'user', 'align': 'left'},
-                                    {'name': 'test', 'label': 'Prueba', 'field': 'test', 'align': 'center'},
+                                    {'name': 'user', 'label': 'ID Usuario', 'field': 'user', 'align': 'left'},
+                                    {'name': 'test', 'label': 'Prueba y Sector', 'field': 'test', 'align': 'left'},
                                     {'name': 'score', 'label': 'Resultado', 'field': 'score', 'align': 'center'},
                                     {'name': 'date', 'label': 'Fecha', 'field': 'date', 'align': 'right'},
+                                    {'name': 'actions', 'label': 'Acciones', 'field': 'actions', 'align': 'center'}
                                 ]
-                                ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white')
+
+                                with ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white border border-[#83ABF1]/20 rounded-xl shadow-lg') as table:
+                                    table.add_slot('body-cell-score', '''
+                                        <q-td :props="props">
+                                            <span :class="props.value.includes('APTO') && !props.value.includes('NO') ? 'text-green-400 font-bold' : props.value.includes('NO APTO') ? 'text-red-400 font-bold' : 'text-blue-300 font-bold'">
+                                                {{ props.value }}
+                                            </span>
+                                        </q-td>
+                                    ''')
+                                    table.add_slot('body-cell-actions', '''
+                                        <q-td :props="props">
+                                            <q-btn flat icon="picture_as_pdf" color="primary" @click="$parent.$emit('download_pdf', props.row)" />
+                                        </q-td>
+                                    ''')
+                                    table.on('download_pdf', lambda e: descargar_informe_desde_consola(e.args))
