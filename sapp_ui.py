@@ -26,7 +26,7 @@ class SAPPInterface:
         
         # Carga del CSV completo
         try:
-            self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='utf-8')
+            self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='latin1')
         except Exception as e:
             ui.notify(f"Error cargando CSV SAPP: {e}", type='negative')
 
