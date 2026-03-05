@@ -52,50 +52,108 @@ def login_page():
         return
 
     with ui.column().classes('w-full h-screen items-center justify-center gap-6'):
-        with ui.card().classes('bg-white p-8 rounded-2xl shadow-2xl items-center w-[30vw] min-w-[320px]'):
+        with ui.card().classes('bg-white p-8 rounded-2xl shadow-2xl items-center w-[30vw] min-w-[350px]'):
             ui.image('logo_original.png').classes('w-64 mb-4')
-            ui.label('ACCESO PLATAFORMA').classes('text-gray-500 font-bold tracking-widest text-xs mb-6')
+            ui.label('ACCESO PLATAFORMA').classes('text-gray-500 font-bold tracking-widest text-xs mb-4')
             
-            user_input = ui.input('Usuario').classes('w-full').props('outlined')
-            pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('outlined')
-            
-            async def intentar_login(u, p):
-                u_val = u or ""; p_val = p or ""
-                user_str = u_val.strip(); pwd_str = p_val.strip()
+            # --- SISTEMA DE PESTAÑAS SUTIL ---
+            with ui.tabs().classes('w-full text-[#0D248D] mb-4') as tabs:
+                tab_login = ui.tab('CREDENCIALES').classes('font-bold')
+                tab_token = ui.tab('CÓDIGO INVITADO').classes('font-bold')
+
+            with ui.tab_panels(tabs, value=tab_login).classes('w-full bg-transparent p-0'):
                 
-                if not user_str or not pwd_str:
-                    ui.notify('Introduce credenciales válidas', color='warning')
-                    return
-                if not supabase:
-                    ui.notify('Error: Sin conexión a Base de Datos', color='negative')
-                    return
-                try:
-                    res = supabase.table('users').select('*').eq('username', user_str).eq('password', pwd_str).eq('is_deleted', False).execute()
-                    user_data = res.data[0] if res.data else None
+                # PANEL 1: LOGIN NORMAL (TU DISEÑO ORIGINAL)
+                with ui.tab_panel(tab_login).classes('p-0 flex flex-col items-center w-full'):
+                    user_input = ui.input('Usuario').classes('w-full').props('outlined')
+                    pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-6 mt-4').props('outlined')
                     
-                    if not user_data:
-                        res_admin = supabase.table('admins').select('*').eq('username', user_str).eq('password', pwd_str).execute()
-                        if res_admin.data:
-                            user_data = res_admin.data[0]
-                            user_data['role'] = 'ADMIN'
+                    async def intentar_login(u, p):
+                        u_val = u or ""; p_val = p or ""
+                        user_str = u_val.strip(); pwd_str = p_val.strip()
+                        
+                        if not user_str or not pwd_str:
+                            ui.notify('Introduce credenciales válidas', color='warning')
+                            return
+                        if not supabase:
+                            ui.notify('Error: Sin conexión a Base de Datos', color='negative')
+                            return
+                        try:
+                            res = supabase.table('users').select('*').eq('username', user_str).eq('password', pwd_str).eq('is_deleted', False).execute()
+                            user_data = res.data[0] if res.data else None
+                            
+                            if not user_data:
+                                res_admin = supabase.table('admins').select('*').eq('username', user_str).eq('password', pwd_str).execute()
+                                if res_admin.data:
+                                    user_data = res_admin.data[0]
+                                    user_data['role'] = 'ADMIN'
 
-                    if user_data:
-                        rol = user_data.get('role', 'USER')
-                        app.storage.user.update({
-                            'authenticated': True, 'role': rol, 'username': user_data.get('username'), 'org_id': user_data.get('org_id', 'sistema')
-                        })
-                        ui.notify(f'Bienvenido, {user_data.get("username")}', color='positive')
-                        if rol == 'ADMIN': ui.navigate.to('/admin')
-                        elif rol == 'ORG_ADMIN': ui.navigate.to('/org-admin')
-                        else: ui.navigate.to('/panel')
-                    else: ui.notify('Credenciales no válidas', color='negative')
-                except Exception as e: ui.notify(f'Error de sistema: {e}', color='negative')
+                            if user_data:
+                                rol = user_data.get('role', 'USER')
+                                app.storage.user.update({
+                                    'authenticated': True, 'role': rol, 'username': user_data.get('username'), 'org_id': user_data.get('org_id', 'sistema'), 'user_id': user_data.get('id')
+                                })
+                                ui.notify(f'Bienvenido, {user_data.get("username")}', color='positive')
+                                if rol == 'ADMIN': ui.navigate.to('/admin')
+                                elif rol == 'ORG_ADMIN': ui.navigate.to('/org-admin')
+                                else: ui.navigate.to('/panel')
+                            else: ui.notify('Credenciales no válidas', color='negative')
+                        except Exception as e: ui.notify(f'Error de sistema: {e}', color='negative')
 
-            pwd_input.on('keydown.enter', lambda: intentar_login(user_input.value, pwd_input.value))
-            ui.button('INICIAR SESIÓN', on_click=lambda: intentar_login(user_input.value, pwd_input.value)).classes(
-                'w-full bg-[#0D248D] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
-            )
+                    pwd_input.on('keydown.enter', lambda: intentar_login(user_input.value, pwd_input.value))
+                    ui.button('INICIAR SESIÓN', on_click=lambda: intentar_login(user_input.value, pwd_input.value)).classes(
+                        'w-full bg-[#0D248D] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
+                    )
 
+                # PANEL 2: LOGIN CON TOKEN
+                with ui.tab_panel(tab_token).classes('p-0 flex flex-col items-center w-full'):
+                    ui.label('Introduce el código proporcionado por el administrador').classes('text-xs text-gray-500 text-center mb-4 mt-2')
+                    token_input = ui.input('Código de Acceso').classes('w-full mb-6').props('outlined placeholder="Ej: UMA-001"')
+                    
+                    async def intentar_token(t):
+                        t_val = t or ""
+                        token_str = t_val.strip()
+                        
+                        if not token_str:
+                            ui.notify('Introduce un código válido', color='warning')
+                            return
+                            
+                        # Consultar el token en Supabase
+                        try:
+                            res = supabase.table('access_tokens').select("*").eq('token_code', token_str).eq('is_used', False).execute()
+                            if not res.data:
+                                ui.notify('Token inválido o ya utilizado', color='negative')
+                                return
+                                
+                            token_data = res.data[0]
+                            
+                            # Loguear como invitado
+                            app.storage.user.update({
+                                'authenticated': True,
+                                'role': 'USER', # Tratamos al invitado como un evaluado normal
+                                'username': f"Invitado_{token_str}",
+                                'org_id': token_data.get('org_id', 'UMA'),
+                                # Usaremos el token_code como un user_id falso para el guardado
+                                'user_id': f"guest_{token_str}" 
+                            })
+                            
+                            # Guardamos en app.storage qué prueba debe hacer
+                            app.storage.user['force_test'] = token_data.get('test_type', 'SAPP')
+                            app.storage.user['force_sector'] = token_data.get('sector', 'Psicología educativa')
+                            
+                            # Opcional: Marcar como usado
+                            # supabase.table('access_tokens').update({'is_used': True}).eq('token_code', token_str).execute()
+                            
+                            ui.notify('Acceso Autorizado', color='positive')
+                            ui.navigate.to('/panel') # Redirigimos al panel, donde detectaremos el force_test
+                            
+                        except Exception as e:
+                            ui.notify(f'Error validando token: {e}', color='negative')
+
+                    token_input.on('keydown.enter', lambda: intentar_token(token_input.value))
+                    ui.button('ACCEDER A LA PRUEBA', on_click=lambda: intentar_token(token_input.value)).classes(
+                        'w-full bg-[#83ABF1] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
+                    )
 # ==========================================
 # 4. CONSOLAS DE ADMINISTRACIÓN
 # ==========================================
