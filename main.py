@@ -8,7 +8,6 @@ from admin_console import ConsolaAdmin
 from org_console import ConsolaOrganizacion
 from sape_ui import SAPEInterface
 from sapp_ui import SAPPInterface
-from nicegui import ui
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO
@@ -64,7 +63,7 @@ def login_page():
 
             with ui.tab_panels(tabs, value=tab_login).classes('w-full bg-transparent p-0'):
                 
-                # PANEL 1: LOGIN NORMAL (TU DISEÑO ORIGINAL)
+                # PANEL 1: LOGIN NORMAL
                 with ui.tab_panel(tab_login).classes('p-0 flex flex-col items-center w-full'):
                     user_input = ui.input('Usuario').classes('w-full').props('outlined')
                     pwd_input = ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-6 mt-4').props('outlined')
@@ -106,7 +105,7 @@ def login_page():
                         'w-full bg-[#0D248D] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
                     )
 
-                # PANEL 2: LOGIN CON TOKEN
+                # PANEL 2: LOGIN CON TOKEN TRADICIONAL
                 with ui.tab_panel(tab_token).classes('p-0 flex flex-col items-center w-full'):
                     ui.label('Introduce el código proporcionado por el administrador').classes('text-xs text-gray-500 text-center mb-4 mt-2')
                     token_input = ui.input('Código de Acceso').classes('w-full mb-6').props('outlined placeholder="Ej: UMA-001"')
@@ -119,7 +118,6 @@ def login_page():
                             ui.notify('Introduce un código válido', color='warning')
                             return
                             
-                        # Consultar el token en Supabase
                         try:
                             res = supabase.table('access_tokens').select("*").eq('token_code', token_str).eq('is_used', False).execute()
                             if not res.data:
@@ -128,25 +126,19 @@ def login_page():
                                 
                             token_data = res.data[0]
                             
-                            # Loguear como invitado
                             app.storage.user.update({
                                 'authenticated': True,
-                                'role': 'USER', # Tratamos al invitado como un evaluado normal
+                                'role': 'USER',
                                 'username': f"Invitado_{token_str}",
                                 'org_id': token_data.get('org_id', 'UMA'),
-                                # Usaremos el token_code como un user_id falso para el guardado
                                 'user_id': f"guest_{token_str}" 
                             })
                             
-                            # Guardamos en app.storage qué prueba debe hacer
                             app.storage.user['force_test'] = token_data.get('test_type', 'SAPP')
                             app.storage.user['force_sector'] = token_data.get('sector', 'Psicología educativa')
                             
-                            # Opcional: Marcar como usado
-                            # supabase.table('access_tokens').update({'is_used': True}).eq('token_code', token_str).execute()
-                            
                             ui.notify('Acceso Autorizado', color='positive')
-                            ui.navigate.to('/panel') # Redirigimos al panel, donde detectaremos el force_test
+                            ui.navigate.to('/panel') 
                             
                         except Exception as e:
                             ui.notify(f'Error validando token: {e}', color='negative')
@@ -155,6 +147,75 @@ def login_page():
                     ui.button('ACCEDER A LA PRUEBA', on_click=lambda: intentar_token(token_input.value)).classes(
                         'w-full bg-[#83ABF1] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
                     )
+
+# ==========================================
+# 3.5 BROKER QR Y SELECTOR DE DINÁMICA (EVENTOS)
+# ==========================================
+@ui.page('/join/{org_id}')
+async def qr_access_broker(org_id: str):
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    
+    try:
+        # Busca un asiento libre en la organización para la demo
+        res = supabase.table('users') \
+            .select('*') \
+            .eq('org_id', org_id) \
+            .eq('is_claimed', False) \
+            .eq('is_demo', True) \
+            .limit(1).execute()
+
+        if not res.data:
+            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
+                ui.icon('block', size='4rem', color='red')
+                ui.label('El aforo de la dinámica está completo.').classes('text-2xl font-bold mt-4')
+                ui.label('Todos los accesos han sido asignados.').classes('text-gray-400 mt-2')
+            return
+
+        user_data = res.data[0]
+
+        # Bloquear el usuario
+        supabase.table('users').update({'is_claimed': True}).eq('id', user_data['id']).execute()
+
+        # Iniciar sesión transparente
+        app.storage.user.update({
+            'authenticated': True,
+            'role': 'USER',
+            'username': user_data['username'],
+            'org_id': org_id,
+            'user_id': user_data['id'],
+            'is_demo': True
+        })
+
+        ui.navigate.to('/selector-especialidad')
+
+    except Exception as e:
+        with ui.column().classes('w-full h-screen items-center justify-center'):
+            ui.label(f'Error de conexión: {str(e)}').classes('text-red-500')
+
+@ui.page('/selector-especialidad')
+def selector_especialidad():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    
+    if not app.storage.user.get('authenticated') or not app.storage.user.get('is_demo'):
+        ui.navigate.to('/')
+        return
+
+    with ui.column().classes('w-full h-screen items-center justify-center gap-6 p-4'):
+        ui.label('BIENVENIDO A LA DINÁMICA AUDEO').classes('text-[#83ABF1] font-black text-2xl md:text-3xl tracking-widest text-center')
+        ui.label('Seleccione su área de especialización para comenzar:').classes('text-lg md:text-xl mb-8 text-gray-400 text-center')
+
+        with ui.grid(columns=2).classes('w-full max-w-3xl gap-4 md:gap-6'):
+            sectores = ['Psicología educativa', 'Psicología organizacional', 'Psicología sanitaria', 'Psicología social']
+            
+            def iniciar_dinamica(sector_elegido):
+                app.storage.user['current_sector'] = sector_elegido
+                ui.navigate.to('/sapp')
+
+            for sector in sectores:
+                ui.button(sector, on_click=lambda s=sector: iniciar_dinamica(s)).classes(
+                    'w-full h-24 md:h-32 text-sm md:text-lg font-bold bg-[#161B22] border border-[#83ABF1] text-white hover:bg-[#83ABF1] hover:text-black transition-all shadow-lg rounded-xl'
+                )
+
 # ==========================================
 # 4. CONSOLAS DE ADMINISTRACIÓN
 # ==========================================
@@ -175,6 +236,69 @@ def org_admin_page():
     org_console = ConsolaOrganizacion(); org_console.render()
 
 # ==========================================
+# 4.5 DASHBOARD EN DIRECTO (PROYECCIÓN)
+# ==========================================
+@ui.page('/directo-uma')
+def vista_directo_uma():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['ADMIN', 'ORG_ADMIN']:
+        ui.navigate.to('/')
+        return
+
+    org_objetivo = 'UMA_DEMO'
+
+    with ui.column().classes('w-full min-h-screen items-center p-8'):
+        ui.image('logo_blanco.png').classes('w-48 mb-6')
+        ui.label('MAPA COMPETENCIAL EN TIEMPO REAL').classes('text-3xl font-black text-[#83ABF1] tracking-widest text-center')
+        ui.label('Universidad de Málaga - Dinámica S.A.P.P.').classes('text-xl text-gray-400 mb-12 text-center')
+
+        with ui.row().classes('w-full max-w-5xl justify-center gap-16 mb-12'):
+            with ui.column().classes('items-center'):
+                ui.icon('group', size='4rem', color='#83ABF1').classes('mb-2')
+                lbl_total = ui.label('0').classes('text-7xl font-bold text-white')
+                ui.label('EVALUACIONES COMPLETADAS').classes('text-sm text-gray-500 font-bold tracking-widest')
+
+        grafico_contenedor = ui.card().classes('w-full max-w-5xl h-[500px] bg-[#161B22] border border-gray-800 p-4 shadow-xl')
+        
+        grafico = ui.echart({
+            'tooltip': {'trigger': 'axis'},
+            'xAxis': {'type': 'category', 'data': [], 'axisLabel': {'color': 'white'}},
+            'yAxis': {'type': 'value', 'max': 100, 'axisLabel': {'color': 'gray'}},
+            'series': [{'data': [], 'type': 'bar', 'itemStyle': {'color': '#83ABF1'}, 'label': {'show': True, 'position': 'top', 'color': 'white', 'formatter': '{c}%'}}]
+        }).classes('w-full h-full')
+        grafico.move(grafico_contenedor)
+
+        def actualizar_datos_directo():
+            if not supabase: return
+            try:
+                res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
+                datos = res.data
+                
+                total_evaluaciones = len(datos)
+                lbl_total.set_text(str(total_evaluaciones))
+                
+                if total_evaluaciones > 0:
+                    sumas_competencias = {}
+                    
+                    for evaluacion in datos:
+                        metricas = evaluacion.get('refined_metrics', {})
+                        for competencia, valor in metricas.items():
+                            if isinstance(valor, (int, float)): 
+                                sumas_competencias[competencia] = sumas_competencias.get(competencia, 0) + valor
+                    
+                    nombres_competencias = list(sumas_competencias.keys())
+                    promedios = [round(suma / total_evaluaciones, 1) for suma in sumas_competencias.values()]
+                    
+                    grafico.options['xAxis']['data'] = nombres_competencias
+                    grafico.options['series'][0]['data'] = promedios
+                    grafico.update()
+            except Exception as e:
+                print(f"Error actualizando dashboard directo: {e}")
+
+        ui.timer(5.0, actualizar_datos_directo)
+
+# ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
 # ==========================================
 @ui.page('/panel')
@@ -182,6 +306,12 @@ def panel_page():
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     
+    # Redirección de seguridad para invitados (Tokens tradicionales)
+    if app.storage.user.get('force_test') == 'SAPP' and app.storage.user.get('force_sector'):
+        app.storage.user['current_sector'] = app.storage.user.get('force_sector')
+        ui.navigate.to('/sapp')
+        return
+
     if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['USER', 'STUDENT']:
         ui.navigate.to('/')
         return
@@ -208,14 +338,12 @@ def panel_page():
     sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
     sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
 
-    # 1. DEPURADOR ULTRA-SEGURO DE LISTAS
     def safe_list(data):
         if not data: return []
         if isinstance(data, str):
             try:
                 eval_data = ast.literal_eval(data)
-                if isinstance(eval_data, list):
-                    return [str(x).strip() for x in eval_data if str(x).strip()]
+                if isinstance(eval_data, list): return [str(x).strip() for x in eval_data if str(x).strip()]
             except: pass
             cleaned = data.replace('[', '').replace(']', '').replace('"', '').replace("'", '')
             return [x.strip() for x in cleaned.split(',') if x.strip() and x.strip().lower() not in ['none', 'null', '']]
@@ -228,20 +356,15 @@ def panel_page():
     perf_user = safe_list(sapp_data.get('profile'))
     perf_org = safe_list(privs.get('allowed_sapp_profiles'))
 
-    # Listas por defecto
     SECTORES_SAPE_DEFAULT = ['TECH', 'CONSULTORIA', 'PYME', 'HOSTELERIA', 'AUTOEMPLEO', 'SOCIAL', 'INTRA', 'SALUD', 'PSICOLOGIA_SANITARIA', 'PSICOLOGÍA_NO_SANITARIA']
     PERFILES_SAPP_DEFAULT = ['Psicología educativa', 'Psicología organizacional', 'Psicología sanitaria', 'Psicología social']
 
-    # BLINDAJE ABSOLUTO (Triple Fallback)
     sectores_finales = sec_user if sec_user else (sec_org if sec_org else SECTORES_SAPE_DEFAULT)
-    if not sectores_finales or len(sectores_finales) == 0:
-        sectores_finales = SECTORES_SAPE_DEFAULT
+    if not sectores_finales or len(sectores_finales) == 0: sectores_finales = SECTORES_SAPE_DEFAULT
 
     perfiles_finales = perf_user if perf_user else (perf_org if perf_org else PERFILES_SAPP_DEFAULT)
-    if not perfiles_finales or len(perfiles_finales) == 0:
-        perfiles_finales = PERFILES_SAPP_DEFAULT
+    if not perfiles_finales or len(perfiles_finales) == 0: perfiles_finales = PERFILES_SAPP_DEFAULT
 
-    # Listas Demográficas
     LISTA_GENERO = ['Masculino', 'Femenino', 'No binario', 'Prefiero no decirlo']
     LISTA_ESTUDIOS = ['Sin estudios', 'Educación Primaria', 'ESO / Secundaria', 'Bachillerato', 'FP Grado Medio', 'FP Grado Superior', 'Grado Universitario', 'Postgrado / Máster', 'Doctorado']
     LISTA_EMPLEO = ['Empleado por cuenta ajena', 'Autónomo / Emprendedor', 'Desempleado', 'Estudiante', 'Jubilado / Inactivo']
@@ -268,7 +391,6 @@ def panel_page():
 
     state = OnboardingManager()
 
-    # Función de Debug/Reset para probar
     def resetear_onboarding():
         try:
             supabase.table('users').update({
@@ -347,9 +469,7 @@ def panel_page():
                         ui.button('ATRÁS', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('flex-1 bg-gray-700 text-white py-4 rounded-xl')
                         ui.button('GUARDAR Y CONTINUAR', on_click=ir_a_bloque_c).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold py-4 rounded-xl')
 
-            # ==========================================
-            # PASO 3: BLOQUE C (SELECTOR DESPLEGABLE REFORZADO)
-            # ==========================================
+            # PASO 3
             elif state.step == 3:
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
                     ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
@@ -362,29 +482,23 @@ def panel_page():
                     if sape_allowed: opciones_radio.append('SAPE')
                     if sapp_allowed: opciones_radio.append('SAPP')
                     
-                    # Función para refrescar la pantalla cuando cambias de prueba
                     def cambiar_prueba(e):
                         state.test_type = e.value
                         render_stepper.refresh()
                     
                     tipo_radio = ui.radio(opciones_radio, value=state.test_type, on_change=cambiar_prueba).classes('text-white mb-6 font-bold text-lg').props('dark inline')
                     
-                    # DESPLEGABLES NATIVOS: Se dibujan con condicionales puros de Python, sin ocultamientos raros.
                     if state.test_type == 'SAPE':
                         ui.label('Despliega la lista y selecciona tu sector:').classes('text-gray-400 text-sm mb-2')
                         desplegable_sector = ui.select(
-                            options=sectores_finales, 
-                            label='Sectores Disponibles', 
-                            value=state.sector_sape,
+                            options=sectores_finales, label='Sectores Disponibles', value=state.sector_sape,
                             on_change=lambda e: setattr(state, 'sector_sape', e.value)
                         ).classes('w-full mb-8 bg-[#0E1117] text-white text-lg').props('dark outlined')
                     
                     elif state.test_type == 'SAPP':
                         ui.label('Despliega la lista y selecciona tu perfil:').classes('text-gray-400 text-sm mb-2')
                         desplegable_perfil = ui.select(
-                            options=perfiles_finales, 
-                            label='Perfiles Disponibles', 
-                            value=state.perfil_sapp,
+                            options=perfiles_finales, label='Perfiles Disponibles', value=state.perfil_sapp,
                             on_change=lambda e: setattr(state, 'perfil_sapp', e.value)
                         ).classes('w-full mb-8 bg-[#0E1117] text-white text-lg').props('dark outlined')
                     
@@ -392,16 +506,12 @@ def panel_page():
                     
                     def comenzar():
                         if state.test_type == 'SAPE':
-                            if not state.sector_sape: 
-                                ui.notify('Abre el desplegable y elige un sector.', type='warning')
-                                return
+                            if not state.sector_sape: return ui.notify('Abre el desplegable y elige un sector.', type='warning')
                             app.storage.user.update({'current_sector': state.sector_sape})
                             ui.navigate.to(f'/sape-test?sector={state.sector_sape}')
                         
                         elif state.test_type == 'SAPP':
-                            if not state.perfil_sapp: 
-                                ui.notify('Abre el desplegable y elige un perfil.', type='warning')
-                                return
+                            if not state.perfil_sapp: return ui.notify('Abre el desplegable y elige un perfil.', type='warning')
                             app.storage.user.update({'current_sector': state.perfil_sapp})
                             ui.navigate.to(f'/sapp')
 
@@ -412,39 +522,26 @@ def panel_page():
     render_stepper()
 
 # ==========================================
-# 6. ENRUTAMIENTO HACIA LOS MOTORES (CORREGIDO)
+# 6. ENRUTAMIENTO HACIA LOS MOTORES
 # ==========================================
 @ui.page('/sape-test')
 def sape_test(sector: str = 'TECH'):
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
-    
-    if not app.storage.user.get('authenticated'):
-        ui.navigate.to('/')
-        return
-    
-    # Nombre del archivo donde están tus 160 preguntas (cambiar si es necesario)
-    archivo_preguntas = 'Prueba_SAPE.csv' 
-    
+    if not app.storage.user.get('authenticated'): ui.navigate.to('/'); return
     try:
-        # Instanciamos el motor inyectándole los parámetros correctos
-        interfaz = SAPEInterface(df_path=archivo_preguntas, sector=sector)
+        interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector)
         interfaz.render()
     except Exception as e:
-        ui.label(f'Error crítico al cargar el motor SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
+        ui.label(f'Error crítico al cargar SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
 
 @ui.page('/sapp')
 def pagina_sapp():
-    # 1. Seguridad: Verificar si el usuario está logueado
     if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'USER':
-        ui.navigate.to('/')
-        return
+        ui.navigate.to('/'); return
 
-    # 2. Leer la especialidad EXACTA que el usuario seleccionó en el desplegable
     perfil_seleccionado = app.storage.user.get('current_sector')
     
-    # Fallback de seguridad: Si por algún motivo entra a la URL sin pasar por el panel, 
-    # intentamos leer su primer perfil autorizado en Supabase.
     if not perfil_seleccionado:
         user_data = app.storage.user.get('profile_data', {})
         sapp_data = user_data.get('sapp', {})
@@ -452,13 +549,8 @@ def pagina_sapp():
         perfiles_lista = [p.strip() for p in perfil_str.split(',') if p.strip()]
         perfil_seleccionado = perfiles_lista[0] if perfiles_lista else 'Psicología organizacional'
 
-    # 3. Lanzar el Motor SAPP Real
     try:
-        motor_sapp = SAPPInterface(
-            df_path='Prueba_SAPP.csv', 
-            sector=perfil_seleccionado, 
-            supabase_client=supabase
-        )
+        motor_sapp = SAPPInterface(df_path='Prueba_SAPP.csv', sector=perfil_seleccionado, supabase_client=supabase)
         motor_sapp.render()
     except Exception as e:
         with ui.column().classes('w-full min-h-screen items-center justify-center bg-[#0E1117]'):
@@ -467,13 +559,9 @@ def pagina_sapp():
             ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
 
 # ==========================================
-# INICIADOR DEL SERVIDOR (ADAPTADO PARA RAILWAY)
+# INICIADOR DEL SERVIDOR
 # ==========================================
-import os
-
 if __name__ in {"__main__", "__mp_main__"}:
-    # host='0.0.0.0' es OBLIGATORIO en Railway para abrir la conexión al exterior.
-    # El puerto lo dictamina la variable de entorno PORT de Railway (con 8080 de respaldo local)
     ui.run(
         host='0.0.0.0', 
         port=int(os.environ.get("PORT", 8080)), 
