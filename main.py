@@ -376,7 +376,7 @@ def sape_test(sector: str = 'TECH'):
 @ui.page('/sapp')
 def pagina_sapp():
     # 1. Seguridad: Verificar si el usuario está logueado
-    if not app.storage.user.get('authenticated'):
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'USER':
         ui.navigate.to('/')
         return
 
@@ -400,9 +400,9 @@ def pagina_sapp():
         motor_sapp.render()
     except Exception as e:
         with ui.column().classes('w-full min-h-screen items-center justify-center bg-[#0E1117]'):
-            ui.label('Error iniciando SAPP').classes('text-red-500 text-2xl font-bold')
+            ui.label('Error iniciando SAPP').classes('text-red-500 text-2xl font-bold mb-4')
             ui.label(str(e)).classes('text-gray-400')
-            ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-4 bg-[#83ABF1] text-black')
+            ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
 
 # ==========================================
 # INICIADOR DEL SERVIDOR (ADAPTADO PARA RAILWAY)
