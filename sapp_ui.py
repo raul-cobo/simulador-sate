@@ -25,7 +25,7 @@ class SAPPInterface:
         self.respuestas_usuario: Dict[str, str] = {}
         self.opciones_mezcladas: List[tuple] = []
         
-        # Carga del CSV
+        # Carga del CSV con gestión de encodings
         try:
             self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='utf-8-sig')
         except UnicodeDecodeError:
@@ -36,16 +36,15 @@ class SAPPInterface:
     def render(self):
         ui.query('body').style(f'background-color: {BG_COLOR}; margin: 0;')
         
-        # 1. CABECERA FIJA (CLON SAPE) - flex-nowrap prohíbe los saltos de línea
+        # 1. CABECERA FIJA
         self.header_contenedor = ui.row().classes('w-full justify-between items-center px-10 py-4 bg-[#0E1117] border-b border-gray-800 flex-nowrap')
         
-        # 2. CONTENEDOR PRINCIPAL (CLON SAPE)
-        # Eliminamos el gap y añadimos flex-nowrap para forzar que los bloques 55/45 se queden en línea
+        # 2. CONTENEDOR PRINCIPAL (Layout blindado 55/45)
         self.main_contenedor = ui.row().classes('w-full max-w-[1400px] mx-auto min-h-[70vh] items-center px-10 flex-nowrap')
         
         self.render_selector_grupo()
 
-    # --- FASE 1: SELECTOR DE GRUPO ---
+    # --- FASE 1: SELECTOR DE GRUPO (CON FILTRO DEMO) ---
     def render_selector_grupo(self):
         self.header_contenedor.clear()
         with self.header_contenedor:
@@ -54,12 +53,12 @@ class SAPPInterface:
 
         self.main_contenedor.clear()
         
-        # Leemos el estado del usuario para saber si es un asistente de la demostración
+        # Detectamos si es un usuario de la dinámica UMA
         is_demo = app.storage.user.get('is_demo', False)
         
         with self.main_contenedor.classes('justify-center flex-col'):
             
-            # Cabeceras condicionales
+            # Cabeceras condicionales según el tipo de acceso
             if is_demo:
                 ui.label(f'MODO DINÁMICA: {self.sector.upper()}').classes('text-orange-400 font-bold tracking-widest text-sm mt-10')
                 ui.label('En esta sesión solo se evaluarán las Competencias Personales.').classes('text-gray-400 text-sm text-center mb-8')
@@ -75,7 +74,7 @@ class SAPPInterface:
                     ui.label('COMPETENCIAS PERSONALES').classes('text-center text-sm font-bold text-white mb-6 h-10')
                     ui.button('INICIAR', on_click=lambda: self.iniciar_test('Competencias personales')).classes('w-full bg-[#0D248D] text-white font-bold')
 
-                # BOTONES 2 y 3: Visibles solo si el usuario NO es de la demo
+                # BOTONES 2 y 3: Ocultos si es usuario Demo
                 if not is_demo:
                     with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
                         ui.icon('business_center', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
@@ -104,7 +103,7 @@ class SAPPInterface:
         self.respuestas_usuario.clear()
         self._preparar_opciones_actuales()
         
-        # Limpiamos las clases de centrado del selector para permitir el layout asimétrico 55/45
+        # Cambiamos layout para el motor de preguntas
         self.main_contenedor.classes(remove='justify-center flex-col')
         self._mostrar_pregunta()
 
@@ -132,25 +131,20 @@ class SAPPInterface:
             await self._finalizar_evaluacion()
 
     def _mostrar_pregunta(self):
-        """Renderiza la pregunta con layout blindado 55/45."""
         self.header_contenedor.clear()
         progreso = self.current_idx / self.total_preguntas
         
-        # CABECERA FIJA
         with self.header_contenedor:
             ui.image('logo_blanco.png').classes('w-48')
             with ui.row().classes('items-center gap-4 w-1/3 justify-end flex-nowrap'):
                 ui.linear_progress(value=progreso, show_value=False).props('color="blue"').classes('w-full h-2 rounded-full')
                 ui.label(f"{self.current_idx + 1}/{self.total_preguntas}").classes('text-[#83ABF1] font-bold text-sm min-w-[40px] text-right')
 
-        # CONTENEDOR PRINCIPAL
         self.main_contenedor.clear()
         row_data = self.df_preguntas.iloc[self.current_idx]
         
         with self.main_contenedor:
-            
             # BLOQUE IZQUIERDO (55%)
-            # Usamos pr-16 (padding a la derecha) para dar espacio de respiro sin romper el width
             with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pr-16 pb-20'):
                 ui.label(f"Módulo: {self.grupo_seleccionado}").classes('text-[12px] text-gray-500 font-black tracking-widest uppercase')
                 ui.label(row_data['TITULO']).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
@@ -160,25 +154,23 @@ class SAPPInterface:
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-5 pb-20'):
                 for txt, letra in self.opciones_mezcladas:
                     txt_oracion = str(txt).strip().capitalize()
-                    
                     btn = ui.button(on_click=lambda l=letra: self._handle_click(l), color=None)
                     btn.props('no-caps')
                     btn.classes(
                         'w-full text-left p-6 rounded-xl text-white '
-                        '!bg-[#0D248D] hover:!bg-[#5898D4] '
-                        'hover:scale-105 '  # Crecimiento controlado al 5% para que no se salga de la pantalla
-                        'transition-all duration-300 ease-out border-none shadow-lg'
+                        '!bg-[#0D248D] hover:!bg-[#5898D4] transition-all duration-300 shadow-lg'
                     )
-                    
                     with btn: 
                         ui.label(txt_oracion).classes('text-[14px] text-white whitespace-normal break-words w-full text-left')
 
     async def _finalizar_evaluacion(self):
         ui.notify("Evaluación completada. Procesando resultados...", color='positive')
         
+        # Cálculo de métricas vía Refinery
         raw_scores = SAPPRefinery.calculate_raw_scores(self.respuestas_usuario, self.df_preguntas)
         results = SAPPRefinery.refine_results(raw_scores, self.grupo_seleccionado)
         
+        # Guardado en Supabase
         if self.supabase and app.storage.user.get('user_id'):
             eval_data = {
                 "user_id": app.storage.user.get('user_id'),
@@ -195,12 +187,13 @@ class SAPPInterface:
             except Exception as e:
                 print(f"Error guardando SAPP en Supabase: {e}")
 
+        # Limpieza de contenedores para la vista de resultados
         self.header_contenedor.clear()
         self.main_contenedor.clear()
         
-        # Desactivamos el max-width asimétrico para la pantalla de resultados final
-        self.main_contenedor.classes(remove='max-w-[1400px] flex-nowrap min-h-[70vh]')
-        self.main_contenedor.classes(add='w-full justify-center')
+        # Reconfiguración para diseño Mobile-First en resultados
+        self.main_contenedor.classes(remove='px-10 max-w-[1400px] flex-nowrap min-h-[70vh]')
+        self.main_contenedor.classes(add='w-full justify-center p-0')
         
         with self.main_contenedor:
             render_dashboard_sapp(results, app.storage.user)
