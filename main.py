@@ -1,5 +1,6 @@
 import os
 import ast
+import json
 from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
@@ -274,6 +275,7 @@ def vista_directo_uma():
         def actualizar_datos_directo():
             if not supabase: return
             try:
+                # 1. Obtenemos los datos
                 res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
                 datos = res.data
                 
@@ -283,22 +285,55 @@ def vista_directo_uma():
                 if total_evaluaciones > 0:
                     sumas_competencias = {}
                     
-                    for evaluacion in datos:
-                        metricas = evaluacion.get('refined_metrics', {})
-                        for competencia, valor in metricas.items():
-                            if isinstance(valor, (int, float)): 
-                                sumas_competencias[competencia] = sumas_competencias.get(competencia, 0) + valor
+                    traductor = {
+                        'child_advocacy': 'Defensa del menor',
+                        'family_collaboration': 'Colaboración familiar',
+                        'diversity_sensitivity': 'Sensibilidad diversidad',
+                        'interdisciplinary_work': 'Trabajo interdisciplinar',
+                        'ethical_integrity': 'Integridad ética'
+                    }
                     
+                    for evaluacion in datos:
+                        metricas_base = evaluacion.get('refined_metrics', {})
+                        
+                        # BLINDAJE 1: Si la base de datos lo devuelve como texto, lo convertimos a Diccionario
+                        if isinstance(metricas_base, str):
+                            try:
+                                metricas_base = json.loads(metricas_base)
+                            except:
+                                continue
+                                
+                        # BLINDAJE 2: Detectamos si tiene la estructura anidada ("competencies") o plana
+                        competencias = metricas_base.get('competencies', metricas_base)
+                        
+                        for comp_id, valores in competencias.items():
+                            porcentaje = 0
+                            # BLINDAJE 3: Leemos el porcentaje sin importar cómo venga estructurado
+                            if isinstance(valores, dict) and 'percentage' in valores:
+                                porcentaje = valores['percentage']
+                            elif isinstance(valores, (int, float)):
+                                porcentaje = valores
+                            else:
+                                continue # Si no es un número, saltamos
+                                
+                            nombre_limpio = traductor.get(comp_id, str(comp_id).replace('_', ' ').capitalize())
+                            sumas_competencias[nombre_limpio] = sumas_competencias.get(nombre_limpio, 0) + porcentaje
+                    
+                    # Si no hay competencias legibles, no hacemos nada para no romper el gráfico
+                    if not sumas_competencias:
+                        return
+
                     nombres_competencias = list(sumas_competencias.keys())
                     promedios = [round(suma / total_evaluaciones, 1) for suma in sumas_competencias.values()]
                     
                     grafico.options['xAxis']['data'] = nombres_competencias
                     grafico.options['series'][0]['data'] = promedios
                     grafico.update()
+                    
             except Exception as e:
+                # Si hay error, ahora lo veremos en la pantalla, no solo en la consola
+                ui.notify(f"Error en dashboard: {e}", type='negative')
                 print(f"Error actualizando dashboard directo: {e}")
-
-        ui.timer(5.0, actualizar_datos_directo)
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
