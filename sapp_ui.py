@@ -36,11 +36,12 @@ class SAPPInterface:
     def render(self):
         ui.query('body').style(f'background-color: {BG_COLOR}; margin: 0;')
         
-        # 1. CABECERA FIJA (CLON SAPE)
-        self.header_contenedor = ui.row().classes('w-full justify-between items-center px-8 py-4 bg-[#0E1117] border-b border-gray-800')
+        # 1. CABECERA FIJA (CLON SAPE) - flex-nowrap prohíbe los saltos de línea
+        self.header_contenedor = ui.row().classes('w-full justify-between items-center px-10 py-4 bg-[#0E1117] border-b border-gray-800 flex-nowrap')
         
         # 2. CONTENEDOR PRINCIPAL (CLON SAPE)
-        self.main_contenedor = ui.row().classes('w-full max-w-7xl mx-auto min-h-[80vh] items-stretch px-8 py-12 gap-12')
+        # Eliminamos el gap y añadimos flex-nowrap para forzar que los bloques 55/45 se queden en línea
+        self.main_contenedor = ui.row().classes('w-full max-w-[1400px] mx-auto min-h-[70vh] items-center px-10 flex-nowrap')
         
         self.render_selector_grupo()
 
@@ -52,11 +53,11 @@ class SAPPInterface:
             ui.label('CONFIGURACIÓN S.A.P.P.').classes('text-[#83ABF1] font-bold tracking-widest')
 
         self.main_contenedor.clear()
-        with self.main_contenedor.classes('justify-center items-center flex-col'):
-            ui.label('SELECCIONA EL MÓDULO A EVALUAR').classes('text-sm tracking-[.25em] text-[#83ABF1] font-bold')
+        with self.main_contenedor.classes('justify-center flex-col'):
+            ui.label('SELECCIONA EL MÓDULO A EVALUAR').classes('text-sm tracking-[.25em] text-[#83ABF1] font-bold mt-10')
             ui.label(f'Especialidad: {self.sector}').classes('text-3xl text-white font-light italic mb-8')
             
-            with ui.row().classes('gap-8 justify-center w-full'):
+            with ui.row().classes('gap-8 justify-center w-full mb-20'):
                 grupos = [
                     ('Competencias personales', 'psychology'),
                     ('Competencias profesionales', 'business_center'),
@@ -86,8 +87,8 @@ class SAPPInterface:
         self.respuestas_usuario.clear()
         self._preparar_opciones_actuales()
         
-        # Limpiamos las clases de centrado del selector para usar el layout asimétrico
-        self.main_contenedor.classes(remove='justify-center items-center flex-col')
+        # Limpiamos las clases de centrado del selector para permitir el layout asimétrico 55/45
+        self.main_contenedor.classes(remove='justify-center flex-col')
         self._mostrar_pregunta()
 
     # --- FASE 2: MOTOR DE PREGUNTAS ---
@@ -114,31 +115,32 @@ class SAPPInterface:
             await self._finalizar_evaluacion()
 
     def _mostrar_pregunta(self):
-        """Renderiza la pregunta clonando exactamente la estructura asimétrica de SAPE."""
-        
-        # 1. ACTUALIZAR CABECERA (Logo Izquierda, Progreso Derecha)
+        """Renderiza la pregunta con layout blindado 55/45."""
         self.header_contenedor.clear()
         progreso = self.current_idx / self.total_preguntas
+        
+        # CABECERA FIJA
         with self.header_contenedor:
             ui.image('logo_blanco.png').classes('w-48')
-            with ui.row().classes('items-center gap-4 w-1/3 justify-end'):
+            with ui.row().classes('items-center gap-4 w-1/3 justify-end flex-nowrap'):
                 ui.linear_progress(value=progreso, show_value=False).props('color="blue"').classes('w-full h-2 rounded-full')
                 ui.label(f"{self.current_idx + 1}/{self.total_preguntas}").classes('text-[#83ABF1] font-bold text-sm min-w-[40px] text-right')
 
-        # 2. ACTUALIZAR CONTENEDOR PRINCIPAL (55% / 45%)
+        # CONTENEDOR PRINCIPAL
         self.main_contenedor.clear()
         row_data = self.df_preguntas.iloc[self.current_idx]
         
         with self.main_contenedor:
             
-            # BLOQUE IZQUIERDO: Título y Narrativa (55%)
-            with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pb-20'):
+            # BLOQUE IZQUIERDO (55%)
+            # Usamos pr-16 (padding a la derecha) para dar espacio de respiro sin romper el width
+            with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pr-16 pb-20'):
                 ui.label(f"Módulo: {self.grupo_seleccionado}").classes('text-[12px] text-gray-500 font-black tracking-widest uppercase')
                 ui.label(row_data['TITULO']).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
                 ui.label(row_data['NARRATIVA']).classes('text-[18px] text-white leading-relaxed')
 
-            # BLOQUE DERECHO: Botones de respuesta (45%)
-            with ui.column().classes('w-[45%] flex flex-col justify-center gap-6 pb-20'):
+            # BLOQUE DERECHO (45%)
+            with ui.column().classes('w-[45%] flex flex-col justify-center gap-5 pb-20'):
                 for txt, letra in self.opciones_mezcladas:
                     txt_oracion = str(txt).strip().capitalize()
                     
@@ -147,12 +149,12 @@ class SAPPInterface:
                     btn.classes(
                         'w-full text-left p-6 rounded-xl text-white '
                         '!bg-[#0D248D] hover:!bg-[#5898D4] '
-                        'hover:scale-[1.15] '
+                        'hover:scale-105 '  # Crecimiento controlado al 5% para que no se salga de la pantalla
                         'transition-all duration-300 ease-out border-none shadow-lg'
                     )
                     
                     with btn: 
-                        ui.label(txt_oracion).classes('text-[12px] text-white whitespace-normal break-words w-full text-left')
+                        ui.label(txt_oracion).classes('text-[14px] text-white whitespace-normal break-words w-full text-left')
 
     async def _finalizar_evaluacion(self):
         ui.notify("Evaluación completada. Procesando resultados...", color='positive')
@@ -176,9 +178,12 @@ class SAPPInterface:
             except Exception as e:
                 print(f"Error guardando SAPP en Supabase: {e}")
 
-        # Ocultar cabecera y mostrar resultados
         self.header_contenedor.clear()
         self.main_contenedor.clear()
-        self.main_contenedor.classes(remove='max-w-7xl items-stretch px-8 py-12 gap-12')
-        with self.main_contenedor.classes('w-full justify-center'):
+        
+        # Desactivamos el max-width asimétrico para la pantalla de resultados final
+        self.main_contenedor.classes(remove='max-w-[1400px] flex-nowrap min-h-[70vh]')
+        self.main_contenedor.classes(add='w-full justify-center')
+        
+        with self.main_contenedor:
             render_dashboard_sapp(results, app.storage.user)
