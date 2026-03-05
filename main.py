@@ -242,67 +242,97 @@ def org_admin_page():
 # 4.5 DASHBOARD EN DIRECTO (PROYECCIÓN)
 # ==========================================
 @ui.page('/directo-uma')
-def actualizar_datos_directo():
+def vista_directo_uma():
     import json
-    if supabase is None: 
-        print("⚠️ ALERTA: El cliente Supabase no se ha inicializado. Revisa tus variables .env")
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    
+    # 1. SEGURIDAD
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['ADMIN', 'ORG_ADMIN']:
+        ui.navigate.to('/')
         return
-        
-    try:
-        # PRUEBA 1: Intentar leer TODO sin filtros para ver si hay conexión
-        test_total = supabase.table('evaluations').select('id', count='exact').execute()
-        count_db = test_total.count if test_total.count is not None else 0
-        
-        # PRUEBA 2: Intentar leer con el filtro de la UMA
-        res = supabase.table('evaluations').select('refined_metrics', 'org_id').eq('org_id', org_objetivo).execute()
-        datos = res.data
-        
-        # --- MENSAJES PARA TU TERMINAL (VS Code / Cursor) ---
-        print("-" * 40)
-        print(f"SISTEMA DE DIAGNÓSTICO AUDEO:")
-        print(f"1. Filas totales en la tabla 'evaluations': {count_db}")
-        print(f"2. Filas encontradas para '{org_objetivo}': {len(datos)}")
-        if len(datos) == 0 and count_db > 0:
-            # Si hay datos pero no para UMA_DEMO, imprimimos qué org_ids existen
-            res_all = supabase.table('evaluations').select('org_id').limit(5).execute()
-            existentes = [r['org_id'] for r in res_all.data]
-            print(f"3. ¡AVISO! Hay datos en la tabla pero con otros IDs: {existentes}")
-        print("-" * 40)
-        # ----------------------------------------------------
 
-        total_evaluaciones = len(datos)
-        lbl_total.set_text(str(total_evaluaciones))
+    org_objetivo = 'UMA_DEMO'
+
+    # --- DISEÑO DE LA PÁGINA ---
+    with ui.column().classes('w-full min-h-screen items-center p-8'):
+        ui.image('logo_blanco.png').classes('w-48 mb-6')
+        ui.label('MAPA COMPETENCIAL EN TIEMPO REAL').classes('text-3xl font-black text-[#83ABF1] tracking-widest text-center')
         
-        if total_evaluaciones > 0:
-            sumas_competencias = {}
-            traductor = {
-                'child_advocacy': 'Defensa del menor',
-                'family_collaboration': 'Colaboración familiar',
-                'diversity_sensitivity': 'Sensibilidad diversidad',
-                'interdisciplinary_work': 'Trabajo interdisciplinar'
-            }
+        # Indicador de estado para saber si el código está vivo
+        estado_conexion = ui.label('Iniciando conexión...').classes('text-xs text-gray-500 mb-4')
+
+        with ui.row().classes('w-full max-w-5xl justify-center gap-16 mb-12'):
+            with ui.column().classes('items-center'):
+                ui.icon('group', size='4rem', color='#83ABF1').classes('mb-2')
+                lbl_total = ui.label('0').classes('text-7xl font-bold text-white')
+                ui.label('EVALUACIONES COMPLETADAS').classes('text-sm text-gray-500 font-bold tracking-widest')
+
+        grafico_contenedor = ui.card().classes('w-full max-w-5xl h-[500px] bg-[#161B22] border border-gray-800 p-4 shadow-xl')
+        
+        # Inicialización del gráfico
+        grafico = ui.echart({
+            'tooltip': {'trigger': 'axis'},
+            'xAxis': {'type': 'category', 'data': [], 'axisLabel': {'color': 'white'}},
+            'yAxis': {'type': 'value', 'max': 100, 'axisLabel': {'color': 'gray'}},
+            'series': [{'data': [], 'type': 'bar', 'itemStyle': {'color': '#83ABF1'}, 'label': {'show': True, 'position': 'top', 'color': 'white', 'formatter': '{c}%'}}]
+        }).classes('w-full h-full')
+        grafico.move(grafico_contenedor)
+
+    # --- MOTOR DE ACTUALIZACIÓN (DENTRO DE LA PÁGINA) ---
+    async def actualizar_datos_directo():
+        if not supabase: 
+            estado_conexion.set_text("❌ ERROR: Supabase no configurado")
+            return
             
-            for evaluacion in datos:
-                metricas = evaluacion.get('refined_metrics', {})
-                if isinstance(metricas, str): metricas = json.loads(metricas)
-                
-                # Entramos en 'competencies' (Estructura de tu Refinery)
-                c_data = metricas.get('competencies', metricas)
-                
-                for k, v in c_data.items():
-                    val = v['percentage'] if isinstance(v, dict) and 'percentage' in v else (v if isinstance(v, (int,float)) else 0)
-                    nombre = traductor.get(k, k.replace('_', ' ').capitalize())
-                    sumas_competencias[nombre] = sumas_competencias.get(nombre, 0) + val
+        try:
+            # Consultamos los datos
+            res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
+            datos = res.data
             
-            nombres = list(sumas_competencias.keys())
-            promedios = [round(s / total_evaluaciones, 1) for s in sumas_competencias.values()]
-            
-            grafico.options['xAxis']['data'] = nombres
-            grafico.options['series'][0]['data'] = promedios
-            grafico.update()
+            # Actualizamos el contador
+            total = len(datos)
+            lbl_total.set_text(str(total))
+            estado_conexion.set_text(f"✅ Conectado. Última actualización: {datetime.now().strftime('%H:%M:%S')}")
+
+            if total > 0:
+                sumas = {}
+                traductor = {
+                    'child_advocacy': 'Defensa menor',
+                    'family_collaboration': 'Colaboración fam.',
+                    'diversity_sensitivity': 'Sensibilidad div.',
+                    'interdisciplinary_work': 'Trabajo interdis.'
+                }
                 
-    except Exception as e:
-        print(f"❌ ERROR CRÍTICO: {e}")
+                for fila in datos:
+                    # Extraemos métricas (soporta texto o dict)
+                    m = fila.get('refined_metrics', {})
+                    if isinstance(m, str): m = json.loads(m)
+                    
+                    # Buscamos en el subdiccionario 'competencies' (Refinery style)
+                    comps = m.get('competencies', m)
+                    
+                    for k, v in comps.items():
+                        # Obtenemos el porcentaje
+                        p = v['percentage'] if isinstance(v, dict) and 'percentage' in v else (v if isinstance(v, (int,float)) else 0)
+                        
+                        nombre = traductor.get(k, k.replace('_', ' ').capitalize())
+                        sumas[nombre] = sumas.get(nombre, 0) + p
+                
+                if sumas:
+                    grafico.options['xAxis']['data'] = list(sumas.keys())
+                    grafico.options['series'][0]['data'] = [round(s / total, 1) for s in sumas.values()]
+                    grafico.update()
+            else:
+                grafico.options['xAxis']['data'] = []
+                grafico.options['series'][0]['data'] = []
+                grafico.update()
+
+        except Exception as e:
+            print(f"Error en timer: {e}")
+            estado_conexion.set_text(f"⚠️ Error: {str(e)[:50]}...")
+
+    # Timer cada 5 segundos
+    ui.timer(5.0, actualizar_datos_directo)
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
