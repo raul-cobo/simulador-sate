@@ -242,113 +242,67 @@ def org_admin_page():
 # 4.5 DASHBOARD EN DIRECTO (PROYECCIÓN)
 # ==========================================
 @ui.page('/directo-uma')
-def vista_directo_uma():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['ADMIN', 'ORG_ADMIN']:
-        ui.navigate.to('/')
-        return
-
-    org_objetivo = 'UMA_DEMO'
-
-    with ui.column().classes('w-full min-h-screen items-center p-8'):
-        ui.image('logo_blanco.png').classes('w-48 mb-6')
-        ui.label('MAPA COMPETENCIAL EN TIEMPO REAL').classes('text-3xl font-black text-[#83ABF1] tracking-widest text-center')
-        ui.label('Universidad de Málaga - Dinámica S.A.P.P.').classes('text-xl text-gray-400 mb-12 text-center')
-
-        with ui.row().classes('w-full max-w-5xl justify-center gap-16 mb-12'):
-            with ui.column().classes('items-center'):
-                ui.icon('group', size='4rem', color='#83ABF1').classes('mb-2')
-                lbl_total = ui.label('0').classes('text-7xl font-bold text-white')
-                ui.label('EVALUACIONES COMPLETADAS').classes('text-sm text-gray-500 font-bold tracking-widest')
-
-        grafico_contenedor = ui.card().classes('w-full max-w-5xl h-[500px] bg-[#161B22] border border-gray-800 p-4 shadow-xl')
-        
-        grafico = ui.echart({
-            'tooltip': {'trigger': 'axis'},
-            'xAxis': {'type': 'category', 'data': [], 'axisLabel': {'color': 'white'}},
-            'yAxis': {'type': 'value', 'max': 100, 'axisLabel': {'color': 'gray'}},
-            'series': [{'data': [], 'type': 'bar', 'itemStyle': {'color': '#83ABF1'}, 'label': {'show': True, 'position': 'top', 'color': 'white', 'formatter': '{c}%'}}]
-        }).classes('w-full h-full')
-        grafico.move(grafico_contenedor)
-
-        def actualizar_datos_directo():
+def actualizar_datos_directo():
     import json
-    if not supabase: 
+    if supabase is None: 
+        print("⚠️ ALERTA: El cliente Supabase no se ha inicializado. Revisa tus variables .env")
         return
         
     try:
-        # 1. Obtenemos los datos filtrados por la organización de la demo
-        res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
+        # PRUEBA 1: Intentar leer TODO sin filtros para ver si hay conexión
+        test_total = supabase.table('evaluations').select('id', count='exact').execute()
+        count_db = test_total.count if test_total.count is not None else 0
+        
+        # PRUEBA 2: Intentar leer con el filtro de la UMA
+        res = supabase.table('evaluations').select('refined_metrics', 'org_id').eq('org_id', org_objetivo).execute()
         datos = res.data
         
-        # --- DIAGNÓSTICO EN CONSOLA ---
-        # Si esto pone 0 en tu terminal de VS Code/Cursor, el problema es Supabase (RLS o filtros)
-        print(f"DEBUG: Buscando en '{org_objetivo}' | Filas recibidas: {len(datos)}")
-        # ------------------------------
+        # --- MENSAJES PARA TU TERMINAL (VS Code / Cursor) ---
+        print("-" * 40)
+        print(f"SISTEMA DE DIAGNÓSTICO AUDEO:")
+        print(f"1. Filas totales en la tabla 'evaluations': {count_db}")
+        print(f"2. Filas encontradas para '{org_objetivo}': {len(datos)}")
+        if len(datos) == 0 and count_db > 0:
+            # Si hay datos pero no para UMA_DEMO, imprimimos qué org_ids existen
+            res_all = supabase.table('evaluations').select('org_id').limit(5).execute()
+            existentes = [r['org_id'] for r in res_all.data]
+            print(f"3. ¡AVISO! Hay datos en la tabla pero con otros IDs: {existentes}")
+        print("-" * 40)
+        # ----------------------------------------------------
 
         total_evaluaciones = len(datos)
         lbl_total.set_text(str(total_evaluaciones))
         
         if total_evaluaciones > 0:
             sumas_competencias = {}
-            
-            # Traductor para que la pantalla del auditorio se vea profesional en español
             traductor = {
                 'child_advocacy': 'Defensa del menor',
                 'family_collaboration': 'Colaboración familiar',
                 'diversity_sensitivity': 'Sensibilidad diversidad',
-                'interdisciplinary_work': 'Trabajo interdisciplinar',
-                'ethical_integrity': 'Integridad ética'
+                'interdisciplinary_work': 'Trabajo interdisciplinar'
             }
             
             for evaluacion in datos:
-                metricas_base = evaluacion.get('refined_metrics', {})
+                metricas = evaluacion.get('refined_metrics', {})
+                if isinstance(metricas, str): metricas = json.loads(metricas)
                 
-                # BLINDAJE 1: Conversión de texto a Diccionario (JSON)
-                if isinstance(metricas_base, str):
-                    try:
-                        metricas_base = json.loads(metricas_base)
-                    except:
-                        continue
+                # Entramos en 'competencies' (Estructura de tu Refinery)
+                c_data = metricas.get('competencies', metricas)
                 
-                # BLINDAJE 2: Navegación por la estructura anidada del Refinery
-                # Buscamos la clave 'competencies' que es donde están los datos reales
-                competencias = metricas_base.get('competencies', metricas_base)
-                
-                if isinstance(competencias, dict):
-                    for comp_id, valores in competencias.items():
-                        porcentaje = 0
-                        # BLINDAJE 3: Extracción del porcentaje (soporta formato anidado o plano)
-                        if isinstance(valores, dict) and 'percentage' in valores:
-                            porcentaje = valores['percentage']
-                        elif isinstance(valores, (int, float)):
-                            porcentaje = valores
-                        else:
-                            continue
-                            
-                        # Limpieza de nombres y traducción
-                        nombre_limpio = traductor.get(comp_id, str(comp_id).replace('_', ' ').capitalize())
-                        sumas_competencias[nombre_limpio] = sumas_competencias.get(nombre_limpio, 0) + porcentaje
+                for k, v in c_data.items():
+                    val = v['percentage'] if isinstance(v, dict) and 'percentage' in v else (v if isinstance(v, (int,float)) else 0)
+                    nombre = traductor.get(k, k.replace('_', ' ').capitalize())
+                    sumas_competencias[nombre] = sumas_competencias.get(nombre, 0) + val
             
-            if sumas_competencias:
-                nombres_competencias = list(sumas_competencias.keys())
-                promedios = [round(suma / total_evaluaciones, 1) for suma in sumas_competencias.values()]
-                
-                # Actualización del gráfico ECharts
-                grafico.options['xAxis']['data'] = nombres_competencias
-                grafico.options['series'][0]['data'] = promedios
-                grafico.update()
-        else:
-            # Si no hay datos (total=0), reseteamos el gráfico para que no muestre basura
-            grafico.options['xAxis']['data'] = []
-            grafico.options['series'][0]['data'] = []
+            nombres = list(sumas_competencias.keys())
+            promedios = [round(s / total_evaluaciones, 1) for s in sumas_competencias.values()]
+            
+            grafico.options['xAxis']['data'] = nombres
+            grafico.options['series'][0]['data'] = promedios
             grafico.update()
                 
     except Exception as e:
-        # Notificación visual de error en el navegador
-        ui.notify(f"Error en dashboard: {e}", type='negative')
-        print(f"Error crítico actualizando dashboard: {e}")
+        print(f"❌ ERROR CRÍTICO: {e}")
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
