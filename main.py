@@ -8,6 +8,7 @@ from admin_console import ConsolaAdmin
 from org_console import ConsolaOrganizacion
 from sape_ui import SAPEInterface
 from sapp_ui import SAPPInterface
+from nicegui import ui
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO

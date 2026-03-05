@@ -53,22 +53,39 @@ class SAPPInterface:
             ui.label('CONFIGURACIÓN S.A.P.P.').classes('text-[#83ABF1] font-bold tracking-widest')
 
         self.main_contenedor.clear()
+        
+        # Leemos el estado del usuario para saber si es un asistente de la demostración
+        is_demo = app.storage.user.get('is_demo', False)
+        
         with self.main_contenedor.classes('justify-center flex-col'):
-            ui.label('SELECCIONA EL MÓDULO A EVALUAR').classes('text-sm tracking-[.25em] text-[#83ABF1] font-bold mt-10')
-            ui.label(f'Especialidad: {self.sector}').classes('text-3xl text-white font-light italic mb-8')
+            
+            # Cabeceras condicionales
+            if is_demo:
+                ui.label(f'MODO DINÁMICA: {self.sector.upper()}').classes('text-orange-400 font-bold tracking-widest text-sm mt-10')
+                ui.label('En esta sesión solo se evaluarán las Competencias Personales.').classes('text-gray-400 text-sm text-center mb-8')
+            else:
+                ui.label('SELECCIONA EL MÓDULO A EVALUAR').classes('text-sm tracking-[.25em] text-[#83ABF1] font-bold mt-10')
+                ui.label(f'Especialidad: {self.sector}').classes('text-3xl text-white font-light italic mb-8')
             
             with ui.row().classes('gap-8 justify-center w-full mb-20'):
-                grupos = [
-                    ('Competencias personales', 'psychology'),
-                    ('Competencias profesionales', 'business_center'),
-                    ('Competencias técnicas', 'terminal')
-                ]
                 
-                for grupo_nombre, icono in grupos:
+                # BOTÓN 1: Competencias Personales (Siempre visible)
+                with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
+                    ui.icon('psychology', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
+                    ui.label('COMPETENCIAS PERSONALES').classes('text-center text-sm font-bold text-white mb-6 h-10')
+                    ui.button('INICIAR', on_click=lambda: self.iniciar_test('Competencias personales')).classes('w-full bg-[#0D248D] text-white font-bold')
+
+                # BOTONES 2 y 3: Visibles solo si el usuario NO es de la demo
+                if not is_demo:
                     with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
-                        ui.icon(icono, color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
-                        ui.label(grupo_nombre.upper()).classes('text-center text-sm font-bold text-white mb-6 h-10')
-                        ui.button('INICIAR', on_click=lambda g=grupo_nombre: self.iniciar_test(g)).classes('w-full bg-[#0D248D] text-white font-bold')
+                        ui.icon('business_center', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
+                        ui.label('COMPETENCIAS PROFESIONALES').classes('text-center text-sm font-bold text-white mb-6 h-10')
+                        ui.button('INICIAR', on_click=lambda: self.iniciar_test('Competencias profesionales')).classes('w-full bg-[#0D248D] text-white font-bold')
+
+                    with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
+                        ui.icon('terminal', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
+                        ui.label('COMPETENCIAS TÉCNICAS').classes('text-center text-sm font-bold text-white mb-6 h-10')
+                        ui.button('INICIAR', on_click=lambda: self.iniciar_test('Competencias técnicas')).classes('w-full bg-[#0D248D] text-white font-bold')
 
     def iniciar_test(self, grupo: str):
         self.grupo_seleccionado = grupo
