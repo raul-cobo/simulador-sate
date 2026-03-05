@@ -381,21 +381,23 @@ def pagina_sapp():
         ui.navigate.to('/')
         return
 
-    # 2. Extraer el perfil asignado al usuario
-    user_data = app.storage.user.get('profile_data', {})
-    sapp_data = user_data.get('sapp', {})
+    # 2. Leer la especialidad EXACTA que el usuario seleccionó en el desplegable
+    perfil_seleccionado = app.storage.user.get('current_sector')
     
-    # El perfil suele ser una cadena (ej: "Psicología organizacional"). 
-    # Si tiene varios, cogemos el primero para arrancar.
-    perfil_str = sapp_data.get('profile', 'Psicología organizacional')
-    perfiles_lista = [p.strip() for p in perfil_str.split(',') if p.strip()]
-    perfil_principal = perfiles_lista[0] if perfiles_lista else 'Psicología organizacional'
+    # Fallback de seguridad: Si por algún motivo entra a la URL sin pasar por el panel, 
+    # intentamos leer su primer perfil autorizado en Supabase.
+    if not perfil_seleccionado:
+        user_data = app.storage.user.get('profile_data', {})
+        sapp_data = user_data.get('sapp', {})
+        perfil_str = sapp_data.get('profile', 'Psicología organizacional')
+        perfiles_lista = [p.strip() for p in perfil_str.split(',') if p.strip()]
+        perfil_seleccionado = perfiles_lista[0] if perfiles_lista else 'Psicología organizacional'
 
     # 3. Lanzar el Motor SAPP Real
     try:
         motor_sapp = SAPPInterface(
             df_path='Prueba_SAPP.csv', 
-            sector=perfil_principal, 
+            sector=perfil_seleccionado, 
             supabase_client=supabase
         )
         motor_sapp.render()

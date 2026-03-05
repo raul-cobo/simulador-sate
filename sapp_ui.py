@@ -25,8 +25,12 @@ class SAPPInterface:
         self.opciones_mezcladas: List[tuple] = []
         
         # Carga del CSV completo
+        # Usamos utf-8-sig que es el estándar de Excel para evitar caracteres extraños
         try:
             self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='utf-8-sig')
+        except UnicodeDecodeError:
+            # Si utf-8-sig falla, forzamos la lectura en formato europeo tradicional
+            self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='latin1')
         except Exception as e:
             ui.notify(f"Error cargando CSV SAPP: {e}", type='negative')
 
