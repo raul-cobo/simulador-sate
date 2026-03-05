@@ -172,17 +172,19 @@ async def qr_access_broker(org_id: str):
             return
 
         user_data = res.data[0]
+        nombre_usuario = user_data['username']
 
-        # Bloquear el usuario
-        supabase.table('users').update({'is_claimed': True}).eq('id', user_data['id']).execute()
+        # CORRECCIÓN: Bloquear el usuario buscando por 'username' en lugar de 'id'
+        supabase.table('users').update({'is_claimed': True}).eq('username', nombre_usuario).execute()
 
         # Iniciar sesión transparente
         app.storage.user.update({
             'authenticated': True,
             'role': 'USER',
-            'username': user_data['username'],
+            'username': nombre_usuario,
             'org_id': org_id,
-            'user_id': user_data['id'],
+            # Fallback de seguridad: Si no hay 'id', usamos el 'username' como user_id
+            'user_id': user_data.get('id', nombre_usuario), 
             'is_demo': True
         })
 
