@@ -273,67 +273,82 @@ def vista_directo_uma():
         grafico.move(grafico_contenedor)
 
         def actualizar_datos_directo():
-            if not supabase: return
-            try:
-                # 1. Obtenemos los datos
-                res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
-                datos = res.data
-                
-                total_evaluaciones = len(datos)
-                lbl_total.set_text(str(total_evaluaciones))
-                
-                if total_evaluaciones > 0:
-                    sumas_competencias = {}
-                    
-                    traductor = {
-                        'child_advocacy': 'Defensa del menor',
-                        'family_collaboration': 'Colaboración familiar',
-                        'diversity_sensitivity': 'Sensibilidad diversidad',
-                        'interdisciplinary_work': 'Trabajo interdisciplinar',
-                        'ethical_integrity': 'Integridad ética'
-                    }
-                    
-                    for evaluacion in datos:
-                        metricas_base = evaluacion.get('refined_metrics', {})
-                        
-                        # BLINDAJE 1: Si la base de datos lo devuelve como texto, lo convertimos a Diccionario
-                        if isinstance(metricas_base, str):
-                            try:
-                                metricas_base = json.loads(metricas_base)
-                            except:
-                                continue
-                                
-                        # BLINDAJE 2: Detectamos si tiene la estructura anidada ("competencies") o plana
-                        competencias = metricas_base.get('competencies', metricas_base)
-                        
-                        for comp_id, valores in competencias.items():
-                            porcentaje = 0
-                            # BLINDAJE 3: Leemos el porcentaje sin importar cómo venga estructurado
-                            if isinstance(valores, dict) and 'percentage' in valores:
-                                porcentaje = valores['percentage']
-                            elif isinstance(valores, (int, float)):
-                                porcentaje = valores
-                            else:
-                                continue # Si no es un número, saltamos
-                                
-                            nombre_limpio = traductor.get(comp_id, str(comp_id).replace('_', ' ').capitalize())
-                            sumas_competencias[nombre_limpio] = sumas_competencias.get(nombre_limpio, 0) + porcentaje
-                    
-                    # Si no hay competencias legibles, no hacemos nada para no romper el gráfico
-                    if not sumas_competencias:
-                        return
+    import json
+    if not supabase: 
+        return
+        
+    try:
+        # 1. Obtenemos los datos filtrados por la organización de la demo
+        res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
+        datos = res.data
+        
+        # --- DIAGNÓSTICO EN CONSOLA ---
+        # Si esto pone 0 en tu terminal de VS Code/Cursor, el problema es Supabase (RLS o filtros)
+        print(f"DEBUG: Buscando en '{org_objetivo}' | Filas recibidas: {len(datos)}")
+        # ------------------------------
 
-                    nombres_competencias = list(sumas_competencias.keys())
-                    promedios = [round(suma / total_evaluaciones, 1) for suma in sumas_competencias.values()]
-                    
-                    grafico.options['xAxis']['data'] = nombres_competencias
-                    grafico.options['series'][0]['data'] = promedios
-                    grafico.update()
-                    
-            except Exception as e:
-                # Si hay error, ahora lo veremos en la pantalla, no solo en la consola
-                ui.notify(f"Error en dashboard: {e}", type='negative')
-                print(f"Error actualizando dashboard directo: {e}")
+        total_evaluaciones = len(datos)
+        lbl_total.set_text(str(total_evaluaciones))
+        
+        if total_evaluaciones > 0:
+            sumas_competencias = {}
+            
+            # Traductor para que la pantalla del auditorio se vea profesional en español
+            traductor = {
+                'child_advocacy': 'Defensa del menor',
+                'family_collaboration': 'Colaboración familiar',
+                'diversity_sensitivity': 'Sensibilidad diversidad',
+                'interdisciplinary_work': 'Trabajo interdisciplinar',
+                'ethical_integrity': 'Integridad ética'
+            }
+            
+            for evaluacion in datos:
+                metricas_base = evaluacion.get('refined_metrics', {})
+                
+                # BLINDAJE 1: Conversión de texto a Diccionario (JSON)
+                if isinstance(metricas_base, str):
+                    try:
+                        metricas_base = json.loads(metricas_base)
+                    except:
+                        continue
+                
+                # BLINDAJE 2: Navegación por la estructura anidada del Refinery
+                # Buscamos la clave 'competencies' que es donde están los datos reales
+                competencias = metricas_base.get('competencies', metricas_base)
+                
+                if isinstance(competencias, dict):
+                    for comp_id, valores in competencias.items():
+                        porcentaje = 0
+                        # BLINDAJE 3: Extracción del porcentaje (soporta formato anidado o plano)
+                        if isinstance(valores, dict) and 'percentage' in valores:
+                            porcentaje = valores['percentage']
+                        elif isinstance(valores, (int, float)):
+                            porcentaje = valores
+                        else:
+                            continue
+                            
+                        # Limpieza de nombres y traducción
+                        nombre_limpio = traductor.get(comp_id, str(comp_id).replace('_', ' ').capitalize())
+                        sumas_competencias[nombre_limpio] = sumas_competencias.get(nombre_limpio, 0) + porcentaje
+            
+            if sumas_competencias:
+                nombres_competencias = list(sumas_competencias.keys())
+                promedios = [round(suma / total_evaluaciones, 1) for suma in sumas_competencias.values()]
+                
+                # Actualización del gráfico ECharts
+                grafico.options['xAxis']['data'] = nombres_competencias
+                grafico.options['series'][0]['data'] = promedios
+                grafico.update()
+        else:
+            # Si no hay datos (total=0), reseteamos el gráfico para que no muestre basura
+            grafico.options['xAxis']['data'] = []
+            grafico.options['series'][0]['data'] = []
+            grafico.update()
+                
+    except Exception as e:
+        # Notificación visual de error en el navegador
+        ui.notify(f"Error en dashboard: {e}", type='negative')
+        print(f"Error crítico actualizando dashboard: {e}")
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
