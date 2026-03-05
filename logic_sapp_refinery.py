@@ -1,73 +1,57 @@
 # logic_sapp_refinery.py
 import pandas as pd
-import re
-from typing import Dict, Any, List
 
 class SAPPRefinery:
-    """
-    Motor de cálculo y validación de Compliance para el SAPP 
-    (Sistema de Análisis del Perfil Profesional).
-    """
-
-    # Competencias donde fallar implica un riesgo legal o clínico severo
-    CRITICAL_COMPETENCIES = ["ethical_integrity", "risk_management", "health_records"]
-
+    
     @staticmethod
-    def calculate_raw_scores(respuestas_usuario: Dict[str, str], df_preguntas: pd.DataFrame) -> Dict[str, int]:
+    def calculate_raw_scores(user_responses: dict, df_preguntas: pd.DataFrame) -> dict:
         """
-        Parseador puro: Extrae la lógica del CSV ('OPCION_X_LOGIC') y suma los puntos.
-        Ej: {'1': 'A', '2': 'C'} -> {'ethical_integrity': -1, 'health_records': 1}
+        Calcula la puntuación bruta sumando y restando los valores exactos
+        definidos en las columnas lógicas del Excel.
         """
         scores = {}
-        # Recorremos el DataFrame filtrado de las 40 preguntas exactas
-        for idx, row in df_preguntas.iterrows():
-            pregunta_id = str(row['ID'])
-            letra_elegida = respuestas_usuario.get(pregunta_id)
-            
-            if letra_elegida:
+        
+        for index, row in df_preguntas.iterrows():
+            q_id = str(row['ID'])
+            if q_id in user_responses:
+                letra_elegida = user_responses[q_id]
                 col_logic = f'OPCION_{letra_elegida}_LOGIC'
-                logic_str = row.get(col_logic, "")
+                logic_val = row.get(col_logic)
                 
-                if pd.notna(logic_str) and str(logic_str).strip() != "":
-                    # Parsear cadenas como "ethical_integrity 1 | strategic_vision -1"
-                    parts = str(logic_str).split('|')
-                    for p in parts:
-                        match = re.match(r"([a-zA-Z_]+)\s+(-?\d+)", p.strip())
-                        if match:
-                            trait = match.group(1)
-                            val = int(match.group(2))
-                            scores[trait] = scores.get(trait, 0) + val
+                # Si la opción tiene lógica (ej: "ethical_integrity 1" o "ethical_integrity -1")
+                if pd.notna(logic_val) and str(logic_val).strip() != "":
+                    partes = str(logic_val).strip().split()
+                    if len(partes) == 2:
+                        competencia = partes[0]
+                        try:
+                            valor = int(partes[1])
+                            # Sumamos o restamos el valor a la competencia
+                            scores[competencia] = scores.get(competencia, 0) + valor
+                        except ValueError:
+                            pass
+                            
         return scores
 
     @staticmethod
-    def refine_results(raw_scores: Dict[str, int], grupo_evaluado: str) -> Dict[str, Any]:
+    def refine_results(raw_scores: dict, grupo_seleccionado: str) -> dict:
         """
-        Audita las puntuaciones brutas y determina si hay banderas rojas (Riesgo Crítico).
+        Transforma la puntuación bruta (-10 a 10) en un porcentaje (-100% a 100%).
         """
-        refined = raw_scores.copy()
-        critical_flags = []
-        is_apt = True
-
-        # 1. Auditoría de Banderas Rojas
-        if refined.get('ethical_integrity', 0) < 0:
-            critical_flags.append({
-                "competency": "Integridad Ética",
-                "message": "Vulneración de principios éticos fundamentales (ej: confidencialidad)."
-            })
-            is_apt = False
-
-        if refined.get('risk_management', 0) < 0:
-            critical_flags.append({
-                "competency": "Gestión de Riesgos",
-                "message": "Negligencia detectada en el manejo de situaciones de crisis."
-            })
-            is_apt = False
-
-        # 2. Empaquetado final
+        refined_competencies = {}
+        
+        for comp, score in raw_scores.items():
+            # Regla: 10 puntos = 100%. Por tanto, multiplicamos por 10.
+            porcentaje = score * 10
+            
+            # Limitamos por seguridad entre -100 y 100
+            porcentaje = max(-100, min(100, porcentaje))
+            
+            refined_competencies[comp] = {
+                'raw_score': score,
+                'percentage': porcentaje
+            }
+            
         return {
-            "grupo_evaluado": grupo_evaluado,
-            "puntuaciones_competencias": refined,
-            "critical_flags": critical_flags,
-            "global_compliance": is_apt,
-            "total_score": sum(refined.values())
+            'module': grupo_seleccionado,
+            'competencies': refined_competencies
         }
