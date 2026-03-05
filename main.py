@@ -343,7 +343,8 @@ def panel_page():
                             if not state.perfil_sapp: 
                                 ui.notify('Abre el desplegable y elige un perfil.', type='warning')
                                 return
-                            ui.notify('Motor SAPP en construcción.', type='info')
+                            app.storage.user.update({'current_sector': state.perfil_sapp})
+                            ui.navigate.to(f'/sapp')
 
                     with ui.row().classes('w-full gap-4'):
                         ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl font-bold')
