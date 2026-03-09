@@ -22,13 +22,9 @@ except Exception as e:
 BG_COLOR = "#0E1117"
 DARK_BLUE = "#0D248D"
 
-# Listas Oficiales de Audeo
 SECTORES_OFICIALES = ['TECH', 'CONSULTORIA', 'HOSTELERIA', 'INTRA', 'AUTOEMPLEO', 'PYME', 'SALUD', 'SOCIAL']
 PERFILES_SAPP = ['Organizacional', 'Educativo', 'Social', 'Sanitario']
 
-# ==========================================
-# FUNCIÓN CONECTORA PARA PDF
-# ==========================================
 def descargar_informe_desde_consola(row_data):
     ev_data = row_data.get('raw_data', {})
     test_type = ev_data.get('test_type', 'SAPE')
@@ -50,7 +46,6 @@ def descargar_informe_desde_consola(row_data):
     except Exception as e:
         ui.notify(f"Error generando PDF: {e}", color="negative")
 
-
 class ConsolaOrganizacion:
     def __init__(self):
         self.contenedor = ui.column().classes('w-full min-h-screen p-0 m-0').style(f'background-color: {BG_COLOR}')
@@ -62,6 +57,7 @@ class ConsolaOrganizacion:
         self.evals_data = []
         self.logs_data = []
         self.editing_user = None
+        self.dialogo_checkout = None # Variable para el modal de compra
 
     def cargar_datos(self):
         if not supabase or not self.org_id: return
@@ -253,34 +249,100 @@ class ConsolaOrganizacion:
             ui.notify(f'Error en archivo: {ex}', type='negative')
 
     # ==========================================
-    # TIENDA Y FACTURACIÓN (B2B CLIENTE)
+    # TIENDA Y FACTURACIÓN (B2B CLIENTE) - NUEVO CHECKOUT
     # ==========================================
-    def procesar_solicitud_compra(self, cantidad_str, plan_nombre):
-        """Envía la solicitud al SuperAdmin o notifica al equipo de ventas"""
+    def abrir_checkout(self, cantidad_str, precio_unitario, plan_nombre):
+        """Abre el modal de resumen financiero y validación de PIN"""
         try:
             cantidad = int(cantidad_str)
         except ValueError:
-            ui.notify("Por favor, introduce una cantidad válida.", type="warning")
+            ui.notify("Introduce una cantidad válida.", type="warning")
             return
 
         if cantidad <= 0:
             ui.notify("La cantidad debe ser mayor a 0.", type="warning")
             return
 
-        # Registramos la solicitud de compra en los logs (para que el SuperAdmin lo vea)
-        self.registrar_log(
-            'SOLICITUD_COMPRA', 
-            f'Solicitados {cantidad} ciclos', 
-            'blue', 
-            f'Plan seleccionado: {plan_nombre}'
-        )
+        # Cálculos financieros
+        subtotal = cantidad * precio_unitario
+        iva = subtotal * 0.21
+        total = subtotal + iva
+
+        if self.dialogo_checkout:
+            self.dialogo_checkout.clear()
         
-        ui.notify(
-            f"✅ Solicitud de {cantidad} licencias enviada. El equipo de Audeo contactará contigo para la facturación y activación.", 
-            type="positive", 
-            position="top", 
-            timeout=5000
-        )
+        with ui.dialog() as self.dialogo_checkout, ui.card().classes('p-8 bg-[#161B22] border border-[#83ABF1] shadow-2xl rounded-2xl w-[500px]'):
+            ui.label('RESUMEN DE PEDIDO').classes('text-xl font-black text-[#83ABF1] tracking-widest mb-6 border-b border-gray-800 pb-2 w-full')
+            
+            # Tabla de desglose
+            with ui.column().classes('w-full gap-2 mb-6'):
+                with ui.row().classes('w-full justify-between'):
+                    ui.label(f'Plan seleccionado:').classes('text-gray-400')
+                    ui.label(f'{plan_nombre}').classes('text-white font-bold')
+                with ui.row().classes('w-full justify-between'):
+                    ui.label(f'Licencias solicitadas:').classes('text-gray-400')
+                    ui.label(f'{cantidad} uds.').classes('text-white font-bold')
+                with ui.row().classes('w-full justify-between'):
+                    ui.label(f'Precio unitario:').classes('text-gray-400')
+                    ui.label(f'{precio_unitario:.2f} €').classes('text-white font-bold')
+                
+                ui.separator().classes('bg-gray-800 my-2')
+                
+                with ui.row().classes('w-full justify-between'):
+                    ui.label('Base Imponible:').classes('text-gray-400')
+                    ui.label(f'{subtotal:.2f} €').classes('text-white font-mono')
+                with ui.row().classes('w-full justify-between'):
+                    ui.label('I.V.A. (21%):').classes('text-gray-400')
+                    ui.label(f'{iva:.2f} €').classes('text-white font-mono')
+                
+                with ui.row().classes('w-full justify-between items-end mt-4 pt-2 border-t border-gray-800'):
+                    ui.label('TOTAL A FACTURAR:').classes('text-gray-300 font-bold')
+                    ui.label(f'{total:.2f} €').classes('text-3xl text-[#22C55E] font-black font-mono')
+
+            # Compliance Legal
+            check_legal = ui.checkbox('Acepto los Términos de Contratación y el tratamiento de datos según el RGPD.').classes('text-xs text-gray-500 mb-6')
+            
+            # PIN de Seguridad
+            ui.label('Autorización de Compra').classes('text-sm text-[#83ABF1] font-bold mb-2')
+            pin_input = ui.input('Introduce tu PIN de Seguridad', password=True).props('dark outlined').classes('w-full mb-6')
+
+            def procesar_compra_final():
+                if not check_legal.value:
+                    ui.notify('Debes aceptar los términos legales.', type='warning')
+                    return
+                
+                pin_real = self.org_data.get('pin_seguridad', '1234')
+                if pin_input.value != pin_real:
+                    ui.notify('PIN incorrecto. Operación denegada.', type='negative')
+                    # Log de intento fallido
+                    self.registrar_log('SECURITY_ALERT', 'Intento de compra con PIN erróneo', 'red')
+                    return
+
+                try:
+                    # Inserción en la nueva tabla orders
+                    supabase.table('orders').insert({
+                        'org_id': self.org_id,
+                        'cantidad_licencias': cantidad,
+                        'precio_unitario': precio_unitario,
+                        'subtotal': subtotal,
+                        'iva': iva,
+                        'total': total,
+                        'status': 'PENDING'
+                    }).execute()
+                    
+                    self.registrar_log('ORDER_PLACED', f'{cantidad} licencias ({total:.2f}€)', 'blue')
+                    ui.notify('✅ Pedido registrado con éxito. Procesando factura proforma.', type='positive', timeout=5000)
+                    self.dialogo_checkout.close()
+                    
+                except Exception as ex:
+                    ui.notify(f'Error en el servidor: {ex}', type='negative')
+
+            with ui.row().classes('w-full gap-4'):
+                ui.button('CANCELAR', on_click=self.dialogo_checkout.close).classes('flex-1 bg-gray-800 text-white font-bold')
+                ui.button('CONFIRMAR PEDIDO', on_click=procesar_compra_final).classes('flex-1 bg-[#22C55E] text-[#0E1117] font-black')
+
+        self.dialogo_checkout.open()
+
 
     def render_tienda(self):
         with ui.column().classes('w-full items-center p-8'):
@@ -302,9 +364,9 @@ class ConsolaOrganizacion:
                     ui.label('✓ Informes individuales SAPP/SAPE').classes('text-sm text-gray-300 mb-2')
                     ui.label('✓ Comparativa evolutiva básica').classes('text-sm text-gray-300 mb-8')
                     
-                    ui.space() # Empuja el input abajo
+                    ui.space()
                     qty_peq = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
-                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_peq.value, 'Grupo Pequeño')).classes('w-full bg-[#0D248D] text-white font-bold py-3 rounded-lg')
+                    ui.button('INICIAR COMPRA', on_click=lambda: self.abrir_checkout(qty_peq.value, 7.00, 'Grupo Pequeño')).classes('w-full bg-[#0D248D] text-white font-bold py-3 rounded-lg')
 
                 # PLAN: Centros (Destacado)
                 with ui.card().classes('w-80 bg-[#0E1117] border-2 border-[#22C55E] p-8 flex flex-col shadow-2xl relative transform hover:-translate-y-2 transition-transform'):
@@ -323,7 +385,7 @@ class ConsolaOrganizacion:
                     
                     ui.space()
                     qty_cen = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
-                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_cen.value, 'Centros')).classes('w-full bg-[#22C55E] text-[#0E1117] font-black py-4 rounded-lg shadow-[0_0_15px_rgba(34,197,94,0.4)]')
+                    ui.button('INICIAR COMPRA', on_click=lambda: self.abrir_checkout(qty_cen.value, 5.00, 'Centros')).classes('w-full bg-[#22C55E] text-[#0E1117] font-black py-4 rounded-lg shadow-[0_0_15px_rgba(34,197,94,0.4)]')
 
                 # PLAN: Masivo
                 with ui.card().classes('w-80 bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] transition-all p-8 flex flex-col shadow-xl'):
@@ -340,11 +402,13 @@ class ConsolaOrganizacion:
                     
                     ui.space()
                     qty_mas = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
-                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_mas.value, 'Masivo')).classes('w-full bg-transparent border border-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-800')
+                    ui.button('INICIAR COMPRA', on_click=lambda: self.abrir_checkout(qty_mas.value, 3.00, 'Masivo')).classes('w-full bg-transparent border border-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-800')
 
             with ui.row().classes('w-full max-w-6xl mt-12 bg-blue-900/20 border border-blue-900/50 p-6 rounded-xl flex items-center gap-6'):
-                ui.icon('info', color='#83ABF1', size='2rem')
-                ui.label('¿Necesitas evaluar a una sola persona? Puedes comprar 1 Licencia Individual por 9.90€ contactando directamente con nuestro soporte.').classes('text-blue-300 text-sm')
+                ui.icon('lock', color='#83ABF1', size='2rem')
+                with ui.column().classes('gap-1'):
+                    ui.label('Transacción Segura B2B').classes('text-[#83ABF1] font-bold text-sm')
+                    ui.label(f'Para aprobar cualquier compra, necesitarás el PIN de Seguridad de tu organización. Si no lo recuerdas, contacta con tu administrador.').classes('text-blue-300 text-xs')
 
     # ==========================================
     # RENDER PRINCIPAL
@@ -376,7 +440,7 @@ class ConsolaOrganizacion:
             # SISTEMA DE PESTAÑAS (NUEVO ORDEN)
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_users = ui.tab('USUARIOS E HISTORIAL', icon='manage_accounts')
-                t_store = ui.tab('TIENDA Y LICENCIAS', icon='storefront') # <-- NUEVA PESTAÑA AQUÍ
+                t_store = ui.tab('TIENDA Y LICENCIAS', icon='storefront')
                 t_stats = ui.tab('ESTADÍSTICAS', icon='analytics')
 
             with ui.tab_panels(tabs, value=t_users).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-0'):
