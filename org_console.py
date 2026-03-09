@@ -30,14 +30,9 @@ PERFILES_SAPP = ['Organizacional', 'Educativo', 'Social', 'Sanitario']
 # FUNCIÓN CONECTORA PARA PDF
 # ==========================================
 def descargar_informe_desde_consola(row_data):
-    """
-    Recibe los datos de la fila seleccionada, extrae el JSON original
-    y dispara el pdf_generator pasándole si es SAPE o SAPP.
-    """
     ev_data = row_data.get('raw_data', {})
     test_type = ev_data.get('test_type', 'SAPE')
     
-    # Extraemos los resultados según la estructura que tenga la DB
     if test_type == 'SAPP':
         results = ev_data.get('refined_metrics', ev_data.get('results', {}))
     else:
@@ -45,7 +40,7 @@ def descargar_informe_desde_consola(row_data):
         
     user_info = {
         'user_id': ev_data.get('user_id', 'N/A'),
-        'username': 'Candidato Evaluación' # Si tienes un cruce con la tabla users, se muestra aquí
+        'username': 'Candidato Evaluación'
     }
     
     try:
@@ -100,10 +95,6 @@ class ConsolaOrganizacion:
             }).execute()
         except: pass
 
-    def solicitar_licencias(self):
-        self.registrar_log('SOLICITUD_LICENCIAS', 'SAPE/SAPP', 'green')
-        ui.notify("Solicitud enviada. Se emitirá la facturación posterior correspondiente.", type='positive', icon='check_circle')
-
     def cerrar_sesion(self):
         app.storage.user.clear()
         ui.navigate.to('/')
@@ -141,11 +132,9 @@ class ConsolaOrganizacion:
             return
 
         intentos = int(inputs['u_intentos'].value)
-        
         sape_active = test_val in ["SAPE", "AMBAS"]
         sapp_active = test_val in ["SAPP", "AMBAS"]
 
-        # Evitamos errores si el usuario no seleccionó ningún sector en el desplegable múltiple
         sectores_seleccionados = inputs['u_sectores'].value if inputs['u_sectores'].value else []
         perfiles_seleccionados = inputs['u_perfil'].value if inputs['u_perfil'].value else []
 
@@ -187,7 +176,6 @@ class ConsolaOrganizacion:
         except Exception as e:
             self.registrar_log('ERROR', payload['username'], 'yellow-red', str(e))
             ui.notify(f'Error de base de datos: {e}', type='negative')
-            print(f"Error Guardando User: {e}")
 
     def eliminar_usuario(self, username):
         try:
@@ -265,6 +253,100 @@ class ConsolaOrganizacion:
             ui.notify(f'Error en archivo: {ex}', type='negative')
 
     # ==========================================
+    # TIENDA Y FACTURACIÓN (B2B CLIENTE)
+    # ==========================================
+    def procesar_solicitud_compra(self, cantidad_str, plan_nombre):
+        """Envía la solicitud al SuperAdmin o notifica al equipo de ventas"""
+        try:
+            cantidad = int(cantidad_str)
+        except ValueError:
+            ui.notify("Por favor, introduce una cantidad válida.", type="warning")
+            return
+
+        if cantidad <= 0:
+            ui.notify("La cantidad debe ser mayor a 0.", type="warning")
+            return
+
+        # Registramos la solicitud de compra en los logs (para que el SuperAdmin lo vea)
+        self.registrar_log(
+            'SOLICITUD_COMPRA', 
+            f'Solicitados {cantidad} ciclos', 
+            'blue', 
+            f'Plan seleccionado: {plan_nombre}'
+        )
+        
+        ui.notify(
+            f"✅ Solicitud de {cantidad} licencias enviada. El equipo de Audeo contactará contigo para la facturación y activación.", 
+            type="positive", 
+            position="top", 
+            timeout=5000
+        )
+
+    def render_tienda(self):
+        with ui.column().classes('w-full items-center p-8'):
+            ui.label('AMPLÍA EL POTENCIAL DE TU EQUIPO').classes('text-3xl text-[#83ABF1] font-black tracking-widest mb-2 text-center')
+            ui.label('Todos los planes incluyen 1 Licencia por Usuario con 3 Mediciones (Ciclo Evolutivo Completo).').classes('text-gray-400 mb-10 text-center')
+
+            with ui.row().classes('w-full max-w-6xl justify-center gap-8 items-stretch'):
+                
+                # PLAN: Grupo Pequeño
+                with ui.card().classes('w-80 bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] transition-all p-8 flex flex-col shadow-xl'):
+                    ui.label('Grupo Pequeño').classes('text-lg font-bold text-white mb-2')
+                    ui.label('De 10 a 50 usuarios').classes('text-xs text-gray-500 mb-6')
+                    with ui.row().classes('items-end gap-1 mb-6'):
+                        ui.label('7.00').classes('text-4xl text-[#83ABF1] font-black')
+                        ui.label('€ / usuario').classes('text-sm text-gray-400 mb-1')
+                    
+                    ui.separator().classes('bg-gray-800 mb-6')
+                    ui.label('✓ 3 pasaciones (Medición, Progreso, Final)').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ Informes individuales SAPP/SAPE').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ Comparativa evolutiva básica').classes('text-sm text-gray-300 mb-8')
+                    
+                    ui.space() # Empuja el input abajo
+                    qty_peq = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
+                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_peq.value, 'Grupo Pequeño')).classes('w-full bg-[#0D248D] text-white font-bold py-3 rounded-lg')
+
+                # PLAN: Centros (Destacado)
+                with ui.card().classes('w-80 bg-[#0E1117] border-2 border-[#22C55E] p-8 flex flex-col shadow-2xl relative transform hover:-translate-y-2 transition-transform'):
+                    ui.label('RECOMENDADO').classes('absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#22C55E] text-[#0E1117] text-[10px] font-black px-4 py-1 rounded-full tracking-widest')
+                    
+                    ui.label('Centros / Facultades').classes('text-xl font-bold text-white mb-2')
+                    ui.label('De 51 a 200 usuarios').classes('text-xs text-gray-500 mb-6')
+                    with ui.row().classes('items-end gap-1 mb-6'):
+                        ui.label('5.00').classes('text-5xl text-[#22C55E] font-black')
+                        ui.label('€ / usuario').classes('text-sm text-gray-400 mb-1')
+                    
+                    ui.separator().classes('bg-gray-800 mb-6')
+                    ui.label('✓ Todo lo del plan anterior').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ Dashboard Analítico Avanzado').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ Informe Global de Centro (PDF)').classes('text-sm text-[#22C55E] font-bold mb-8')
+                    
+                    ui.space()
+                    qty_cen = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
+                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_cen.value, 'Centros')).classes('w-full bg-[#22C55E] text-[#0E1117] font-black py-4 rounded-lg shadow-[0_0_15px_rgba(34,197,94,0.4)]')
+
+                # PLAN: Masivo
+                with ui.card().classes('w-80 bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] transition-all p-8 flex flex-col shadow-xl'):
+                    ui.label('Evaluación Masiva').classes('text-lg font-bold text-white mb-2')
+                    ui.label('+500 usuarios').classes('text-xs text-gray-500 mb-6')
+                    with ui.row().classes('items-end gap-1 mb-6'):
+                        ui.label('3.00').classes('text-4xl text-white font-black')
+                        ui.label('€ / usuario').classes('text-sm text-gray-400 mb-1')
+                    
+                    ui.separator().classes('bg-gray-800 mb-6')
+                    ui.label('✓ Todo lo del plan anterior').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ Soporte técnico prioritario').classes('text-sm text-gray-300 mb-2')
+                    ui.label('✓ API / Integración LMS (Moodle)').classes('text-sm text-gray-300 mb-8')
+                    
+                    ui.space()
+                    qty_mas = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
+                    ui.button('SOLICITAR', on_click=lambda: self.procesar_solicitud_compra(qty_mas.value, 'Masivo')).classes('w-full bg-transparent border border-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-800')
+
+            with ui.row().classes('w-full max-w-6xl mt-12 bg-blue-900/20 border border-blue-900/50 p-6 rounded-xl flex items-center gap-6'):
+                ui.icon('info', color='#83ABF1', size='2rem')
+                ui.label('¿Necesitas evaluar a una sola persona? Puedes comprar 1 Licencia Individual por 9.90€ contactando directamente con nuestro soporte.').classes('text-blue-300 text-sm')
+
+    # ==========================================
     # RENDER PRINCIPAL
     # ==========================================
     def render(self):
@@ -282,24 +364,25 @@ class ConsolaOrganizacion:
                     ui.image('logo_blanco.png').classes('w-40')
                     ui.label(f"PORTAL B2B | {self.org_data.get('name', self.org_id).upper()}").classes('text-2xl text-white font-black tracking-tight')
                 with ui.row().classes('items-center gap-4'):
-                    ui.button('Solicitar + Licencias', on_click=self.solicitar_licencias, icon='add_shopping_cart').classes('bg-green-700 text-white font-bold rounded-lg')
-                    ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('font-bold rounded-lg')
+                    ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('font-bold rounded-lg px-8 py-2')
 
             # KPIs RÁPIDOS
             with ui.row().classes('w-full gap-4 mb-8'):
-                ui.label(f"Licencias SAPE: {self.org_data.get('sape_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
-                ui.label(f"Licencias SAPP: {self.org_data.get('sapp_licenses', 0)}").classes('bg-[#0E1117] text-[#83ABF1] px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                licencias_disponibles = self.org_data.get('licencias_compradas', 0)
+                ui.label(f"Saldo de Ciclos Evolutivos: {licencias_disponibles}").classes('bg-[#0E1117] text-[#22C55E] px-6 py-3 rounded-xl border border-green-900/50 font-black shadow-[0_0_10px_rgba(34,197,94,0.1)]')
                 usuarios_activos = len([u for u in self.users_data if not u.get('is_deleted')])
                 ui.label(f"Usuarios Activos: {usuarios_activos}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
 
-            # SISTEMA DE PESTAÑAS
+            # SISTEMA DE PESTAÑAS (NUEVO ORDEN)
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_users = ui.tab('USUARIOS E HISTORIAL', icon='manage_accounts')
+                t_store = ui.tab('TIENDA Y LICENCIAS', icon='storefront') # <-- NUEVA PESTAÑA AQUÍ
                 t_stats = ui.tab('ESTADÍSTICAS', icon='analytics')
 
-            with ui.tab_panels(tabs, value=t_users).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-8'):
+            with ui.tab_panels(tabs, value=t_users).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-0'):
                 
-                with ui.tab_panel(t_users):
+                # PESTAÑA 1: USUARIOS
+                with ui.tab_panel(t_users).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
                         # COLUMNA IZQUIERDA: CREACIÓN Y CARGA
@@ -313,7 +396,6 @@ class ConsolaOrganizacion:
                                         'u_pwd': ui.input('Contraseña', password=True, password_toggle_button=True).classes('w-full mb-4').props('dark outlined'),
                                     }
                                     
-                                    # LECTURA DE PRIVILEGIOS GRANULARES
                                     can_sape = self.privilegios.get('can_assign_sape', False)
                                     can_sapp = self.privilegios.get('can_assign_sapp', False)
                                     
@@ -326,16 +408,13 @@ class ConsolaOrganizacion:
                                         inputs['u_tests'] = ui.select(opciones_test, label='Prueba Asignada', value=opciones_test[0]).classes('w-full mb-2').props('dark outlined')
                                         inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
                                         
-                                        # Renderizar Sectores SAPE solo si tiene permiso
                                         if can_sape:
                                             sectores_permitidos = self.privilegios.get('allowed_sape_sectors', SECTORES_OFICIALES)
-                                            # Si la lista está vacía, le damos todos
                                             if not sectores_permitidos: sectores_permitidos = SECTORES_OFICIALES
                                             inputs['u_sectores'] = ui.select(sectores_permitidos, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-2').props('dark outlined use-chips')
                                         else:
                                             inputs['u_sectores'] = ui.select([], multiple=True).classes('hidden')
 
-                                        # Renderizar Perfiles SAPP solo si tiene permiso
                                         if can_sapp:
                                             perfiles_permitidos = self.privilegios.get('allowed_sapp_profiles', PERFILES_SAPP)
                                             if not perfiles_permitidos: perfiles_permitidos = PERFILES_SAPP
@@ -404,10 +483,12 @@ class ConsolaOrganizacion:
                                             ui.label(log.get('action_type')).classes('text-white text-xs font-bold w-24')
                                             ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
 
-                # ----------------------------------------------------------------
-                # PESTAÑA 2: ESTADÍSTICAS (POLIMÓRFICAS SAPE Y SAPP)
-                # ----------------------------------------------------------------
-                with ui.tab_panel(t_stats):
+                # PESTAÑA 2: TIENDA B2B
+                with ui.tab_panel(t_store).classes('p-0'):
+                    self.render_tienda()
+
+                # PESTAÑA 3: ESTADÍSTICAS
+                with ui.tab_panel(t_stats).classes('p-8'):
                     if not self.privilegios.get('can_view_org_stats', False):
                         with ui.column().classes('w-full items-center text-center py-10'):
                             ui.icon('visibility_off', size='4rem', color='gray').classes('mb-4')
