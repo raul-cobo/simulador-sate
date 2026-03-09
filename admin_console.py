@@ -91,7 +91,6 @@ class ConsolaAdmin:
         inputs['p_stat'].value = p.get('can_view_org_stats', False)
         inputs['p_comp'].value = p.get('can_compare_anon', False)
         
-        # Privilegios granulares
         inputs['p_sape'].value = p.get('can_assign_sape', False)
         inputs['p_sape_sectores'].value = p.get('allowed_sape_sectors', [])
         
@@ -102,14 +101,10 @@ class ConsolaAdmin:
         ui.notify(f"Modo Edición: {org['name']}", type='info')
 
     def guardar_organizacion(self, inputs: dict) -> None:
-        """
-        Crea o actualiza una organización y provisiona su usuario administrador automáticamente.
-        """
         if not inputs['nom'].value:
             ui.notify('El nombre comercial es obligatorio', type='warning')
             return
 
-        # 1. Preparar el JSON de la Organización mapeando TUS claves
         org_payload = {
             "name": inputs['nom'].value.strip(),
             "password": inputs['pwd'].value.strip() if inputs['pwd'].value else "",
@@ -131,14 +126,12 @@ class ConsolaAdmin:
 
         try:
             if getattr(self, 'editing_org_id', None):
-                # ACTUALIZACIÓN DE ORGANIZACIÓN EXISTENTE
                 supabase.table('organizations').update(org_payload).eq('id', self.editing_org_id).execute()
                 ui.notify('Organización actualizada', type='positive')
             else:
-                # CREACIÓN NUEVA + AUTO-PROVISIONAMIENTO
-                # Añadimos un ID generado manualmente o dejamos que Supabase lo cree si es UUID
                 org_payload["id"] = org_payload["name"].lower().replace(" ", "_")
                 org_payload["is_active"] = True
+                org_payload["licencias_compradas"] = 0 # Inicializamos licencias
 
                 res_org = supabase.table('organizations').insert(org_payload).execute()
                 
@@ -153,7 +146,6 @@ class ConsolaAdmin:
                 if not admin_username or not admin_password:
                     raise Exception("Debes especificar el Usuario y Contraseña del Administrador.")
 
-                # Insertamos al usuario en la tabla users atado al nuevo org_id
                 user_payload = {
                     "username": admin_username,
                     "password": admin_password,
@@ -170,10 +162,115 @@ class ConsolaAdmin:
                 ui.notify(f'Organización y Administrador "{admin_username}" creados con éxito', type='positive')
 
             self.editing_org_id = None
-            self.render() # Refrescamos la consola
+            self.render() 
             
         except Exception as e:
             ui.notify(f'Error de base de datos: {e}', type='negative')
+
+    # ==========================================
+    # PANEL DE FACTURACIÓN Y LICENCIAS (NUEVO)
+    # ==========================================
+    def render_billing_panel(self):
+        def calcular_precio(cantidad: int) -> float:
+            if cantidad >= 500: return 3.00
+            elif cantidad >= 51: return 5.00
+            elif cantidad >= 10: return 7.00
+            elif cantidad >= 1: return 9.90
+            return 0.0
+
+        estado = {
+            'org_seleccionada': None,
+            'cantidad': 0,
+            'precio_unidad': 0.0,
+            'total': 0.0
+        }
+
+        # Extraemos orgs de la base de datos para el select
+        try:
+            res = supabase.table('organizations').select('id, name, licencias_compradas').execute()
+            lista_orgs = {org['id']: f"{org['name']} (Disponibles: {org.get('licencias_compradas', 0)})" for org in res.data}
+        except Exception as e:
+            lista_orgs = {}
+
+        def actualizar_calculos(e):
+            try: cantidad = int(e.value) if e.value else 0
+            except ValueError: cantidad = 0
+                
+            estado['cantidad'] = cantidad
+            estado['precio_unidad'] = calcular_precio(cantidad)
+            estado['total'] = estado['cantidad'] * estado['precio_unidad']
+            
+            lbl_precio_unidad.set_text(f"{estado['precio_unidad']:.2f} € / ud")
+            lbl_total.set_text(f"{estado['total']:,.2f} €".replace(',', '.'))
+            
+            btn_asignar.set_visibility(cantidad > 0 and estado['org_seleccionada'] is not None)
+
+        def seleccionar_org(e):
+            estado['org_seleccionada'] = e.value
+            btn_asignar.set_visibility(estado['cantidad'] > 0 and estado['org_seleccionada'] is not None)
+
+        def procesar_asignacion():
+            org_id = estado['org_seleccionada']
+            cantidad = estado['cantidad']
+            if not org_id or cantidad <= 0: return
+            
+            try:
+                # Obtenemos licencias actuales
+                res_org = supabase.table('organizations').select('licencias_compradas').eq('id', org_id).single().execute()
+                actuales = res_org.data.get('licencias_compradas', 0) if res_org.data else 0
+                
+                # Sumamos las compradas
+                nuevas = actuales + cantidad
+                supabase.table('organizations').update({'licencias_compradas': nuevas}).eq('id', org_id).execute()
+                
+                # Registramos el log financiero
+                supabase.table('action_logs').insert({
+                    'org_id': org_id, 'action_type': 'BILLING_PURCHASE', 'target_user': f'+{cantidad} Licencias', 
+                    'performed_by': 'SUPER_ADMIN', 'status_color': 'green', 'metadata': {'total_eur': estado['total']}
+                }).execute()
+
+                ui.notify(f"✅ {cantidad} licencias asignadas. Total a facturar: {estado['total']:.2f}€", type='positive')
+                self.render() # Recarga todo el dashboard para actualizar el dropdown
+                
+            except Exception as ex:
+                ui.notify(f"Error asignando licencias: {ex}", type='negative')
+
+        with ui.column().classes('w-full gap-8 items-start'):
+            with ui.row().classes('w-full gap-8'):
+                
+                # FORMULARIO IZQUIERDO
+                with ui.column().classes('flex-grow bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
+                    ui.label('Asignación de Licencias (Ciclos Evolutivos)').classes('text-xl text-[#83ABF1] font-bold mb-6')
+                    
+                    select_org = ui.select(lista_orgs, label='1. Selecciona la Organización', on_change=seleccionar_org).classes('w-full mb-6')
+                    select_org.props('dark filled color="blue"')
+                    
+                    input_cantidad = ui.number(label='2. Volumen de Licencias (1 licencia = 3 pasaciones)', value=0, min=0, on_change=actualizar_calculos).classes('w-full text-xl')
+                    input_cantidad.props('dark filled color="blue"')
+
+                # CALCULADORA / RECIBO DERECHO
+                with ui.card().classes('w-96 bg-[#161B22] border border-[#83ABF1]/30 p-8 shadow-2xl flex flex-col justify-between rounded-2xl'):
+                    ui.label('RESUMEN DE FACTURACIÓN').classes('text-[#83ABF1] font-bold text-sm tracking-widest mb-6 border-b border-gray-800 pb-2')
+                    
+                    with ui.row().classes('w-full justify-between items-center mb-4'):
+                        ui.label('Precio unitario:').classes('text-gray-400')
+                        lbl_precio_unidad = ui.label('0.00 € / ud').classes('text-white font-mono font-bold text-lg')
+                    
+                    with ui.row().classes('w-full justify-between items-center mt-6 pt-4 border-t border-gray-800'):
+                        ui.label('TOTAL:').classes('text-gray-400 font-bold')
+                        lbl_total = ui.label('0.00 €').classes('text-4xl text-[#22C55E] font-black font-mono')
+
+                    btn_asignar = ui.button('CONFIRMAR Y ASIGNAR', on_click=procesar_asignacion).classes('w-full bg-[#0D248D] text-white font-bold mt-8 py-4 rounded-xl shadow-lg')
+                    btn_asignar.set_visibility(False)
+
+            # TABLA DE PRECIOS COMO REFERENCIA
+            with ui.column().classes('w-full bg-[#161B22] p-6 rounded-2xl border border-gray-800 mt-4'):
+                ui.label('Tabla Oficial de Precios B2B').classes('text-sm text-gray-400 font-bold mb-2')
+                with ui.row().classes('w-full justify-between gap-4'):
+                    ui.label('• Unidad (1): 9.90€').classes('text-xs text-gray-500')
+                    ui.label('• Pequeño (10-50): 7.00€').classes('text-xs text-gray-500')
+                    ui.label('• Centros (51-200): 5.00€').classes('text-xs text-gray-500')
+                    ui.label('• Masivo (+500): 3.00€').classes('text-xs text-gray-500')
 
     # ==========================================
     # CARGA MASIVA DIRIGIDA Y PLANTILLAS
@@ -271,17 +368,20 @@ class ConsolaAdmin:
                     ui.label('ERP DE ADMINISTRACIÓN AUDEO').classes('text-2xl text-white font-black tracking-tight')
                 ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-8 py-2 font-bold rounded-xl')
 
+            # --- NUEVA PESTAÑA AÑADIDA AQUÍ ---
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_orgs = ui.tab('ORGANIZACIONES', icon='domain')
+                t_billing = ui.tab('FACTURACIÓN B2B', icon='point_of_sale') # La nueva pestaña
                 t_users = ui.tab('USUARIOS GLOBALES', icon='people')
                 t_stats = ui.tab('ESTADÍSTICAS Y LOGS', icon='analytics')
 
             with ui.tab_panels(tabs, value=t_orgs).classes('w-full bg-[#161B22] border border-gray-800 rounded-b-2xl shadow-2xl p-0'):
                 
+                # PANEL 1: ORGANIZACIONES
                 with ui.tab_panel(t_orgs).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # --- FORMULARIO DE ALTA/EDICIÓN ---
+                        # FORMULARIO DE ALTA/EDICIÓN
                         with ui.column().classes('w-1/3 min-w-[420px] bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
                             ui.label('Configuración Básica').classes('text-lg text-[#83ABF1] font-bold mb-4 border-b border-gray-800 pb-2 w-full')
                             
@@ -296,7 +396,6 @@ class ConsolaAdmin:
                                 'p_stat': ui.checkbox('Ver estadísticas de su organización').classes('text-white'),
                                 'p_comp': ui.checkbox('Ver comparativas anónimas sectoriales').classes('text-white mb-4'),
                                 
-                                # --- PRIVILEGIOS DE ASIGNACIÓN GRANULARES ---
                                 'p_sape': ui.checkbox('Habilitar asignación de SAPE').classes('text-[#83ABF1] font-bold mt-2'),
                                 'p_sape_sectores': ui.select(SECTORES_SAPE, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-4 ml-4').props('dark outlined use-chips'),
                                 
@@ -305,12 +404,10 @@ class ConsolaAdmin:
                                 'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips')
                             }
                             
-                            # Lógica visual: Mostrar desplegables solo si el checkbox padre está activo
                             inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
                             inputs['p_sapp_perfiles'].bind_visibility_from(inputs['p_sapp'], 'value')
                             inputs['p_sapp_comp'].bind_visibility_from(inputs['p_sapp'], 'value')
 
-                            # --- NUEVO BLOQUE: CREDENCIALES DEL ADMINISTRADOR ---
                             with ui.column().classes('w-full mt-6 p-6 border border-[#83ABF1]/30 rounded-xl bg-[#161B22] shadow-lg'):
                                 ui.label('CREDENCIALES DE ACCESO').classes('text-[#83ABF1] text-xs font-black tracking-widest mb-1')
                                 ui.label('Crea el usuario que gestionará esta organización.').classes('text-gray-400 text-xs mb-4')
@@ -318,10 +415,10 @@ class ConsolaAdmin:
                                 inputs['admin_user'] = ui.input('Usuario Admin (ej: ugr_admin)').props('dark outlined').classes('w-full mb-3')
                                 inputs['admin_pass'] = ui.input('Contraseña Admin', password=True).props('dark outlined password-toggle-button').classes('w-full')
                             
-                            ui.button('GUARDAR ORGANIZACIÓN', on_click=lambda: self.guardar_organizacion(inputs)).classes('w-full py-4 text-[#0E1117] font-bold rounded-xl mt-6').style(f'background-color: {ACCENT_COLOR if "ACCENT_COLOR" in globals() else "#83ABF1"}')
+                            ui.button('GUARDAR ORGANIZACIÓN', on_click=lambda: self.guardar_organizacion(inputs)).classes('w-full py-4 text-[#0E1117] font-bold rounded-xl mt-6').style(f'background-color: {DARK_BLUE}')
                             ui.button('LIMPIAR FORMULARIO', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
 
-                        # --- LISTADO DE ORGANIZACIONES ---
+                        # LISTADO DE ORGANIZACIONES
                         with ui.column().classes('flex-1 bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
                             ui.label('Cartera de Clientes Activos').classes('text-xl text-[#83ABF1] font-bold mb-4')
                             try:
@@ -332,7 +429,7 @@ class ConsolaAdmin:
                                             with ui.column().classes('gap-1'):
                                                 ui.label(o['name'].upper()).classes('text-white font-bold text-lg')
                                                 ui.label(f"Org_ID: {o['id']}").classes('text-xs text-gray-500')
-                                                ui.label(f"SAPE: {o['sape_licenses']} | SAPP: {o['sapp_licenses']}").classes('text-sm text-[#83ABF1]')
+                                                ui.label(f"SAPE: {o['sape_licenses']} | SAPP: {o['sapp_licenses']} | Ciclos: {o.get('licencias_compradas', 0)}").classes('text-sm text-[#83ABF1] font-bold')
                                             with ui.row().classes('gap-2'):
                                                 ui.button(icon='edit', on_click=lambda o=o: self.preparar_edicion(o, inputs)).props('flat round color=blue')
                                 else:
@@ -340,9 +437,11 @@ class ConsolaAdmin:
                             except Exception as e:
                                 ui.label(f"Error cargando base de datos: {e}").classes('text-red-500')
 
-                # ----------------------------------------------------------------
-                # PESTAÑA 2: USUARIOS GLOBALES
-                # ----------------------------------------------------------------
+                # PANEL 2: FACTURACIÓN B2B (LA NUEVA PESTAÑA)
+                with ui.tab_panel(t_billing).classes('p-8'):
+                    self.render_billing_panel()
+
+                # PANEL 3: USUARIOS GLOBALES
                 with ui.tab_panel(t_users).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         with ui.column().classes('w-1/3 bg-[#0E1117] p-6 rounded-xl border border-gray-800'):
@@ -375,9 +474,7 @@ class ConsolaAdmin:
                                     ui.label('No hay usuarios en la plataforma.').classes('text-gray-500')
                             except Exception as e: ui.label(f'Error leyendo usuarios: {e}')
 
-                # ----------------------------------------------------------------
-                # PESTAÑA 3: ESTADÍSTICAS Y LOGS
-                # ----------------------------------------------------------------
+                # PANEL 4: ESTADÍSTICAS Y LOGS
                 with ui.tab_panel(t_stats).classes('p-8'):
                     ui.label('Monitor de Actividad B2B').classes('text-xl text-[#83ABF1] font-bold mb-6')
                     with ui.row().classes('gap-6 mb-8 w-full justify-center bg-[#0E1117] p-4 rounded-xl border border-gray-800'):
@@ -400,7 +497,7 @@ class ConsolaAdmin:
                                         ui.label(log.get('created_at', '')[:16].replace('T', ' ')).classes('text-gray-500 text-sm w-32')
                                         ui.label(log.get('org_id')).classes('text-white font-bold text-sm w-40 truncate')
                                         ui.label(log.get('action_type')).classes('text-[#83ABF1] text-xs font-bold w-32')
-                                        ui.label(log.get('target_user')).classes('text-gray-300 text-sm')
+                                        ui.label(log.get('target_user')).classes('text-gray-300 text-sm truncate w-64')
                             else:
                                 ui.label('Aún no hay registros de actividad.').classes('text-gray-500')
                         except Exception as e: ui.label(f'Error cargando logs: {e}')
