@@ -25,6 +25,10 @@ class SAPPInterface:
         self.respuestas_usuario: Dict[str, str] = {}
         self.opciones_mezcladas: List[tuple] = []
         
+        # Variables de control evolutivo
+        self.intentos_disponibles = 3
+        self.max_intentos = 3
+        
         # Carga del CSV con gestión de encodings
         try:
             self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='utf-8-sig')
@@ -39,12 +43,12 @@ class SAPPInterface:
         # 1. CABECERA FIJA
         self.header_contenedor = ui.row().classes('w-full justify-between items-center px-10 py-4 bg-[#0E1117] border-b border-gray-800 flex-nowrap')
         
-        # 2. CONTENEDOR PRINCIPAL (Layout blindado 55/45)
+        # 2. CONTENEDOR PRINCIPAL
         self.main_contenedor = ui.row().classes('w-full max-w-[1400px] mx-auto min-h-[70vh] items-center px-10 flex-nowrap')
         
         self.render_selector_grupo()
 
-    # --- FASE 1: SELECTOR DE GRUPO (CON FILTRO DEMO) ---
+    # --- FASE 1: SELECTOR DE GRUPO (CON CONTROL DE CRÉDITOS) ---
     def render_selector_grupo(self):
         self.header_contenedor.clear()
         with self.header_contenedor:
@@ -53,28 +57,49 @@ class SAPPInterface:
 
         self.main_contenedor.clear()
         
-        # Detectamos si es un usuario de la dinámica UMA
         is_demo = app.storage.user.get('is_demo', False)
+        user_id = app.storage.user.get('user_id')
         
-        with self.main_contenedor.classes('justify-center flex-col'):
+        # --- VERIFICACIÓN DE CRÉDITOS EVOLUTIVOS ---
+        if self.supabase and user_id:
+            try:
+                res = self.supabase.table('users').select('intentos_disponibles, max_intentos').eq('id', user_id).execute()
+                if res.data:
+                    self.intentos_disponibles = res.data[0].get('intentos_disponibles', 3)
+                    self.max_intentos = res.data[0].get('max_intentos', 3)
+            except Exception as e:
+                print(f"Error al verificar créditos: {e}")
+
+        with self.main_contenedor.classes('justify-center flex-col items-center'):
             
-            # Cabeceras condicionales según el tipo de acceso
+            # --- CASO A: SIN INTENTOS (BLOQUEO) ---
+            if self.intentos_disponibles <= 0:
+                ui.icon('verified', color='#22C55E', size='5rem').classes('mb-4 mt-10')
+                ui.label('CICLO EVOLUTIVO COMPLETADO').classes('text-2xl text-white font-black tracking-widest mb-2')
+                ui.label('Has agotado las 3 pasaciones de este módulo.').classes('text-gray-400 mb-8')
+                
+                # Botón directo para ir a la fase 3 (Resultados Evolutivos) que haremos luego
+                ui.button('VER INFORME EVOLUTIVO', on_click=self._mostrar_informe_evolutivo).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
+                return
+
+            # --- CASO B: CON INTENTOS (FLUJO NORMAL) ---
             if is_demo:
                 ui.label(f'MODO DINÁMICA: {self.sector.upper()}').classes('text-orange-400 font-bold tracking-widest text-sm mt-10')
-                ui.label('En esta sesión solo se evaluarán las Competencias Personales.').classes('text-gray-400 text-sm text-center mb-8')
             else:
                 ui.label('SELECCIONA EL MÓDULO A EVALUAR').classes('text-sm tracking-[.25em] text-[#83ABF1] font-bold mt-10')
-                ui.label(f'Especialidad: {self.sector}').classes('text-3xl text-white font-light italic mb-8')
+                ui.label(f'Especialidad: {self.sector}').classes('text-3xl text-white font-light italic mb-4')
             
+            # Etiqueta de intentos restantes (gatillo psicológico de valor)
+            ui.label(f'Pasación {self.max_intentos - self.intentos_disponibles + 1} de {self.max_intentos}').classes('text-xs font-mono bg-gray-800 text-white px-3 py-1 rounded-full mb-8')
+
             with ui.row().classes('gap-8 justify-center w-full mb-20'):
-                
-                # BOTÓN 1: Competencias Personales (Siempre visible)
+                # BOTÓN 1: Competencias Personales
                 with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
                     ui.icon('psychology', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
                     ui.label('COMPETENCIAS PERSONALES').classes('text-center text-sm font-bold text-white mb-6 h-10')
                     ui.button('INICIAR', on_click=lambda: self.iniciar_test('Competencias personales')).classes('w-full bg-[#0D248D] text-white font-bold')
 
-                # BOTONES 2 y 3: Ocultos si es usuario Demo
+                # BOTONES 2 y 3 (Ocultos si es Demo)
                 if not is_demo:
                     with ui.card().classes('bg-[#161B22] border border-[#83ABF1]/20 hover:border-[#83ABF1] transition-all cursor-pointer p-8 w-72 items-center group shadow-xl'):
                         ui.icon('business_center', color='#83ABF1').classes('text-6xl mb-6 group-hover:scale-110 transition-transform')
@@ -103,11 +128,10 @@ class SAPPInterface:
         self.respuestas_usuario.clear()
         self._preparar_opciones_actuales()
         
-        # Cambiamos layout para el motor de preguntas
         self.main_contenedor.classes(remove='justify-center flex-col')
         self._mostrar_pregunta()
 
-    # --- FASE 2: MOTOR DE PREGUNTAS ---
+    # --- FASE 2: MOTOR DE PREGUNTAS (Sin cambios estructurales) ---
     def _preparar_opciones_actuales(self):
         row = self.df_preguntas.iloc[self.current_idx]
         opciones = []
@@ -115,7 +139,6 @@ class SAPPInterface:
             txt = row.get(f'OPCION_{letra}_TXT')
             if pd.notna(txt) and str(txt).strip() != "":
                 opciones.append((txt, letra))
-        
         random.shuffle(opciones)
         self.opciones_mezcladas = opciones
 
@@ -144,13 +167,11 @@ class SAPPInterface:
         row_data = self.df_preguntas.iloc[self.current_idx]
         
         with self.main_contenedor:
-            # BLOQUE IZQUIERDO (55%)
             with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pr-16 pb-20'):
                 ui.label(f"Módulo: {self.grupo_seleccionado}").classes('text-[12px] text-gray-500 font-black tracking-widest uppercase')
                 ui.label(row_data['TITULO']).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
                 ui.label(row_data['NARRATIVA']).classes('text-[18px] text-white leading-relaxed')
 
-            # BLOQUE DERECHO (45%)
             with ui.column().classes('w-[45%] flex flex-col justify-center gap-5 pb-20'):
                 for txt, letra in self.opciones_mezcladas:
                     txt_oracion = str(txt).strip().capitalize()
@@ -164,36 +185,52 @@ class SAPPInterface:
                         ui.label(txt_oracion).classes('text-[14px] text-white whitespace-normal break-words w-full text-left')
 
     async def _finalizar_evaluacion(self):
-        ui.notify("Evaluación completada. Procesando resultados...", color='positive')
+        ui.notify("Evaluación completada. Procesando evolución...", color='positive')
         
-        # Cálculo de métricas vía Refinery
         raw_scores = SAPPRefinery.calculate_raw_scores(self.respuestas_usuario, self.df_preguntas)
         results = SAPPRefinery.refine_results(raw_scores, self.grupo_seleccionado)
+        user_id = app.storage.user.get('user_id')
         
-        # Guardado en Supabase
-        if self.supabase and app.storage.user.get('user_id'):
+        if self.supabase and user_id:
+            # 1. Calculamos el número de pasación actual
+            current_attempt = self.max_intentos - self.intentos_disponibles + 1
+            
+            # 2. Guardamos la evaluación marcando el intento
             eval_data = {
-                "user_id": app.storage.user.get('user_id'),
+                "user_id": user_id,
                 "org_id": app.storage.user.get('org_id'),
                 "test_type": "SAPP",
                 "sector_profile": f"{self.sector} - {self.grupo_seleccionado}",
                 "raw_responses": self.respuestas_usuario,
                 "calculated_scores": raw_scores,
                 "refined_metrics": results,
+                "attempt_number": current_attempt,
                 "created_at": datetime.now().isoformat()
             }
+            
             try:
+                # Guardar evaluación
                 self.supabase.table("evaluations").insert(eval_data).execute()
+                
+                # Descontar el intento en la tabla users
+                nuevos_intentos = max(0, self.intentos_disponibles - 1)
+                self.supabase.table("users").update({"intentos_disponibles": nuevos_intentos}).eq("id", user_id).execute()
+                
+                # Actualizar variable en memoria
+                self.intentos_disponibles = nuevos_intentos
+                
             except Exception as e:
-                print(f"Error guardando SAPP en Supabase: {e}")
+                print(f"Error en el ciclo de guardado: {e}")
 
-        # Limpieza de contenedores para la vista de resultados
+        self._mostrar_informe_evolutivo()
+
+    def _mostrar_informe_evolutivo(self):
         self.header_contenedor.clear()
         self.main_contenedor.clear()
-        
-        # Reconfiguración para diseño Mobile-First en resultados
         self.main_contenedor.classes(remove='px-10 max-w-[1400px] flex-nowrap min-h-[70vh]')
         self.main_contenedor.classes(add='w-full justify-center p-0')
         
         with self.main_contenedor:
-            render_dashboard_sapp(results, app.storage.user)
+            # Aquí llamamos a la pantalla de resultados (que modificaremos en la Fase 3)
+            # Pasaremos supabase client para que pueda consultar el histórico
+            render_dashboard_sapp(self.grupo_seleccionado, app.storage.user, self.supabase)
