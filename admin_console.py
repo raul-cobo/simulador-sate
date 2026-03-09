@@ -131,7 +131,7 @@ class ConsolaAdmin:
             else:
                 org_payload["id"] = org_payload["name"].lower().replace(" ", "_")
                 org_payload["is_active"] = True
-                org_payload["licencias_compradas"] = 0 # Inicializamos licencias
+                org_payload["licencias_compradas"] = 0 
 
                 res_org = supabase.table('organizations').insert(org_payload).execute()
                 
@@ -168,7 +168,7 @@ class ConsolaAdmin:
             ui.notify(f'Error de base de datos: {e}', type='negative')
 
     # ==========================================
-    # PANEL DE FACTURACIÓN Y LICENCIAS (NUEVO)
+    # PANEL DE FACTURACIÓN Y LICENCIAS
     # ==========================================
     def render_billing_panel(self):
         def calcular_precio(cantidad: int) -> float:
@@ -187,13 +187,23 @@ class ConsolaAdmin:
 
         # Extraemos orgs de la base de datos para el select
         try:
-            res = supabase.table('organizations').select('id, name, licencias_compradas').execute()
-            lista_orgs = {org['id']: f"{org['name']} (Disponibles: {org.get('licencias_compradas', 0)})" for org in res.data}
+            res_orgs = supabase.table('organizations').select('id, name, licencias_compradas').execute()
+            lista_orgs_raw = res_orgs.data
+            lista_orgs = {org['id']: f"{org['name']} (Disponibles: {org.get('licencias_compradas', 0)})" for org in lista_orgs_raw}
+            
+            # Buscamos solicitudes de compra no atendidas en los logs (últimos 7 días)
+            res_solicitudes = supabase.table('action_logs').select('*')\
+                .eq('action_type', 'SOLICITUD_COMPRA')\
+                .order('created_at', desc=True).limit(10).execute()
+            solicitudes = res_solicitudes.data
+            
         except Exception as e:
             lista_orgs = {}
+            lista_orgs_raw = []
+            solicitudes = []
 
-        def actualizar_calculos(e):
-            try: cantidad = int(e.value) if e.value else 0
+        def actualizar_calculos(e=None, forced_qty=None):
+            try: cantidad = forced_qty if forced_qty is not None else (int(e.value) if e and e.value else 0)
             except ValueError: cantidad = 0
                 
             estado['cantidad'] = cantidad
@@ -203,11 +213,26 @@ class ConsolaAdmin:
             lbl_precio_unidad.set_text(f"{estado['precio_unidad']:.2f} € / ud")
             lbl_total.set_text(f"{estado['total']:,.2f} €".replace(',', '.'))
             
+            if input_cantidad.value != cantidad:
+                input_cantidad.set_value(cantidad)
+                
             btn_asignar.set_visibility(cantidad > 0 and estado['org_seleccionada'] is not None)
 
-        def seleccionar_org(e):
-            estado['org_seleccionada'] = e.value
+        def seleccionar_org(e=None, forced_org=None):
+            estado['org_seleccionada'] = forced_org if forced_org else e.value
+            if select_org.value != estado['org_seleccionada']:
+                select_org.set_value(estado['org_seleccionada'])
             btn_asignar.set_visibility(estado['cantidad'] > 0 and estado['org_seleccionada'] is not None)
+
+        def cargar_solicitud_en_calculadora(org_id, cantidad_texto):
+            # Extrae el número de la cadena "Solicitados X ciclos"
+            import re
+            numeros = re.findall(r'\d+', cantidad_texto)
+            if numeros:
+                qty = int(numeros[0])
+                seleccionar_org(forced_org=org_id)
+                actualizar_calculos(forced_qty=qty)
+                ui.notify(f"Solicitud cargada en la calculadora.", type='info')
 
         def procesar_asignacion():
             org_id = estado['org_seleccionada']
@@ -236,11 +261,34 @@ class ConsolaAdmin:
                 ui.notify(f"Error asignando licencias: {ex}", type='negative')
 
         with ui.column().classes('w-full gap-8 items-start'):
+            
+            # --- PANEL SUPERIOR: SOLICITUDES ENTRANTES ---
+            if solicitudes:
+                with ui.column().classes('w-full bg-[#161B22] border-2 border-[#83ABF1] rounded-2xl p-6 shadow-xl relative'):
+                    ui.icon('notifications_active', color='#83ABF1', size='2rem').classes('absolute -top-4 -right-4 bg-[#0E1117] rounded-full p-2 border border-[#83ABF1]')
+                    ui.label('SOLICITUDES DE COMPRA PENDIENTES').classes('text-[#83ABF1] font-black tracking-widest text-lg mb-4')
+                    
+                    for sol in solicitudes:
+                        # Buscamos el nombre de la org
+                        org_name = next((o['name'] for o in lista_orgs_raw if o['id'] == sol['org_id']), sol['org_id'])
+                        fecha = sol.get('created_at', '')[:16].replace('T', ' a las ')
+                        
+                        with ui.row().classes('w-full items-center justify-between p-4 bg-[#0E1117] rounded-xl border border-blue-900/50 mb-2'):
+                            with ui.column().classes('gap-1'):
+                                ui.label(f"{org_name}").classes('text-white font-bold text-lg')
+                                ui.label(f"{sol['target_user']} ({sol.get('metadata', {}).get('error', 'Plan B2B')})").classes('text-[#83ABF1] font-bold')
+                                ui.label(f"Recibido el {fecha}").classes('text-gray-500 text-xs')
+                            
+                            ui.button('ATENDER Y FACTURAR', icon='point_of_sale', 
+                                     on_click=lambda org=sol['org_id'], qt=sol['target_user']: cargar_solicitud_en_calculadora(org, qt))\
+                                     .classes('bg-[#0D248D] text-white font-bold rounded-lg')
+
+            # --- PANEL INFERIOR: CALCULADORA B2B ---
             with ui.row().classes('w-full gap-8'):
                 
                 # FORMULARIO IZQUIERDO
                 with ui.column().classes('flex-grow bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
-                    ui.label('Asignación de Licencias (Ciclos Evolutivos)').classes('text-xl text-[#83ABF1] font-bold mb-6')
+                    ui.label('Asignación Manual de Licencias').classes('text-xl text-[#83ABF1] font-bold mb-6')
                     
                     select_org = ui.select(lista_orgs, label='1. Selecciona la Organización', on_change=seleccionar_org).classes('w-full mb-6')
                     select_org.props('dark filled color="blue"')
@@ -368,10 +416,10 @@ class ConsolaAdmin:
                     ui.label('ERP DE ADMINISTRACIÓN AUDEO').classes('text-2xl text-white font-black tracking-tight')
                 ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-8 py-2 font-bold rounded-xl')
 
-            # --- NUEVA PESTAÑA AÑADIDA AQUÍ ---
+            # --- PESTAÑAS ---
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_orgs = ui.tab('ORGANIZACIONES', icon='domain')
-                t_billing = ui.tab('FACTURACIÓN B2B', icon='point_of_sale') # La nueva pestaña
+                t_billing = ui.tab('FACTURACIÓN B2B', icon='point_of_sale')
                 t_users = ui.tab('USUARIOS GLOBALES', icon='people')
                 t_stats = ui.tab('ESTADÍSTICAS Y LOGS', icon='analytics')
 
@@ -437,7 +485,7 @@ class ConsolaAdmin:
                             except Exception as e:
                                 ui.label(f"Error cargando base de datos: {e}").classes('text-red-500')
 
-                # PANEL 2: FACTURACIÓN B2B (LA NUEVA PESTAÑA)
+                # PANEL 2: FACTURACIÓN B2B
                 with ui.tab_panel(t_billing).classes('p-8'):
                     self.render_billing_panel()
 
