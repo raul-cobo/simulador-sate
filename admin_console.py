@@ -76,7 +76,7 @@ class ConsolaAdmin:
         self.render()
 
     # ==========================================
-    # GESTIÓN DE ORGANIZACIONES (CON DATOS FISCALES)
+    # GESTIÓN DE ORGANIZACIONES
     # ==========================================
     def preparar_edicion(self, org, inputs):
         self.editing_org_id = org['id']
@@ -87,7 +87,6 @@ class ConsolaAdmin:
         inputs['demo'].value = org.get('is_demo', False)
         inputs['pin'].value = org.get('pin_seguridad', '1234')
         
-        # Carga de datos fiscales si existen
         inputs['razon_social'].value = org.get('razon_social', '')
         inputs['cif'].value = org.get('cif_nif', '')
         inputs['direccion'].value = org.get('direccion_fiscal', '')
@@ -121,7 +120,6 @@ class ConsolaAdmin:
             "is_demo": inputs['demo'].value,
             "pin_seguridad": inputs['pin'].value.strip() if inputs['pin'].value else '1234',
             
-            # Datos fiscales inyectados en la base de datos
             "razon_social": inputs['razon_social'].value.strip() if inputs['razon_social'].value else None,
             "cif_nif": inputs['cif'].value.strip() if inputs['cif'].value else None,
             "direccion_fiscal": inputs['direccion'].value.strip() if inputs['direccion'].value else None,
@@ -185,7 +183,7 @@ class ConsolaAdmin:
             ui.notify(f'Error de base de datos: {e}', type='negative')
 
     # ==========================================
-    # PANEL DE FACTURACIÓN Y LICENCIAS (CON INBOX DE PEDIDOS)
+    # PANEL DE FACTURACIÓN Y LICENCIAS
     # ==========================================
     def render_billing_panel(self):
         def calcular_precio(cantidad: int) -> float:
@@ -264,7 +262,6 @@ class ConsolaAdmin:
                 res_org = supabase.table('organizations').select('licencias_compradas, cif_nif').eq('id', org_id).single().execute()
                 org_data = res_org.data
                 
-                # Check de seguridad fiscal (Opcional, pero te avisa si no tienen CIF)
                 if not org_data.get('cif_nif'):
                     ui.notify("⚠️ Aviso: Esta organización no tiene CIF registrado. Deberías pedírselo para la factura.", type='warning', timeout=6000)
 
@@ -349,7 +346,7 @@ class ConsolaAdmin:
                     btn_asignar.set_visibility(False)
 
     # ==========================================
-    # CARGA MASIVA DIRIGIDA Y PLANTILLAS
+    # CARGA MASIVA DIRIGIDA Y CREACIÓN MANUAL (CON GATEKEEPER)
     # ==========================================
     def descargar_plantilla(self):
         df = pd.DataFrame({
@@ -385,6 +382,22 @@ class ConsolaAdmin:
                 ui.notify('El archivo no tiene las columnas mínimas: username, password, tests', type='negative')
                 return
 
+            usuarios_a_crear = len(df)
+            
+            # --- GATEKEEPER DE SUPERADMIN ---
+            res_org = supabase.table('organizations').select('licencias_compradas, name').eq('id', org_id).single().execute()
+            if not res_org.data:
+                ui.notify("Error: Organización no encontrada", type="negative")
+                return
+                
+            saldo_actual = res_org.data.get('licencias_compradas', 0)
+            org_nombre = res_org.data.get('name', org_id)
+            
+            if usuarios_a_crear > saldo_actual:
+                # Al SuperAdmin le avisamos con opción de forzar (no le bloqueamos duro)
+                ui.notify(f'⚠️ Atención: Intentas crear {usuarios_a_crear} usuarios, pero {org_nombre} solo tiene {saldo_actual} licencias. Inyecta saldo primero.', type='warning', timeout=8000)
+                return
+
             count = 0
             for _, row in df.iterrows():
                 tests = str(row['tests']).upper()
@@ -415,15 +428,24 @@ class ConsolaAdmin:
                 }
                 
                 supabase.table("users").upsert(payload).execute()
-                
-                supabase.table('action_logs').insert({
-                    'org_id': org_id, 'action_type': 'REGISTER_BULK', 'target_user': payload['username'], 
-                    'performed_by': 'SUPER_ADMIN', 'status_color': 'green-blue'
-                }).execute()
-                
                 count += 1
+                
+            # Restamos el saldo de la organización
+            nuevo_saldo = saldo_actual - count
+            supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', org_id).execute()
 
-            ui.notify(f'Éxito: {count} usuarios importados a la organización {org_id}.', type='positive')
+            # Logs duales (Registro de usuario + Gasto de licencia)
+            supabase.table('action_logs').insert({
+                'org_id': org_id, 'action_type': 'REGISTER_BULK', 'target_user': f'{count} usuarios', 
+                'performed_by': 'SUPER_ADMIN', 'status_color': 'green-blue'
+            }).execute()
+            
+            supabase.table('action_logs').insert({
+                'org_id': org_id, 'action_type': 'LICENSE_CONSUMED', 'target_user': f'-{count} Licencias', 
+                'performed_by': 'SUPER_ADMIN', 'status_color': 'green-yellow', 'metadata': {'motivo': 'Carga Masiva Admin'}
+            }).execute()
+
+            ui.notify(f'Éxito: {count} usuarios importados a {org_nombre}. Saldo actualizado: {nuevo_saldo}', type='positive')
             self.render()
 
         except Exception as ex:
