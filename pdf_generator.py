@@ -236,10 +236,10 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.set_text_color(0, 0, 0)
     pdf.cell(95, 6, "EMISOR:", 0, 1, 'L')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(95, 5, "TU NOMBRE O EMPRESA S.L.", 0, 1, 'L')
-    pdf.cell(95, 5, "CIF: B-00000000", 0, 1, 'L')
-    pdf.cell(95, 5, "Tu Direccion Fiscal", 0, 1, 'L')
-    pdf.cell(95, 5, "Tu Ciudad y Codigo Postal", 0, 1, 'L')
+    pdf.cell(95, 5, "Raúl Cobo Palomino", 0, 1, 'L')
+    pdf.cell(95, 5, "CIF: **********", 0, 1, 'L')
+    pdf.cell(95, 5, "Direccion Fiscal: **********", 0, 1, 'L')
+    pdf.cell(95, 5, "Ciudad y Codigo Postal: **********", 0, 1, 'L')
     pdf.cell(95, 5, "facturacion@audeo.es", 0, 1, 'L')
     
     # Receptor (El Cliente B2B)
@@ -313,7 +313,7 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.set_font('Arial', '', 8)
     
     texto_pago = (
-        "1. Pago mediante transferencia bancaria al IBAN: ES00 0000 0000 0000 0000 0000 (Sustituir por tu cuenta).\n"
+        "1. Pago mediante transferencia bancaria al IBAN: ES***************.\n"
         f"   (Indicar en el concepto la Referencia: AUD-{str(order_data.get('id', '000'))[:8].upper()}).\n"
         "2. Esta proforma tiene una validez de 15 dias naturales desde su emision.\n"
         "3. Las licencias adquiridas caducaran a los 12 meses de su activacion en plataforma.\n"
