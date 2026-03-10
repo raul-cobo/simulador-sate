@@ -150,14 +150,14 @@ def login_page():
                     )
 
 # ==========================================
-# 3.5 BROKER QR (GATEKEEPER FISCAL Y DE LICENCIAS)
+# 3.5 BROKER QR Y SELECTOR DE DINÁMICA (CON GATEKEEPER FISCAL Y DE LICENCIAS)
 # ==========================================
 @ui.page('/join/{org_id}')
 async def qr_access_broker(org_id: str):
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     
     try:
-        # 1. GATEKEEPER: VERIFICAR SALDO DE LA ORGANIZACIÓN
+        # --- 1. GATEKEEPER: VERIFICACIÓN DE SALDO DE LA ORGANIZACIÓN ---
         res_org = supabase.table('organizations').select('name, licencias_compradas').eq('id', org_id).single().execute()
         
         if not res_org.data:
@@ -169,16 +169,17 @@ async def qr_access_broker(org_id: str):
         org_data = res_org.data
         licencias_disponibles = org_data.get('licencias_compradas', 0)
 
+        # Si el saldo es 0, cortamos el acceso inmediatamente
         if licencias_disponibles <= 0:
             with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
                 ui.icon('money_off', size='4rem', color='orange').classes('mb-4')
                 ui.label(f'Acceso Denegado').classes('text-3xl font-black text-white tracking-widest mb-2')
                 ui.label(f'La institución {org_data.get("name", org_id).upper()} ha agotado su saldo de licencias.').classes('text-gray-400 text-lg mb-8')
                 ui.label('Por favor, contacta con tu tutor o responsable de departamento para solicitar una ampliación de aforo.').classes('text-sm text-gray-500 max-w-md')
-                ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
+                ui.button('VOLVER A INICIO', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
             return
 
-        # 2. BUSCAR ASIENTO LIBRE (Usuario Demo sin reclamar)
+        # --- 2. BUSCAR ASIENTO LIBRE (Usuario Demo sin reclamar) ---
         res_user = supabase.table('users') \
             .select('*') \
             .eq('org_id', org_id) \
@@ -196,21 +197,23 @@ async def qr_access_broker(org_id: str):
         user_data = res_user.data[0]
         nombre_usuario = user_data['username']
 
-        # 3. RECLAMAR ASIENTO Y DESCONTAR LICENCIA (TRANSACCIÓN)
-        # Reclamamos el usuario
+        # --- 3. TRANSACCIÓN: RECLAMAR ASIENTO Y DESCONTAR LICENCIA ---
+        
+        # Bloquear el usuario
         supabase.table('users').update({'is_claimed': True}).eq('username', nombre_usuario).execute()
         
-        # Descontamos 1 licencia de la organización
+        # Restar 1 licencia a la organización
         nuevas_licencias = licencias_disponibles - 1
         supabase.table('organizations').update({'licencias_compradas': nuevas_licencias}).eq('id', org_id).execute()
 
-        # Opcional: Registrar el consumo en los logs
+        # Registrar el gasto en el log (Opcional pero recomendado para auditorías)
         supabase.table('action_logs').insert({
             'org_id': org_id, 'action_type': 'LICENSE_CONSUMED', 'target_user': nombre_usuario, 
-            'performed_by': 'SYSTEM', 'status_color': 'green-yellow', 'metadata': {'tipo': 'QR_Scan', 'restantes': nuevas_licencias}
+            'performed_by': 'SYSTEM (QR)', 'status_color': 'green-yellow', 'metadata': {'restantes': nuevas_licencias}
         }).execute()
 
-        # 4. INICIAR SESIÓN TRANSPARENTE
+
+        # --- 4. INICIO DE SESIÓN TRANSPARENTE ---
         app.storage.user.update({
             'authenticated': True,
             'role': 'USER',
