@@ -150,41 +150,72 @@ def login_page():
                     )
 
 # ==========================================
-# 3.5 BROKER QR Y SELECTOR DE DINÁMICA (EVENTOS)
+# 3.5 BROKER QR (GATEKEEPER FISCAL Y DE LICENCIAS)
 # ==========================================
 @ui.page('/join/{org_id}')
 async def qr_access_broker(org_id: str):
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     
     try:
-        # Busca un asiento libre en la organización para la demo
-        res = supabase.table('users') \
+        # 1. GATEKEEPER: VERIFICAR SALDO DE LA ORGANIZACIÓN
+        res_org = supabase.table('organizations').select('name, licencias_compradas').eq('id', org_id).single().execute()
+        
+        if not res_org.data:
+            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
+                ui.icon('domain_disabled', size='4rem', color='red').classes('mb-4')
+                ui.label('Organización no encontrada.').classes('text-2xl font-bold')
+            return
+
+        org_data = res_org.data
+        licencias_disponibles = org_data.get('licencias_compradas', 0)
+
+        if licencias_disponibles <= 0:
+            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
+                ui.icon('money_off', size='4rem', color='orange').classes('mb-4')
+                ui.label(f'Acceso Denegado').classes('text-3xl font-black text-white tracking-widest mb-2')
+                ui.label(f'La institución {org_data.get("name", org_id).upper()} ha agotado su saldo de licencias.').classes('text-gray-400 text-lg mb-8')
+                ui.label('Por favor, contacta con tu tutor o responsable de departamento para solicitar una ampliación de aforo.').classes('text-sm text-gray-500 max-w-md')
+                ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
+            return
+
+        # 2. BUSCAR ASIENTO LIBRE (Usuario Demo sin reclamar)
+        res_user = supabase.table('users') \
             .select('*') \
             .eq('org_id', org_id) \
             .eq('is_claimed', False) \
             .eq('is_demo', True) \
             .limit(1).execute()
 
-        if not res.data:
+        if not res_user.data:
             with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
                 ui.icon('block', size='4rem', color='red')
                 ui.label('El aforo de la dinámica está completo.').classes('text-2xl font-bold mt-4')
-                ui.label('Todos los accesos han sido asignados.').classes('text-gray-400 mt-2')
+                ui.label('Todos los accesos previamente creados han sido asignados.').classes('text-gray-400 mt-2')
             return
 
-        user_data = res.data[0]
+        user_data = res_user.data[0]
         nombre_usuario = user_data['username']
 
-        # CORRECCIÓN: Bloquear el usuario buscando por 'username' en lugar de 'id'
+        # 3. RECLAMAR ASIENTO Y DESCONTAR LICENCIA (TRANSACCIÓN)
+        # Reclamamos el usuario
         supabase.table('users').update({'is_claimed': True}).eq('username', nombre_usuario).execute()
+        
+        # Descontamos 1 licencia de la organización
+        nuevas_licencias = licencias_disponibles - 1
+        supabase.table('organizations').update({'licencias_compradas': nuevas_licencias}).eq('id', org_id).execute()
 
-        # Iniciar sesión transparente
+        # Opcional: Registrar el consumo en los logs
+        supabase.table('action_logs').insert({
+            'org_id': org_id, 'action_type': 'LICENSE_CONSUMED', 'target_user': nombre_usuario, 
+            'performed_by': 'SYSTEM', 'status_color': 'green-yellow', 'metadata': {'tipo': 'QR_Scan', 'restantes': nuevas_licencias}
+        }).execute()
+
+        # 4. INICIAR SESIÓN TRANSPARENTE
         app.storage.user.update({
             'authenticated': True,
             'role': 'USER',
             'username': nombre_usuario,
             'org_id': org_id,
-            # Fallback de seguridad: Si no hay 'id', usamos el 'username' como user_id
             'user_id': user_data.get('id', nombre_usuario), 
             'is_demo': True
         })
