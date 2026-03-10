@@ -98,6 +98,15 @@ class ConsolaOrganizacion:
     # ==========================================
     # GESTIÓN INDIVIDUAL DE USUARIOS
     # ==========================================
+    def limpiar_formulario(self, inputs):
+        self.editing_user = None
+        inputs['u_nom'].value = ""
+        inputs['u_pwd'].value = ""
+        inputs['u_intentos'].value = 1
+        inputs['u_sectores'].value = []
+        inputs['u_perfil'].value = []
+        ui.notify("Formulario en modo CREACIÓN", type="info")
+
     def preparar_edicion_usuario(self, user, inputs):
         self.editing_user = user['username']
         inputs['u_nom'].value = user['username']
@@ -107,15 +116,17 @@ class ConsolaOrganizacion:
         sape_data = p_data.get('sape', {})
         sapp_data = p_data.get('sapp', {})
         
+        intentos = user.get('intentos_disponibles', max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0)))
+        inputs['u_intentos'].value = intentos
+        
         inputs['u_tests'].value = 'AMBAS' if sape_data.get('attempts',0)>0 and sapp_data.get('attempts',0)>0 else 'SAPE' if sape_data.get('attempts',0)>0 else 'SAPP' if sapp_data.get('attempts',0)>0 else 'SAPE'
-        inputs['u_intentos'].value = max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0))
         
         inputs['u_sectores'].value = sape_data.get('sectors', [])
         
         perfil_guardado = sapp_data.get('profile', '')
         inputs['u_perfil'].value = [p.strip() for p in perfil_guardado.split(',') if p.strip()] if perfil_guardado else []
         
-        ui.notify(f"Editando usuario: {user['username']}", type='info')
+        ui.notify(f"Modo EDICIÓN: {user['username']}", type='info')
 
     def guardar_usuario_manual(self, inputs):
         if not inputs['u_nom'].value or not inputs['u_pwd'].value:
@@ -148,41 +159,56 @@ class ConsolaOrganizacion:
             }
         }
 
+        username_limpio = inputs['u_nom'].value.strip()
+
         payload = {
-            "username": inputs['u_nom'].value.strip(),
+            "username": username_limpio,
             "password": inputs['u_pwd'].value.strip(),
             "org_id": self.org_id,
             "role": "USER",
             "is_deleted": False,
-            "profile_data": profile_data
+            "profile_data": profile_data,
+            "intentos_disponibles": intentos, # ¡CLAVE PARA QUE PUEDAN ENTRAR!
+            "max_intentos": intentos
         }
 
         try:
             if getattr(self, 'editing_user', None):
+                # ES UNA EDICIÓN
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
                 ui.notify('Usuario actualizado correctamente', type='positive')
+                self.limpiar_formulario(inputs)
             else:
+                # ES UNA CREACIÓN NUEVA
                 saldo_actual = self.org_data.get('licencias_compradas', 0)
                 if saldo_actual <= 0:
                     ui.notify('❌ Saldo de licencias insuficiente para crear este usuario.', type='negative')
                     return
 
+                # PASO 1: INTENTAR CREAR AL USUARIO PRIMERO
+                # Si falla aquí (ej: nombre repetido), salta al except y no descuenta la licencia
+                res_insert = supabase.table('users').insert(payload).execute()
+                
+                # PASO 2: SI SE CREÓ BIEN, DESCONTAMOS LA LICENCIA
                 nuevo_saldo = saldo_actual - 1
                 supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
                 self.org_data['licencias_compradas'] = nuevo_saldo
 
-                supabase.table('users').insert(payload).execute()
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
                 self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
                 
                 ui.notify('Usuario creado con éxito', type='positive')
+                self.limpiar_formulario(inputs) # Limpiar para evitar duplicados accidentales
             
-            self.editing_user = None
             self.render()
         except Exception as e:
-            self.registrar_log('ERROR', payload['username'], 'yellow-red', str(e))
-            ui.notify(f'Error de base de datos: {e}', type='negative')
+            err_str = str(e)
+            if "duplicate key value" in err_str.lower():
+                ui.notify(f'El usuario "{username_limpio}" ya existe. Elige otro nombre.', type='negative')
+            else:
+                self.registrar_log('ERROR', payload['username'], 'yellow-red', err_str)
+                ui.notify(f'Error de base de datos: {err_str}', type='negative')
 
     def eliminar_usuario(self, username):
         try:
@@ -229,18 +255,22 @@ class ConsolaOrganizacion:
                 return
 
             count = 0
+            errores = 0
             for _, row in df.iterrows():
                 tests = str(row['tests']).upper()
                 sape_active = any(x in tests for x in ["SAPE", "AMBAS"])
                 sapp_active = any(x in tests for x in ["SAPP", "AMBAS"])
+                
+                # Asumimos 3 intentos evolutivos por defecto en carga masiva
+                intentos_defecto = 3
 
                 profile_data = {
                     "sape": {
-                        "attempts": 1 if sape_active else 0,
+                        "attempts": intentos_defecto if sape_active else 0,
                         "sectors": [s.strip().upper() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
                     },
                     "sapp": {
-                        "attempts": 1 if sapp_active else 0,
+                        "attempts": intentos_defecto if sapp_active else 0,
                         "profile": str(row.get('sapp_profile', '')).strip().title(),
                         "groups": [g.strip() for g in str(row.get('sapp_groups', '')).split(',')] if pd.notna(row.get('sapp_groups')) else []
                     }
@@ -252,25 +282,39 @@ class ConsolaOrganizacion:
                     "org_id": self.org_id, 
                     "role": "USER",
                     "is_deleted": False,
-                    "profile_data": profile_data
+                    "profile_data": profile_data,
+                    "intentos_disponibles": intentos_defecto,
+                    "max_intentos": intentos_defecto
                 }
                 
-                supabase.table("users").upsert(payload).execute()
-                count += 1
+                # Intentar crear uno a uno para no romper todo el batch si uno falla
+                try:
+                    # Usamos match de username para simular un upsert más seguro sin ID
+                    existente = supabase.table("users").select("id").eq("username", payload["username"]).execute()
+                    if existente.data:
+                        supabase.table("users").update(payload).eq("username", payload["username"]).execute()
+                    else:
+                        supabase.table("users").insert(payload).execute()
+                        count += 1 # Solo restamos licencia si es un usuario NUEVO
+                except Exception as ex_u:
+                    print(f"Error insertando {payload['username']}: {ex_u}")
+                    errores += 1
 
+            # Descontar licencias SOLO por los creados exitosamente
             nuevo_saldo = saldo_actual - count
             supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
             self.org_data['licencias_compradas'] = nuevo_saldo
 
-            self.registrar_log('BULK_UPLOAD', f'{count} usuarios', 'green-blue')
-            self.registrar_log('LICENSE_CONSUMED', f'-{count} Licencias', 'green-yellow', 'Carga Masiva')
+            self.registrar_log('BULK_UPLOAD', f'{count} creados, {errores} fallos', 'green-blue')
+            if count > 0:
+                self.registrar_log('LICENSE_CONSUMED', f'-{count} Licencias', 'green-yellow', 'Carga Masiva')
 
-            ui.notify(f'Éxito: {count} usuarios sincronizados. Saldo restante: {nuevo_saldo}', type='positive')
+            ui.notify(f'Proceso finalizado: {count} creados. Saldo restante: {nuevo_saldo}', type='positive' if errores==0 else 'warning')
             self.render()
 
         except Exception as ex:
             self.registrar_log('ERROR_BULK', 'Archivo', 'yellow-red', str(ex))
-            ui.notify(f'Error en archivo: {ex}', type='negative')
+            ui.notify(f'Error procesando el archivo: {ex}', type='negative')
 
     # ==========================================
     # TIENDA Y FACTURACIÓN B2B (PROFORMAS)
@@ -509,7 +553,7 @@ class ConsolaOrganizacion:
                                     
                                     if opciones_test:
                                         inputs['u_tests'] = ui.select(opciones_test, label='Prueba Asignada', value=opciones_test[0]).classes('w-full mb-2').props('dark outlined')
-                                        inputs['u_intentos'] = ui.number('Intentos permitidos', value=1, min=1).classes('w-full mb-2').props('dark outlined')
+                                        inputs['u_intentos'] = ui.number('Intentos permitidos', value=3, min=1).classes('w-full mb-2').props('dark outlined')
                                         
                                         if can_sape:
                                             sectores_permitidos = self.privilegios.get('allowed_sape_sectors', SECTORES_OFICIALES)
@@ -531,8 +575,9 @@ class ConsolaOrganizacion:
                                         inputs['u_sectores'] = ui.select([], multiple=True).classes('hidden')
                                         inputs['u_perfil'] = ui.select([], multiple=True).classes('hidden')
 
-                                    ui.button('GUARDAR USUARIO', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('w-full bg-[#83ABF1] text-[#0E1117] font-bold mt-2 hover:scale-105 transition-all')
-                                    ui.button('LIMPIAR', on_click=self.render).classes('w-full mt-2').props('flat color=gray')
+                                    with ui.row().classes('w-full gap-2 mt-2'):
+                                        ui.button('LIMPIAR', on_click=lambda: self.limpiar_formulario(inputs)).classes('w-1/3 bg-gray-700 text-white font-bold')
+                                        ui.button('GUARDAR', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold hover:scale-105 transition-all')
 
                                 # Carga Masiva
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
