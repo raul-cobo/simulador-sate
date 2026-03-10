@@ -26,12 +26,14 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
                 ui.label("Perfil Psicométrico S.A.P.E.").classes('text-white font-bold text-[18px]')
                 ui.label("Sistema de Análisis de la Personalidad Emprendedora").classes('text-white text-[14px]')
 
-        # BLOQUE 1: KPIs
-        with ui.row().classes('w-full flex-wrap justify-center gap-6 mb-10'):
+        # BLOQUE 1: KPIs (AHORA SON 4 CAJAS)
+        with ui.row().classes('w-full flex-wrap justify-center gap-4 mb-10'):
+            # Añadido el Potencial Emprendedor como métrica principal
+            _render_caja_kpi("Potencial", f"{refined_data.get('potencial', 0)}", "Alineación con el perfil de éxito")
             _render_caja_kpi("Índice Resiliencia (IRE)", f"{refined_data.get('ire', 0)}", "Capacidad de respuesta ante crisis")
-            f_def = refined_data.get('friccion_defecto', 0)
-            f_exc = refined_data.get('friccion_exceso', 0)
-            _render_caja_kpi("Fricción", f"-{f_def} / +{f_exc}", "Interferencias en el desempeño")
+            
+            # Fricción unificada para mayor claridad visual
+            _render_caja_kpi("Fricción", f"{refined_data.get('friccion', 0)}", "Interferencias en el desempeño")
             _render_caja_kpi("Delta", f"{refined_data.get('delta', 0)}", "Desviación del perfil ideal")
 
         # BLOQUE 2: Gráfica Octogonal (AHORA CON PLOTLY)
@@ -54,13 +56,14 @@ def render_dashboard_resultados(refined_data: Dict[str, Any]):
                 for flag in flags:
                     ui.label(f"• {flag}").classes('text-white text-[12px] mb-2')
             else:
-                ui.label("• Perfil equilibrado.").classes('text-white text-[12px] italic')
+                ui.label("• Perfil equilibrado. No se detectan descarriladores graves.").classes('text-white text-[12px] italic')
 
 def _render_caja_kpi(titulo, valor, desc):
-    with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-6 items-center justify-center text-center shadow-lg').style('width: 250px; height: 250px;'):
+    # Reducido el ancho a 230px para que quepan las 4 cajas en línea sin romper el diseño
+    with ui.column().classes('bg-[#161B22] border border-[#83ABF1] rounded-xl p-4 items-center justify-center text-center shadow-lg').style('width: 230px; height: 230px;'):
         ui.label(titulo).classes('text-[#83ABF1] text-[14px] font-bold mb-4')
-        ui.label(str(valor)).classes('text-white text-[28px] font-black mb-4')
-        ui.label(desc).classes('text-gray-400 text-[12px]')
+        ui.label(str(valor)).classes('text-white text-[32px] font-black mb-4') # Aumentado el tamaño del número
+        ui.label(desc).classes('text-gray-400 text-[11px]')
 
 def _render_plotly_radar(data: Dict[str, Any]):
     # Preparamos los datos
