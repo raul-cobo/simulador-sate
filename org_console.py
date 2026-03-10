@@ -57,7 +57,7 @@ class ConsolaOrganizacion:
         self.evals_data = []
         self.logs_data = []
         self.editing_user = None
-        self.dialogo_checkout = None # Variable para el modal de compra
+        self.dialogo_checkout = None
 
     def cargar_datos(self):
         if not supabase or not self.org_id: return
@@ -249,10 +249,9 @@ class ConsolaOrganizacion:
             ui.notify(f'Error en archivo: {ex}', type='negative')
 
     # ==========================================
-    # TIENDA Y FACTURACIÓN (B2B CLIENTE) - NUEVO CHECKOUT
+    # TIENDA Y FACTURACIÓN B2B (CON BARRERA FISCAL)
     # ==========================================
     def abrir_checkout(self, cantidad_str, precio_unitario, plan_nombre):
-        """Abre el modal de resumen financiero y validación de PIN"""
         try:
             cantidad = int(cantidad_str)
         except ValueError:
@@ -263,7 +262,6 @@ class ConsolaOrganizacion:
             ui.notify("La cantidad debe ser mayor a 0.", type="warning")
             return
 
-        # Cálculos financieros
         subtotal = cantidad * precio_unitario
         iva = subtotal * 0.21
         total = subtotal + iva
@@ -274,7 +272,6 @@ class ConsolaOrganizacion:
         with ui.dialog() as self.dialogo_checkout, ui.card().classes('p-8 bg-[#161B22] border border-[#83ABF1] shadow-2xl rounded-2xl w-[500px]'):
             ui.label('RESUMEN DE PEDIDO').classes('text-xl font-black text-[#83ABF1] tracking-widest mb-6 border-b border-gray-800 pb-2 w-full')
             
-            # Tabla de desglose
             with ui.column().classes('w-full gap-2 mb-6'):
                 with ui.row().classes('w-full justify-between'):
                     ui.label(f'Plan seleccionado:').classes('text-gray-400')
@@ -299,10 +296,8 @@ class ConsolaOrganizacion:
                     ui.label('TOTAL A FACTURAR:').classes('text-gray-300 font-bold')
                     ui.label(f'{total:.2f} €').classes('text-3xl text-[#22C55E] font-black font-mono')
 
-            # Compliance Legal
             check_legal = ui.checkbox('Acepto los Términos de Contratación y el tratamiento de datos según el RGPD.').classes('text-xs text-gray-500 mb-6')
             
-            # PIN de Seguridad
             ui.label('Autorización de Compra').classes('text-sm text-[#83ABF1] font-bold mb-2')
             pin_input = ui.input('Introduce tu PIN de Seguridad', password=True).props('dark outlined').classes('w-full mb-6')
 
@@ -314,12 +309,10 @@ class ConsolaOrganizacion:
                 pin_real = self.org_data.get('pin_seguridad', '1234')
                 if pin_input.value != pin_real:
                     ui.notify('PIN incorrecto. Operación denegada.', type='negative')
-                    # Log de intento fallido
                     self.registrar_log('SECURITY_ALERT', 'Intento de compra con PIN erróneo', 'red')
                     return
 
                 try:
-                    # Inserción en la nueva tabla orders
                     supabase.table('orders').insert({
                         'org_id': self.org_id,
                         'cantidad_licencias': cantidad,
@@ -349,6 +342,19 @@ class ConsolaOrganizacion:
             ui.label('AMPLÍA EL POTENCIAL DE TU EQUIPO').classes('text-3xl text-[#83ABF1] font-black tracking-widest mb-2 text-center')
             ui.label('Todos los planes incluyen 1 Licencia por Usuario con 3 Mediciones (Ciclo Evolutivo Completo).').classes('text-gray-400 mb-10 text-center')
 
+            # --- ESCUDO FISCAL (Comprobamos si tienen CIF) ---
+            cif_registrado = self.org_data.get('cif_nif')
+            razon_social = self.org_data.get('razon_social')
+            
+            if not cif_registrado or not razon_social:
+                with ui.column().classes('w-full max-w-3xl bg-red-900/20 border-2 border-red-500 rounded-2xl p-8 items-center text-center shadow-xl'):
+                    ui.icon('receipt_long', size='4rem', color='red').classes('mb-4')
+                    ui.label('PERFIL FISCAL INCOMPLETO').classes('text-2xl text-red-400 font-black tracking-widest mb-2')
+                    ui.label('Por normativas de facturación B2B, no puedes generar un pedido de licencias sin tener tu CIF/NIF y Razón Social registrados en el sistema.').classes('text-gray-300 mb-6')
+                    ui.label('Por favor, contacta con tu administrador o soporte técnico de Audeo para que actualicen los datos de tu institución.').classes('text-sm text-gray-500 italic')
+                return # Detenemos la renderización de la tienda aquí.
+
+            # Si tienen CIF, mostramos la tienda normal
             with ui.row().classes('w-full max-w-6xl justify-center gap-8 items-stretch'):
                 
                 # PLAN: Grupo Pequeño
