@@ -96,7 +96,7 @@ class ConsolaOrganizacion:
         ui.navigate.to('/')
 
     # ==========================================
-    # GESTIÓN INDIVIDUAL DE USUARIOS (CON GATEKEEPER)
+    # GESTIÓN INDIVIDUAL DE USUARIOS
     # ==========================================
     def preparar_edicion_usuario(self, user, inputs):
         self.editing_user = user['username']
@@ -159,25 +159,19 @@ class ConsolaOrganizacion:
 
         try:
             if getattr(self, 'editing_user', None):
-                # Si estamos EDITANDO, no restamos licencia
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
                 ui.notify('Usuario actualizado correctamente', type='positive')
             else:
-                # Si estamos CREANDO, verificamos el saldo
                 saldo_actual = self.org_data.get('licencias_compradas', 0)
                 if saldo_actual <= 0:
                     ui.notify('❌ Saldo de licencias insuficiente para crear este usuario.', type='negative')
                     return
 
-                # Restamos 1 licencia
                 nuevo_saldo = saldo_actual - 1
                 supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
-                
-                # Actualizamos la memoria local para que se refleje de inmediato
                 self.org_data['licencias_compradas'] = nuevo_saldo
 
-                # Creamos el usuario
                 supabase.table('users').insert(payload).execute()
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
                 self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
@@ -200,7 +194,7 @@ class ConsolaOrganizacion:
             ui.notify(f'Error al eliminar: {e}', type='negative')
 
     # ==========================================
-    # CARGA MASIVA Y PLANTILLAS (CON GATEKEEPER)
+    # CARGA MASIVA Y PLANTILLAS
     # ==========================================
     def descargar_plantilla_org(self):
         df = pd.DataFrame({
@@ -230,7 +224,6 @@ class ConsolaOrganizacion:
             usuarios_a_crear = len(df)
             saldo_actual = self.org_data.get('licencias_compradas', 0)
 
-            # GATEKEEPER MASIVO
             if usuarios_a_crear > saldo_actual:
                 ui.notify(f'❌ Saldo insuficiente. Intentas subir {usuarios_a_crear} usuarios, pero solo tienes {saldo_actual} licencias.', type='negative', timeout=8000)
                 return
@@ -265,7 +258,6 @@ class ConsolaOrganizacion:
                 supabase.table("users").upsert(payload).execute()
                 count += 1
 
-            # Descontar saldo global
             nuevo_saldo = saldo_actual - count
             supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
             self.org_data['licencias_compradas'] = nuevo_saldo
@@ -281,7 +273,7 @@ class ConsolaOrganizacion:
             ui.notify(f'Error en archivo: {ex}', type='negative')
 
     # ==========================================
-    # TIENDA Y FACTURACIÓN B2B (CON BARRERA FISCAL)
+    # TIENDA Y FACTURACIÓN B2B (PROFORMAS)
     # ==========================================
     def abrir_checkout(self, cantidad_str, precio_unitario, plan_nombre):
         try:
@@ -345,7 +337,8 @@ class ConsolaOrganizacion:
                     return
 
                 try:
-                    supabase.table('orders').insert({
+                    # 1. Guardar en Supabase
+                    res_order = supabase.table('orders').insert({
                         'org_id': self.org_id,
                         'cantidad_licencias': cantidad,
                         'precio_unitario': precio_unitario,
@@ -355,9 +348,22 @@ class ConsolaOrganizacion:
                         'status': 'PENDING'
                     }).execute()
                     
+                    order_data = res_order.data[0]
                     self.registrar_log('ORDER_PLACED', f'{cantidad} licencias ({total:.2f}€)', 'blue')
-                    ui.notify('✅ Pedido registrado con éxito. Procesando factura proforma.', type='positive', timeout=5000)
+                    
+                    ui.notify('✅ Pedido registrado. Descargando Factura Proforma...', type='positive', timeout=5000)
                     self.dialogo_checkout.close()
+                    
+                    # 2. Generar y descargar la Proforma
+                    try:
+                        ruta_proforma = pdf_generator.generar_informe(
+                            user_info=self.org_data, # Pasamos los datos de la org
+                            results=order_data,      # Pasamos los datos financieros
+                            test_type='PROFORMA'     # Activamos el motor financiero
+                        )
+                        ui.download(ruta_proforma)
+                    except Exception as pdf_error:
+                        ui.notify(f'El pedido se registró, pero falló el PDF: {pdf_error}', type='warning')
                     
                 except Exception as ex:
                     ui.notify(f'Error en el servidor: {ex}', type='negative')
@@ -374,7 +380,6 @@ class ConsolaOrganizacion:
             ui.label('AMPLÍA EL POTENCIAL DE TU EQUIPO').classes('text-3xl text-[#83ABF1] font-black tracking-widest mb-2 text-center')
             ui.label('Todos los planes incluyen 1 Licencia por Usuario con 3 Mediciones (Ciclo Evolutivo Completo).').classes('text-gray-400 mb-10 text-center')
 
-            # --- ESCUDO FISCAL (Comprobamos si tienen CIF) ---
             cif_registrado = self.org_data.get('cif_nif')
             razon_social = self.org_data.get('razon_social')
             
@@ -384,12 +389,10 @@ class ConsolaOrganizacion:
                     ui.label('PERFIL FISCAL INCOMPLETO').classes('text-2xl text-red-400 font-black tracking-widest mb-2')
                     ui.label('Por normativas de facturación B2B, no puedes generar un pedido de licencias sin tener tu CIF/NIF y Razón Social registrados en el sistema.').classes('text-gray-300 mb-6')
                     ui.label('Por favor, contacta con tu administrador o soporte técnico de Audeo para que actualicen los datos de tu institución.').classes('text-sm text-gray-500 italic')
-                return # Detenemos la renderización de la tienda aquí.
+                return 
 
-            # Si tienen CIF, mostramos la tienda normal
             with ui.row().classes('w-full max-w-6xl justify-center gap-8 items-stretch'):
                 
-                # PLAN: Grupo Pequeño
                 with ui.card().classes('w-80 bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] transition-all p-8 flex flex-col shadow-xl'):
                     ui.label('Grupo Pequeño').classes('text-lg font-bold text-white mb-2')
                     ui.label('De 10 a 50 usuarios').classes('text-xs text-gray-500 mb-6')
@@ -406,7 +409,6 @@ class ConsolaOrganizacion:
                     qty_peq = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
                     ui.button('INICIAR COMPRA', on_click=lambda: self.abrir_checkout(qty_peq.value, 7.00, 'Grupo Pequeño')).classes('w-full bg-[#0D248D] text-white font-bold py-3 rounded-lg')
 
-                # PLAN: Centros (Destacado)
                 with ui.card().classes('w-80 bg-[#0E1117] border-2 border-[#22C55E] p-8 flex flex-col shadow-2xl relative transform hover:-translate-y-2 transition-transform'):
                     ui.label('RECOMENDADO').classes('absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#22C55E] text-[#0E1117] text-[10px] font-black px-4 py-1 rounded-full tracking-widest')
                     
@@ -425,7 +427,6 @@ class ConsolaOrganizacion:
                     qty_cen = ui.input('Nº Licencias').props('dark outlined type=number').classes('w-full mb-4')
                     ui.button('INICIAR COMPRA', on_click=lambda: self.abrir_checkout(qty_cen.value, 5.00, 'Centros')).classes('w-full bg-[#22C55E] text-[#0E1117] font-black py-4 rounded-lg shadow-[0_0_15px_rgba(34,197,94,0.4)]')
 
-                # PLAN: Masivo
                 with ui.card().classes('w-80 bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] transition-all p-8 flex flex-col shadow-xl'):
                     ui.label('Evaluación Masiva').classes('text-lg font-bold text-white mb-2')
                     ui.label('+500 usuarios').classes('text-xs text-gray-500 mb-6')
