@@ -9,6 +9,7 @@ from admin_console import ConsolaAdmin
 from org_console import ConsolaOrganizacion
 from sape_ui import SAPEInterface
 from sapp_ui import SAPPInterface
+from saiv_ui import SAIVInterface  # <-- NUEVO: Importamos la interfaz SAIV
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO
@@ -206,12 +207,11 @@ async def qr_access_broker(org_id: str):
         nuevas_licencias = licencias_disponibles - 1
         supabase.table('organizations').update({'licencias_compradas': nuevas_licencias}).eq('id', org_id).execute()
 
-        # Registrar el gasto en el log (Opcional pero recomendado para auditorías)
+        # Registrar el gasto en el log
         supabase.table('action_logs').insert({
             'org_id': org_id, 'action_type': 'LICENSE_CONSUMED', 'target_user': nombre_usuario, 
             'performed_by': 'SYSTEM (QR)', 'status_color': 'green-yellow', 'metadata': {'restantes': nuevas_licencias}
         }).execute()
-
 
         # --- 4. INICIO DE SESIÓN TRANSPARENTE ---
         app.storage.user.update({
@@ -404,9 +404,11 @@ def panel_page():
     profile_data = user_db.get('profile_data', {})
     sape_data = profile_data.get('sape', {})
     sapp_data = profile_data.get('sapp', {})
+    # Asumimos que podemos tener permisos de SAIV en el futuro, por ahora lo dejamos libre si tiene SAPE o SAPP
     
     sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
     sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
+    saiv_allowed = True # Permitimos SAIV por defecto para probarlo. 
 
     def safe_list(data):
         if not data: return []
@@ -455,7 +457,7 @@ def panel_page():
             self.employment = user_db.get('employment_status')
             self.entrepreneurship = user_db.get('entrepreneurship_status')
             
-            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else None)
+            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else 'SAIV')
             self.sector_sape = sectores_finales[0] if sectores_finales else None
             self.perfil_sapp = perfiles_finales[0] if perfiles_finales else None
 
@@ -544,19 +546,27 @@ def panel_page():
                 with ui.column().classes('w-full bg-[#161B22] p-10 rounded-3xl border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'):
                     ui.label('BLOQUE C: Configuración de la Evaluación').classes('text-xl font-bold mb-6 text-white')
                     
-                    if not state.test_type:
+                    opciones_radio = []
+                    if sape_allowed: opciones_radio.append('SAPE (Emprendimiento)')
+                    if sapp_allowed: opciones_radio.append('SAPP (Competencias)')
+                    if saiv_allowed: opciones_radio.append('SAIV (Vocacional)')
+                    
+                    if not opciones_radio:
                         ui.label('No tienes pruebas asignadas.').classes('text-red-400 font-bold mb-8')
                         return
 
-                    opciones_radio = []
-                    if sape_allowed: opciones_radio.append('SAPE')
-                    if sapp_allowed: opciones_radio.append('SAPP')
-                    
                     def cambiar_prueba(e):
-                        state.test_type = e.value
+                        # Convertimos el label visual al nombre de código interno
+                        if 'SAPE' in e.value: state.test_type = 'SAPE'
+                        elif 'SAPP' in e.value: state.test_type = 'SAPP'
+                        elif 'SAIV' in e.value: state.test_type = 'SAIV'
                         render_stepper.refresh()
                     
-                    tipo_radio = ui.radio(opciones_radio, value=state.test_type, on_change=cambiar_prueba).classes('text-white mb-6 font-bold text-lg').props('dark inline')
+                    # Seleccionamos visualmente la opción correcta en el radio button
+                    valor_radio_actual = [opt for opt in opciones_radio if state.test_type in opt]
+                    valor_radio = valor_radio_actual[0] if valor_radio_actual else opciones_radio[0]
+
+                    tipo_radio = ui.radio(opciones_radio, value=valor_radio, on_change=cambiar_prueba).classes('text-white mb-6 font-bold text-sm').props('dark inline')
                     
                     if state.test_type == 'SAPE':
                         ui.label('Despliega la lista y selecciona tu sector:').classes('text-gray-400 text-sm mb-2')
@@ -571,6 +581,9 @@ def panel_page():
                             options=perfiles_finales, label='Perfiles Disponibles', value=state.perfil_sapp,
                             on_change=lambda e: setattr(state, 'perfil_sapp', e.value)
                         ).classes('w-full mb-8 bg-[#0E1117] text-white text-lg').props('dark outlined')
+
+                    elif state.test_type == 'SAIV':
+                        ui.label('El Análisis Vocacional consta de 150 ítems sobre actividades profesionales.').classes('text-gray-400 text-sm mb-8')
                     
                     ui.label('Instrucciones: Sé sincero. Asegúrate de tener 15 min sin interrupciones.').classes('text-xs text-gray-500 mb-8')
                     
@@ -584,6 +597,9 @@ def panel_page():
                             if not state.perfil_sapp: return ui.notify('Abre el desplegable y elige un perfil.', type='warning')
                             app.storage.user.update({'current_sector': state.perfil_sapp})
                             ui.navigate.to(f'/sapp')
+                            
+                        elif state.test_type == 'SAIV':
+                            ui.navigate.to(f'/saiv')
 
                     with ui.row().classes('w-full gap-4'):
                         ui.button('EDITAR PERFIL', on_click=lambda: [setattr(state, 'step', 1), render_stepper.refresh()]).classes('w-1/3 bg-gray-700 text-white py-4 rounded-xl font-bold')
@@ -625,6 +641,20 @@ def pagina_sapp():
     except Exception as e:
         with ui.column().classes('w-full min-h-screen items-center justify-center bg-[#0E1117]'):
             ui.label('Error iniciando SAPP').classes('text-red-500 text-2xl font-bold mb-4')
+            ui.label(str(e)).classes('text-gray-400')
+            ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
+
+@ui.page('/saiv')
+def pagina_saiv():
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'USER':
+        ui.navigate.to('/'); return
+
+    try:
+        motor_saiv = SAIVInterface(df_path='Prueba_SAIV.csv', supabase_client=supabase)
+        motor_saiv.render()
+    except Exception as e:
+        with ui.column().classes('w-full min-h-screen items-center justify-center bg-[#0E1117]'):
+            ui.label('Error iniciando SAIV').classes('text-red-500 text-2xl font-bold mb-4')
             ui.label(str(e)).classes('text-gray-400')
             ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
 
