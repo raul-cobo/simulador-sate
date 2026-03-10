@@ -96,7 +96,7 @@ class ConsolaOrganizacion:
         ui.navigate.to('/')
 
     # ==========================================
-    # GESTIÓN INDIVIDUAL DE USUARIOS
+    # GESTIÓN INDIVIDUAL DE USUARIOS (CON GATEKEEPER)
     # ==========================================
     def preparar_edicion_usuario(self, user, inputs):
         self.editing_user = user['username']
@@ -159,12 +159,29 @@ class ConsolaOrganizacion:
 
         try:
             if getattr(self, 'editing_user', None):
+                # Si estamos EDITANDO, no restamos licencia
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
                 ui.notify('Usuario actualizado correctamente', type='positive')
             else:
+                # Si estamos CREANDO, verificamos el saldo
+                saldo_actual = self.org_data.get('licencias_compradas', 0)
+                if saldo_actual <= 0:
+                    ui.notify('❌ Saldo de licencias insuficiente para crear este usuario.', type='negative')
+                    return
+
+                # Restamos 1 licencia
+                nuevo_saldo = saldo_actual - 1
+                supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
+                
+                # Actualizamos la memoria local para que se refleje de inmediato
+                self.org_data['licencias_compradas'] = nuevo_saldo
+
+                # Creamos el usuario
                 supabase.table('users').insert(payload).execute()
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
+                self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
+                
                 ui.notify('Usuario creado con éxito', type='positive')
             
             self.editing_user = None
@@ -183,7 +200,7 @@ class ConsolaOrganizacion:
             ui.notify(f'Error al eliminar: {e}', type='negative')
 
     # ==========================================
-    # CARGA MASIVA Y PLANTILLAS
+    # CARGA MASIVA Y PLANTILLAS (CON GATEKEEPER)
     # ==========================================
     def descargar_plantilla_org(self):
         df = pd.DataFrame({
@@ -209,6 +226,14 @@ class ConsolaOrganizacion:
             req = ['username', 'password', 'tests']
             if not all(col in df.columns for col in req):
                 raise ValueError("Faltan columnas requeridas (username, password, tests)")
+
+            usuarios_a_crear = len(df)
+            saldo_actual = self.org_data.get('licencias_compradas', 0)
+
+            # GATEKEEPER MASIVO
+            if usuarios_a_crear > saldo_actual:
+                ui.notify(f'❌ Saldo insuficiente. Intentas subir {usuarios_a_crear} usuarios, pero solo tienes {saldo_actual} licencias.', type='negative', timeout=8000)
+                return
 
             count = 0
             for _, row in df.iterrows():
@@ -240,8 +265,15 @@ class ConsolaOrganizacion:
                 supabase.table("users").upsert(payload).execute()
                 count += 1
 
+            # Descontar saldo global
+            nuevo_saldo = saldo_actual - count
+            supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
+            self.org_data['licencias_compradas'] = nuevo_saldo
+
             self.registrar_log('BULK_UPLOAD', f'{count} usuarios', 'green-blue')
-            ui.notify(f'Éxito: {count} usuarios sincronizados.', type='positive')
+            self.registrar_log('LICENSE_CONSUMED', f'-{count} Licencias', 'green-yellow', 'Carga Masiva')
+
+            ui.notify(f'Éxito: {count} usuarios sincronizados. Saldo restante: {nuevo_saldo}', type='positive')
             self.render()
 
         except Exception as ex:
