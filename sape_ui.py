@@ -47,7 +47,6 @@ class SAPEInterface:
                 limites[dim]['min'] += min(valores + [0])
         return limites
 
-    # CAMBIO 1: Ahora devolvemos una tupla con los scores y las sumas brutas
     def _calcular_brutos_reales(self) -> tuple[Dict[str, float], Dict[str, float]]:
         sumas_brutas = {}
         for q_id, letra in self.respuestas_usuario.items():
@@ -68,7 +67,6 @@ class SAPEInterface:
                 val_norm = ((suma - self.limites_sector[dim]['min']) / rango) * 100 if rango != 0 else 50.0
                 scores[dim] = round(max(0.0, min(100.0, val_norm)), 1)
                 
-        # AQUÍ ESTÁ LA MAGIA: Devolvemos ambos para que el Refinador tenga datos precisos
         return scores, sumas_brutas
 
     def _preparar_opciones_actuales(self):
@@ -93,33 +91,53 @@ class SAPEInterface:
         raw_scores, sumas_brutas = self._calcular_brutos_reales() 
         datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=self.limites_sector)
         
+        # OBTENER EL ID REAL (UUID) PARA SUPABASE, NO SOLO EL USERNAME
+        user_uuid = app.storage.user.get('user_id') 
         username = app.storage.user.get('username', 'anonimo')
         org_id = app.storage.user.get('org_id', 'generica')
 
-        if self.supabase:
+        if self.supabase and user_uuid:
             try:
                 # 1. GUARDAR LA EVALUACIÓN
-                payload = {"user_id": username, "org_id": org_id, "test_type": "SAPE", "sector": self.sector, "status": "completed", "results": datos_refinados, "raw_answers": self.respuestas_usuario}
+                payload = {
+                    "user_id": user_uuid, # AHORA USAMOS EL UUID REAL
+                    "org_id": org_id, 
+                    "test_type": "SAPE", 
+                    "sector_profile": self.sector, # Ajustado al nombre de columna estándar
+                    "raw_responses": self.respuestas_usuario,
+                    "refined_metrics": datos_refinados,
+                    "attempt_number": 1,
+                    "created_at": datetime.datetime.now().isoformat()
+                }
                 self.supabase.table("evaluations").insert(payload).execute()
                 
                 # 2. RESTAR 1 LICENCIA Y REGISTRAR HISTORIAL
-                res_org = self.supabase.table('organizations').select('sape_licenses').eq('id', org_id).execute()
+                res_org = self.supabase.table('organizations').select('licencias_compradas').eq('id', org_id).execute()
                 if res_org.data:
-                    licencias_actuales = res_org.data[0].get('sape_licenses', 0)
+                    licencias_actuales = res_org.data[0].get('licencias_compradas', 0)
                     if licencias_actuales > 0:
-                        # Descontar globalmente
-                        self.supabase.table('organizations').update({'sape_licenses': licencias_actuales - 1}).eq('id', org_id).execute()
+                        self.supabase.table('organizations').update({'licencias_compradas': licencias_actuales - 1}).eq('id', org_id).execute()
                         
-                        # ---> NUEVO: Insertar en la tabla de historial (license_logs) <---
-                        log_payload = {
-                            "username": username,
-                            "org_id": org_id,
-                            "test_type": "SAPE",
-                            "metadata": {"sector": self.sector, "action": "consumed"}
-                        }
-                        self.supabase.table('license_logs').insert(log_payload).execute()
+                        # Historial (si tienes la tabla, si no, fallará silenciosamente sin romper el flujo)
+                        try:
+                            log_payload = {
+                                "org_id": org_id,
+                                "action_type": "LICENSE_CONSUMED",
+                                "target_user": username,
+                                "performed_by": "SYSTEM (SAPE)",
+                                "status_color": "green",
+                                "metadata": {"sector": self.sector, "test": "SAPE"}
+                            }
+                            self.supabase.table('action_logs').insert(log_payload).execute()
+                        except Exception as el:
+                            print(f"No se pudo guardar el log (posiblemente la tabla no exista): {el}")
 
-                # 3. RESTAR 1 INTENTO AL USUARIO (EN SU JSONB PROFILE_DATA)
+                # 3. Descontar intento de usuario (si usas 'intentos_disponibles' como en SAPP)
+                res_user = self.supabase.table('users').select('intentos_disponibles').eq('id', user_uuid).execute()
+                if res_user.data:
+                    intentos = res_user.data[0].get('intentos_disponibles', 0)
+                    if intentos > 0:
+                        self.supabase.table('users').update({'intentos_disponibles': intentos - 1}).eq('id', user_uuid).execute()
 
             except Exception as e:
                 print(f"Error Crítico guardando en Supabase: {e}")
@@ -137,28 +155,26 @@ class SAPEInterface:
             # BOTÓN PDF BLINDADO Y SEPARADO
             with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
                 
-                # Sub-función asíncrona segura para no perder el contexto de NiceGUI
                 async def iniciar_descarga():
-                    await self._descargar_pdf(datos_refinados, username, org_id)
+                    # Pasamos un dict con info del usuario para el PDF unificado
+                    u_info = {'username': username, 'org_id': org_id}
+                    await self._descargar_pdf(datos_refinados, u_info)
                 
                 ui.button('DESCARGAR INFORME PDF', on_click=iniciar_descarga).classes(
                     'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
                 ).props('icon=picture_as_pdf')
 
-    async def _descargar_pdf(self, datos, user, org):
+    async def _descargar_pdf(self, datos, u_info):
         try:
             ui.notify('Generando informe corporativo...', type='info')
-            demograficos = {'org': org, 'sector': self.sector, 'fecha': datetime.datetime.now().strftime("%d/%m/%Y")}
             
-            # Genera el PDF físicamente en el servidor
-            ruta = pdf_generator.generar_pdf_sape(user, datos, SAPERefinery.get_clinical_flags(datos), demograficos)
+            # Usamos la función unificada de pdf_generator
+            ruta = pdf_generator.generar_informe(user_info=u_info, results=datos, test_type='SAPE')
             
-            # Obliga al navegador del usuario a descargarlo
             ui.download(ruta)
             ui.notify('Informe descargado con éxito', type='positive')
             
         except Exception as e:
-            # Captura cualquier error de fuentes o tildes y lo muestra en pantalla
             ui.notify(f"Error PDF: {str(e)}", type='negative', timeout=10000)
             print(f"Error PDF detallado: {e}")
 
