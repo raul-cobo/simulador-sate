@@ -68,7 +68,7 @@ class AudeoPDF(FPDF):
         self.cell(0, 10, f'Generado el {datetime.now().strftime("%d/%m/%Y %H:%M")} - Documento Estrictamente Confidencial', 0, 0, 'C')
 
 # ==========================================
-# 3. MOTOR GENERADOR SAPP (NUEVO CON BARRAS)
+# 3. MOTOR GENERADOR SAPP
 # ==========================================
 
 def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
@@ -118,46 +118,42 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
             pct = data.get('percentage', 0)
             raw = data.get('raw_score', 0)
             
-            # Formateo del nombre (traducción si existe o capitalizado)
+            # Formateo del nombre
             nombre_limpio = SAPP_LABELS.get(comp_name, str(comp_name).replace('_', ' ').title())
             
-            # Textos: Nombre de la competencia y %
+            # Textos
             pdf.set_font('Arial', 'B', 11)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(120, 8, nombre_limpio, 0, 0, 'L')
             pdf.set_font('Arial', 'B', 11)
             pdf.cell(0, 8, f"{pct}% (Puntos: {raw})", 0, 1, 'R')
             
-            # Configuración de Colores de la barra
+            # Colores
             if pct <= 0:
-                r, g, b = 239, 68, 68     # Rojo intenso
+                r, g, b = 239, 68, 68     
             elif pct <= 50:
-                r, g, b = 234, 179, 8     # Amarillo/Naranja
+                r, g, b = 234, 179, 8     
             elif pct <= 75:
-                r, g, b = 150, 200, 50    # Verde Suave
+                r, g, b = 150, 200, 50    
             else:
-                r, g, b = 22, 163, 74     # Verde Intenso
+                r, g, b = 22, 163, 74     
                 
-            # Dibujar fondo de barra (Gris claro oscuro)
             x_start = 10
             y_bar = pdf.get_y()
             max_width = 190
             pdf.set_fill_color(230, 230, 230)
             pdf.rect(x_start, y_bar, max_width, 6, 'F')
             
-            # Dibujar barra de progreso térmica
             if pct > 0:
                 bar_width = (pct / 100.0) * max_width
                 pdf.set_fill_color(r, g, b)
                 pdf.rect(x_start, y_bar, bar_width, 6, 'F')
             else:
-                # Si es 0 o negativo, un hilito rojo para marcar déficit visualmente
                 pdf.set_fill_color(239, 68, 68)
                 pdf.rect(x_start, y_bar, 2, 6, 'F')
                 
             pdf.ln(12)
 
-    # Nota de cierre
     pdf.ln(10)
     pdf.set_font('Arial', 'I', 9)
     pdf.set_text_color(150, 150, 150)
@@ -169,7 +165,7 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
     return filepath
 
 # ==========================================
-# 4. MOTOR GENERADOR SAPE (LEGADO ADAPTADO)
+# 4. MOTOR GENERADOR SAPE
 # ==========================================
 
 def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
@@ -177,7 +173,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf = AudeoPDF()
     pdf.add_page()
     
-    # --- CABECERA SAPE ---
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(0, 0, 0)
@@ -188,7 +183,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     ire = results.get('ire', 0)
     patrones = results.get('patrones_clinicos', [])
     
-    # Bloque de Métricas
     pdf.set_font('Arial', 'B', 12)
     pdf.cell(0, 10, "MÉTRICAS PRINCIPALES", 0, 1, 'L')
     pdf.set_font('Arial', '', 11)
@@ -196,7 +190,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.cell(0, 8, f"Índice de Resiliencia (IRE): {ire}", 0, 1)
     pdf.ln(5)
 
-    # Patrones y Descarriladores
     if patrones:
         pdf.set_font('Arial', 'B', 12)
         pdf.set_text_color(200, 0, 0)
@@ -217,115 +210,116 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
 # ==========================================
 
 def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
-    """Genera el PDF de la Factura Proforma Comercial"""
+    """Genera el PDF de la Factura Proforma Comercial alineada con los T&C"""
     pdf = AudeoPDF()
     pdf.add_page()
     
-    # Colores corporativos
     azul_audeo = (13, 36, 141) # #0D248D
-    azul_claro = (131, 171, 241) # #83ABF1
 
-    # Título Principal
+    # --- CABECERA FINANCIERA ---
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 20)
     pdf.set_text_color(*azul_audeo)
     pdf.cell(0, 10, "FACTURA PROFORMA", 0, 1, 'R')
     
-    # Número de Pedido y Fecha
     pdf.set_font('Arial', '', 10)
     pdf.set_text_color(100, 100, 100)
-    fecha_pedido = datetime.now().strftime("%d/%m/%Y")
-    pdf.cell(0, 6, f"Fecha de emisión: {fecha_pedido}", 0, 1, 'R')
-    pdf.cell(0, 6, f"Referencia de Pedido: {str(order_data.get('id', 'N/A'))[:8].upper()}", 0, 1, 'R')
+    pdf.cell(0, 6, f"Fecha de emision: {datetime.now().strftime('%d/%m/%Y')}", 0, 1, 'R')
+    pdf.cell(0, 6, f"Referencia: AUD-{str(order_data.get('id', '000'))[:8].upper()}", 0, 1, 'R')
     pdf.ln(10)
 
-    # --- BLOQUE DE DATOS FISCALES ---
+    # --- DATOS FISCALES (EMISOR Y RECEPTOR) ---
     y_current = pdf.get_y()
     
-    # Datos Emisor (Audeo) - Lado Izquierdo
-    pdf.set_font('Arial', 'B', 11)
+    # Emisor (Audeo) - RELLENA ESTOS DATOS CON LOS TUYOS
+    pdf.set_font('Arial', 'B', 10)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(95, 6, "DATOS DEL EMISOR", 0, 1, 'L')
+    pdf.cell(95, 6, "EMISOR:", 0, 1, 'L')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(95, 5, "AUDEO PROCESSOR", 0, 1, 'L')
-    pdf.cell(95, 5, "CIF: B-XXXXXXXX", 0, 1, 'L') # <-- RELLENA TU CIF AQUÍ
-    pdf.cell(95, 5, "Dirección Fiscal de Audeo", 0, 1, 'L') # <-- RELLENA TU DIRECCIÓN AQUÍ
-    pdf.cell(95, 5, "28000, Madrid (España)", 0, 1, 'L')
-    pdf.cell(95, 5, "info@audeo.es", 0, 1, 'L')
+    pdf.cell(95, 5, "TU NOMBRE O EMPRESA S.L.", 0, 1, 'L')
+    pdf.cell(95, 5, "CIF: B-00000000", 0, 1, 'L')
+    pdf.cell(95, 5, "Tu Direccion Fiscal", 0, 1, 'L')
+    pdf.cell(95, 5, "Tu Ciudad y Codigo Postal", 0, 1, 'L')
+    pdf.cell(95, 5, "facturacion@audeo.es", 0, 1, 'L')
     
-    # Datos Cliente (Organización) - Lado Derecho
+    # Receptor (El Cliente B2B)
     pdf.set_y(y_current)
-    pdf.set_x(105)
-    pdf.set_font('Arial', 'B', 11)
-    pdf.cell(95, 6, "DATOS DEL CLIENTE", 0, 1, 'L')
-    pdf.set_x(105)
+    pdf.set_x(110)
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(95, 6, "CLIENTE / FACTURAR A:", 0, 1, 'L')
+    pdf.set_x(110)
     pdf.set_font('Arial', '', 10)
     pdf.cell(95, 5, str(org_data.get('razon_social', org_data.get('name', 'N/A'))), 0, 1, 'L')
-    pdf.set_x(105)
-    pdf.cell(95, 5, f"CIF/NIF: {org_data.get('cif_nif', 'Pendiente')}", 0, 1, 'L')
-    pdf.set_x(105)
-    pdf.cell(95, 5, str(org_data.get('direccion_fiscal', 'Pendiente')), 0, 1, 'L')
-    pdf.set_x(105)
+    pdf.set_x(110)
+    pdf.cell(95, 5, f"CIF/NIF: {org_data.get('cif_nif', 'PENDIENTE DE DATOS')}", 0, 1, 'L')
+    pdf.set_x(110)
+    pdf.cell(95, 5, str(org_data.get('direccion_fiscal', 'Direccion no facilitada')), 0, 1, 'L')
+    pdf.set_x(110)
     pdf.cell(95, 5, f"{org_data.get('codigo_postal', '')} {org_data.get('ciudad', '')}", 0, 1, 'L')
     
     pdf.ln(15)
 
-    # --- TABLA DE CONCEPTOS ---
+    # --- TABLA DE LICENCIAS ---
     pdf.set_fill_color(*azul_audeo)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Arial', 'B', 10)
     
-    # Cabecera de la tabla
-    pdf.cell(90, 8, " Concepto", 1, 0, 'L', fill=True)
-    pdf.cell(30, 8, " Cantidad", 1, 0, 'C', fill=True)
-    pdf.cell(35, 8, " Precio Ud.", 1, 0, 'C', fill=True)
+    pdf.cell(100, 8, " Concepto", 1, 0, 'L', fill=True)
+    pdf.cell(25, 8, " Cantidad", 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, " Precio Ud.", 1, 0, 'C', fill=True)
     pdf.cell(35, 8, " Subtotal", 1, 1, 'R', fill=True)
 
-    # Fila de producto
     pdf.set_text_color(0, 0, 0)
     pdf.set_font('Arial', '', 10)
+    
     cantidad = order_data.get('cantidad_licencias', 0)
     precio_ud = order_data.get('precio_unitario', 0.0)
     subtotal = order_data.get('subtotal', 0.0)
     
-    pdf.cell(90, 10, " Licencias Evolutivas Audeo (Pack 3 pasaciones)", 1, 0, 'L')
-    pdf.cell(30, 10, f" {cantidad}", 1, 0, 'C')
-    pdf.cell(35, 10, f" {precio_ud:.2f} \x80", 1, 0, 'C') # \x80 es el símbolo € en Latin-1
-    pdf.cell(35, 10, f" {subtotal:.2f} \x80 ", 1, 1, 'R')
+    # Texto unificado con los T&C
+    pdf.cell(100, 10, " Licencia Audeo: Ciclo Evolutivo Completo (3 pasaciones)", 1, 0, 'L')
+    pdf.cell(25, 10, f" {cantidad}", 1, 0, 'C')
+    pdf.cell(30, 10, f" {precio_ud:.2f} EUR", 1, 0, 'C')
+    pdf.cell(35, 10, f" {subtotal:.2f} EUR", 1, 1, 'R')
 
     pdf.ln(10)
 
     # --- DESGLOSE FINANCIERO TOTALES ---
-    pdf.set_x(120)
+    pdf.set_x(130)
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(40, 8, "Base Imponible:", 0, 0, 'R')
+    pdf.cell(35, 8, "Base Imponible:", 0, 0, 'R')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(40, 8, f"{subtotal:.2f} \x80", 0, 1, 'R')
+    pdf.cell(35, 8, f"{subtotal:.2f} EUR", 0, 1, 'R')
     
     iva = order_data.get('iva', 0.0)
-    pdf.set_x(120)
+    pdf.set_x(130)
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(40, 8, "I.V.A. (21%):", 0, 0, 'R')
+    pdf.cell(35, 8, "I.V.A. (21%):", 0, 0, 'R')
     pdf.set_font('Arial', '', 10)
-    pdf.cell(40, 8, f"{iva:.2f} \x80", 0, 1, 'R')
+    pdf.cell(35, 8, f"{iva:.2f} EUR", 0, 1, 'R')
     
     total = order_data.get('total', 0.0)
-    pdf.set_x(120)
+    pdf.set_x(130)
     pdf.set_font('Arial', 'B', 12)
     pdf.set_text_color(*azul_audeo)
-    pdf.cell(40, 10, "TOTAL A PAGAR:", 0, 0, 'R')
-    pdf.cell(40, 10, f"{total:.2f} \x80", 0, 1, 'R')
+    pdf.cell(35, 10, "TOTAL A PAGAR:", 0, 0, 'R')
+    pdf.cell(35, 10, f"{total:.2f} EUR", 0, 1, 'R')
 
-    # --- INSTRUCCIONES DE PAGO ---
-    pdf.set_y(-60)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(0, 6, "Condiciones y Métodos de Pago", 0, 1, 'L')
-    pdf.set_font('Arial', '', 9)
-    pdf.multi_cell(0, 5, "Este documento es una Factura Proforma sin validez fiscal definitiva. El servicio se activará "
-                         "una vez validado el pedido por el departamento de administración de Audeo. "
-                         "Para cualquier consulta sobre este pedido, contacte con facturacion@audeo.es indicando "
-                         f"la Referencia de Pedido {str(order_data.get('id', 'N/A'))[:8].upper()}.")
+    # --- INSTRUCCIONES DE PAGO Y CONDICIONES (Alineado con T&C) ---
+    pdf.set_y(-65)
+    pdf.set_text_color(50, 50, 50)
+    pdf.set_font('Arial', 'B', 9)
+    pdf.cell(0, 5, "INSTRUCCIONES DE PAGO Y CONDICIONES LEGALES:", 0, 1, 'L')
+    pdf.set_font('Arial', '', 8)
+    
+    texto_pago = (
+        "1. Pago mediante transferencia bancaria al IBAN: ES00 0000 0000 0000 0000 0000 (Sustituir por tu cuenta).\n"
+        f"   (Indicar en el concepto la Referencia: AUD-{str(order_data.get('id', '000'))[:8].upper()}).\n"
+        "2. Esta proforma tiene una validez de 15 dias naturales desde su emision.\n"
+        "3. Las licencias adquiridas caducaran a los 12 meses de su activacion en plataforma.\n"
+        "4. Al realizar el pago, el Cliente acepta los Terminos y Condiciones disponibles en audeo.es/terminos-y-condiciones-audeo"
+    )
+    pdf.multi_cell(0, 4, texto_pago)
 
     pdf.output(filepath)
     return filepath
@@ -340,7 +334,6 @@ def generar_informe(user_info: Dict, results: Dict, test_type: str = 'SAPE') -> 
     Retorna la ruta absoluta del archivo generado.
     """
     
-    # Si detectamos que es una proforma (le pasamos org_data en lugar de user_info)
     if test_type.upper() == 'PROFORMA':
         filename = f"Proforma_Audeo_{user_info.get('id', 'B2B')[:8]}_{datetime.now().strftime('%Y%m%d')}.pdf"
         filepath = os.path.join(os.getcwd(), filename)
