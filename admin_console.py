@@ -76,7 +76,7 @@ class ConsolaAdmin:
         self.render()
 
     # ==========================================
-    # GESTIÓN DE ORGANIZACIONES
+    # GESTIÓN DE ORGANIZACIONES (CON DATOS FISCALES)
     # ==========================================
     def preparar_edicion(self, org, inputs):
         self.editing_org_id = org['id']
@@ -85,7 +85,14 @@ class ConsolaAdmin:
         inputs['sape'].value = org['sape_licenses']
         inputs['sapp'].value = org['sapp_licenses']
         inputs['demo'].value = org.get('is_demo', False)
-        inputs['pin'].value = org.get('pin_seguridad', '1234') # NUEVO CAMPO PIN
+        inputs['pin'].value = org.get('pin_seguridad', '1234')
+        
+        # Carga de datos fiscales si existen
+        inputs['razon_social'].value = org.get('razon_social', '')
+        inputs['cif'].value = org.get('cif_nif', '')
+        inputs['direccion'].value = org.get('direccion_fiscal', '')
+        inputs['cp'].value = org.get('codigo_postal', '')
+        inputs['ciudad'].value = org.get('ciudad', '')
         
         p = org.get('privileges', {})
         inputs['p_usr'].value = p.get('can_create_users', False)
@@ -112,7 +119,15 @@ class ConsolaAdmin:
             "sape_licenses": int(inputs['sape'].value or 0),
             "sapp_licenses": int(inputs['sapp'].value or 0),
             "is_demo": inputs['demo'].value,
-            "pin_seguridad": inputs['pin'].value.strip() if inputs['pin'].value else '1234', # GUARDADO DEL PIN
+            "pin_seguridad": inputs['pin'].value.strip() if inputs['pin'].value else '1234',
+            
+            # Datos fiscales inyectados en la base de datos
+            "razon_social": inputs['razon_social'].value.strip() if inputs['razon_social'].value else None,
+            "cif_nif": inputs['cif'].value.strip() if inputs['cif'].value else None,
+            "direccion_fiscal": inputs['direccion'].value.strip() if inputs['direccion'].value else None,
+            "codigo_postal": inputs['cp'].value.strip() if inputs['cp'].value else None,
+            "ciudad": inputs['ciudad'].value.strip() if inputs['ciudad'].value else None,
+            
             "privileges": {
                 "can_create_users": inputs['p_usr'].value,
                 "can_view_org_stats": inputs['p_stat'].value,
@@ -129,7 +144,7 @@ class ConsolaAdmin:
         try:
             if getattr(self, 'editing_org_id', None):
                 supabase.table('organizations').update(org_payload).eq('id', self.editing_org_id).execute()
-                ui.notify('Organización actualizada', type='positive')
+                ui.notify('Organización actualizada correctamente', type='positive')
             else:
                 org_payload["id"] = org_payload["name"].lower().replace(" ", "_")
                 org_payload["is_active"] = True
@@ -187,13 +202,11 @@ class ConsolaAdmin:
             'total': 0.0
         }
 
-        # Extraemos orgs y PEDIDOS REALES de la base de datos
         try:
-            res_orgs = supabase.table('organizations').select('id, name, licencias_compradas').execute()
+            res_orgs = supabase.table('organizations').select('id, name, licencias_compradas, razon_social, cif_nif').execute()
             lista_orgs_raw = res_orgs.data
             lista_orgs = {org['id']: f"{org['name']} (Disponibles: {org.get('licencias_compradas', 0)})" for org in lista_orgs_raw}
             
-            # Ahora leemos de la tabla orders, no de los logs
             res_pedidos = supabase.table('orders').select('*').eq('status', 'PENDING').order('created_at', desc=True).execute()
             pedidos_pendientes = res_pedidos.data
             
@@ -225,21 +238,16 @@ class ConsolaAdmin:
             btn_asignar.set_visibility(estado['cantidad'] > 0 and estado['org_seleccionada'] is not None)
 
         def procesar_asignacion_manual():
-            # Esta función es para cuando tú quieres regalar o vender licencias sin que ellos te lo pidan por la tienda
             org_id = estado['org_seleccionada']
             cantidad = estado['cantidad']
             if not org_id or cantidad <= 0: return
             
             try:
-                # Obtenemos licencias actuales
                 res_org = supabase.table('organizations').select('licencias_compradas').eq('id', org_id).single().execute()
                 actuales = res_org.data.get('licencias_compradas', 0) if res_org.data else 0
-                
-                # Sumamos las compradas
                 nuevas = actuales + cantidad
                 supabase.table('organizations').update({'licencias_compradas': nuevas}).eq('id', org_id).execute()
                 
-                # Registramos el log financiero
                 supabase.table('action_logs').insert({
                     'org_id': org_id, 'action_type': 'BILLING_PURCHASE_MANUAL', 'target_user': f'+{cantidad} Licencias', 
                     'performed_by': 'SUPER_ADMIN', 'status_color': 'green', 'metadata': {'total_eur': estado['total']}
@@ -252,31 +260,32 @@ class ConsolaAdmin:
                 ui.notify(f"Error asignando licencias: {ex}", type='negative')
 
         def aprobar_pedido_oficial(pedido_id, org_id, cantidad, total_factura):
-            """Esta función procesa un pedido que viene de la tienda de la Org"""
             try:
-                # 1. Sumar las licencias
-                res_org = supabase.table('organizations').select('licencias_compradas').eq('id', org_id).single().execute()
-                actuales = res_org.data.get('licencias_compradas', 0) if res_org.data else 0
+                res_org = supabase.table('organizations').select('licencias_compradas, cif_nif').eq('id', org_id).single().execute()
+                org_data = res_org.data
+                
+                # Check de seguridad fiscal (Opcional, pero te avisa si no tienen CIF)
+                if not org_data.get('cif_nif'):
+                    ui.notify("⚠️ Aviso: Esta organización no tiene CIF registrado. Deberías pedírselo para la factura.", type='warning', timeout=6000)
+
+                actuales = org_data.get('licencias_compradas', 0) if org_data else 0
                 nuevas = actuales + cantidad
                 supabase.table('organizations').update({'licencias_compradas': nuevas}).eq('id', org_id).execute()
 
-                # 2. Cambiar estado del pedido a COMPLETED
                 supabase.table('orders').update({'status': 'COMPLETED'}).eq('id', pedido_id).execute()
 
-                # 3. Log de éxito
                 supabase.table('action_logs').insert({
                     'org_id': org_id, 'action_type': 'ORDER_APPROVED', 'target_user': f'Pedido ID: {str(pedido_id)[:8]}', 
                     'performed_by': 'SUPER_ADMIN', 'status_color': 'blue', 'metadata': {'total_eur': total_factura}
                 }).execute()
 
                 ui.notify(f"✅ Pedido aprobado. Se han sumado {cantidad} licencias a la organización.", type='positive')
-                self.render() # Recargar para que desaparezca de la bandeja de entrada
+                self.render() 
 
             except Exception as ex:
                 ui.notify(f"Error aprobando pedido: {ex}", type='negative')
 
         def rechazar_pedido_oficial(pedido_id):
-            """Cancela el pedido si no se ha pagado o hay un error"""
             try:
                 supabase.table('orders').update({'status': 'CANCELLED'}).eq('id', pedido_id).execute()
                 ui.notify(f"Pedido cancelado.", type='warning')
@@ -286,11 +295,8 @@ class ConsolaAdmin:
 
 
         with ui.column().classes('w-full gap-8 items-start'):
-            
-            # --- PANEL SUPERIOR: INBOX DE PEDIDOS OFICIALES ---
             if pedidos_pendientes:
                 with ui.column().classes('w-full bg-[#161B22] border-2 border-[#83ABF1] rounded-2xl p-6 shadow-xl relative'):
-                    # Badge de notificación
                     with ui.element('div').classes('absolute -top-4 -right-4 bg-[#0E1117] rounded-full p-2 border border-[#83ABF1] flex items-center justify-center relative'):
                         ui.icon('notifications_active', color='#83ABF1', size='2rem')
                         ui.label(str(len(pedidos_pendientes))).classes('absolute top-0 right-0 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full transform translate-x-1 -translate-y-1 shadow-lg')
@@ -298,13 +304,15 @@ class ConsolaAdmin:
                     ui.label('BANDEJA DE ENTRADA: PEDIDOS PENDIENTES').classes('text-[#83ABF1] font-black tracking-widest text-lg mb-4')
                     
                     for ped in pedidos_pendientes:
-                        org_name = next((o['name'] for o in lista_orgs_raw if o['id'] == ped['org_id']), ped['org_id'])
+                        org = next((o for o in lista_orgs_raw if o['id'] == ped['org_id']), {'name': ped['org_id'], 'cif_nif': 'Desconocido'})
+                        org_name = org['name']
+                        org_cif = org.get('cif_nif') or 'Sin CIF'
                         fecha = ped.get('created_at', '')[:16].replace('T', ' a las ')
                         
                         with ui.row().classes('w-full items-center justify-between p-4 bg-[#0E1117] rounded-xl border border-blue-900/50 mb-2 shadow-inner'):
                             with ui.column().classes('gap-1 w-1/3'):
                                 ui.label(f"{org_name}").classes('text-white font-bold text-lg')
-                                ui.label(f"Pedido ID: {str(ped['id'])[:8]}").classes('text-gray-500 text-xs font-mono')
+                                ui.label(f"CIF: {org_cif} | ID: {str(ped['id'])[:8]}").classes('text-gray-500 text-xs font-mono')
                                 ui.label(f"Fecha: {fecha}").classes('text-gray-500 text-xs')
                             
                             with ui.column().classes('gap-1 items-end w-1/4'):
@@ -316,10 +324,7 @@ class ConsolaAdmin:
                                 ui.button('RECHAZAR', icon='cancel', on_click=lambda p=ped['id']: rechazar_pedido_oficial(p)).classes('bg-red-900/50 text-red-300 font-bold rounded-lg px-4 hover:bg-red-800')
                                 ui.button('APROBAR Y ACTIVAR', icon='check_circle', on_click=lambda p=ped['id'], o=ped['org_id'], c=ped['cantidad_licencias'], t=ped['total']: aprobar_pedido_oficial(p, o, c, t)).classes('bg-[#22C55E] text-[#0E1117] font-black rounded-lg px-6 shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:scale-105 transition-transform')
 
-            # --- PANEL INFERIOR: CALCULADORA MANUAL ---
             with ui.row().classes('w-full gap-8 mt-4'):
-                
-                # FORMULARIO IZQUIERDO
                 with ui.column().classes('flex-grow bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
                     ui.label('Asignación Manual (Excepciones/Regalos)').classes('text-xl text-[#83ABF1] font-bold mb-6')
                     
@@ -329,7 +334,6 @@ class ConsolaAdmin:
                     input_cantidad = ui.number(label='2. Volumen de Licencias (1 licencia = 3 pasaciones)', value=0, min=0, on_change=actualizar_calculos).classes('w-full text-xl')
                     input_cantidad.props('dark filled color="blue"')
 
-                # CALCULADORA / RECIBO DERECHO
                 with ui.card().classes('w-96 bg-[#161B22] border border-[#83ABF1]/30 p-8 shadow-2xl flex flex-col justify-between rounded-2xl'):
                     ui.label('RESUMEN ASIGNACIÓN MANUAL').classes('text-[#83ABF1] font-bold text-sm tracking-widest mb-6 border-b border-gray-800 pb-2')
                     
@@ -440,7 +444,6 @@ class ConsolaAdmin:
                     ui.label('ERP DE ADMINISTRACIÓN AUDEO').classes('text-2xl text-white font-black tracking-tight')
                 ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('px-8 py-2 font-bold rounded-xl')
 
-            # --- PESTAÑAS (Añadido el Badge de Notificación si hay pedidos) ---
             try:
                 res_pedidos_tab = supabase.table('orders').select('id', count='exact').eq('status', 'PENDING').execute()
                 num_pedidos = res_pedidos_tab.count if res_pedidos_tab.count else 0
@@ -449,7 +452,6 @@ class ConsolaAdmin:
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_orgs = ui.tab('ORGANIZACIONES', icon='domain')
                 
-                # Tab con notificación visual
                 with ui.tab('FACTURACIÓN B2B', icon='point_of_sale') as t_billing:
                     if num_pedidos > 0:
                         ui.badge(str(num_pedidos), color='red').classes('absolute top-0 right-0 transform translate-x-2 -translate-y-1')
@@ -463,37 +465,48 @@ class ConsolaAdmin:
                 with ui.tab_panel(t_orgs).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # FORMULARIO DE ALTA/EDICIÓN
-                        with ui.column().classes('w-1/3 min-w-[420px] bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
-                            ui.label('Configuración Básica').classes('text-lg text-[#83ABF1] font-bold mb-4 border-b border-gray-800 pb-2 w-full')
-                            
-                            inputs = {
-                                'nom': ui.input('Nombre Comercial').classes('w-full mb-2').props('dark outlined'),
-                                'pwd': ui.input('Clave Maestra').classes('w-full mb-4').props('dark outlined'),
-                                'sape': ui.number('Lic. SAPE', value=0, min=0).classes('w-full mb-2').props('dark outlined'),
-                                'sapp': ui.number('Lic. SAPP', value=0, min=0).classes('w-full mb-4').props('dark outlined'),
-                                'demo': ui.checkbox('Cuenta DEMO (Pruebas al 10%)').classes('text-white mb-2 w-full'),
-                                'pin': ui.input('PIN de Compras B2B (Seguridad)').classes('w-full mb-6').props('dark outlined'), # NUEVO CAMPO
+                        # --- FORMULARIO DE ALTA/EDICIÓN (AMPLIADO CON DATOS FISCALES) ---
+                        with ui.column().classes('w-1/3 min-w-[450px]'):
+                            # Bloque 1: Configuración Operativa
+                            with ui.column().classes('w-full bg-[#0E1117] p-8 rounded-2xl border border-gray-800 mb-6'):
+                                ui.label('Configuración Operativa').classes('text-lg text-[#83ABF1] font-bold mb-4 border-b border-gray-800 pb-2 w-full')
                                 
-                                'p_usr': ui.checkbox('Puede crear/editar usuarios').classes('text-white'),
-                                'p_stat': ui.checkbox('Ver estadísticas de su organización').classes('text-white'),
-                                'p_comp': ui.checkbox('Ver comparativas anónimas sectoriales').classes('text-white mb-4'),
+                                inputs = {
+                                    'nom': ui.input('Nombre Comercial').classes('w-full mb-2').props('dark outlined'),
+                                    'pwd': ui.input('Clave Maestra').classes('w-full mb-4').props('dark outlined'),
+                                    'sape': ui.number('Lic. SAPE', value=0, min=0).classes('w-full mb-2').props('dark outlined'),
+                                    'sapp': ui.number('Lic. SAPP', value=0, min=0).classes('w-full mb-4').props('dark outlined'),
+                                    'demo': ui.checkbox('Cuenta DEMO (Pruebas al 10%)').classes('text-white mb-2 w-full'),
+                                    'pin': ui.input('PIN de Compras B2B').classes('w-full mb-2').props('dark outlined'),
+                                    
+                                    # --- NUEVOS CAMPOS FISCALES ---
+                                    'razon_social': ui.input('Razón Social (Para Factura)').classes('w-full mt-4 mb-2').props('dark outlined'),
+                                    'cif': ui.input('CIF / NIF').classes('w-full mb-2').props('dark outlined'),
+                                    'direccion': ui.input('Dirección Fiscal').classes('w-full mb-2').props('dark outlined'),
+                                    'cp': ui.input('Código Postal').classes('w-1/2 inline-block pr-1 mb-4').props('dark outlined'),
+                                    'ciudad': ui.input('Ciudad').classes('w-1/2 inline-block pl-1 mb-4').props('dark outlined'),
+                                    # ------------------------------
+                                    
+                                    'p_usr': ui.checkbox('Puede crear/editar usuarios').classes('text-white mt-4'),
+                                    'p_stat': ui.checkbox('Ver estadísticas de su organización').classes('text-white'),
+                                    'p_comp': ui.checkbox('Ver comparativas anónimas sectoriales').classes('text-white mb-4'),
+                                    
+                                    'p_sape': ui.checkbox('Habilitar asignación de SAPE').classes('text-[#83ABF1] font-bold mt-2'),
+                                    'p_sape_sectores': ui.select(SECTORES_SAPE, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-4 ml-4').props('dark outlined use-chips'),
+                                    
+                                    'p_sapp': ui.checkbox('Habilitar asignación de SAPP').classes('text-green-400 font-bold mt-2'),
+                                    'p_sapp_perfiles': ui.select(PERFILES_SAPP, multiple=True, label='Sectores SAPP Permitidos').classes('w-full mb-2 ml-4').props('dark outlined use-chips'),
+                                    'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips')
+                                }
                                 
-                                'p_sape': ui.checkbox('Habilitar asignación de SAPE').classes('text-[#83ABF1] font-bold mt-2'),
-                                'p_sape_sectores': ui.select(SECTORES_SAPE, multiple=True, label='Sectores SAPE Permitidos').classes('w-full mb-4 ml-4').props('dark outlined use-chips'),
-                                
-                                'p_sapp': ui.checkbox('Habilitar asignación de SAPP').classes('text-green-400 font-bold mt-2'),
-                                'p_sapp_perfiles': ui.select(PERFILES_SAPP, multiple=True, label='Sectores SAPP Permitidos').classes('w-full mb-2 ml-4').props('dark outlined use-chips'),
-                                'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips')
-                            }
-                            
-                            inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
-                            inputs['p_sapp_perfiles'].bind_visibility_from(inputs['p_sapp'], 'value')
-                            inputs['p_sapp_comp'].bind_visibility_from(inputs['p_sapp'], 'value')
+                                inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
+                                inputs['p_sapp_perfiles'].bind_visibility_from(inputs['p_sapp'], 'value')
+                                inputs['p_sapp_comp'].bind_visibility_from(inputs['p_sapp'], 'value')
 
-                            with ui.column().classes('w-full mt-6 p-6 border border-[#83ABF1]/30 rounded-xl bg-[#161B22] shadow-lg'):
-                                ui.label('CREDENCIALES DE ACCESO').classes('text-[#83ABF1] text-xs font-black tracking-widest mb-1')
-                                ui.label('Crea el usuario que gestionará esta organización.').classes('text-gray-400 text-xs mb-4')
+                            # Bloque 2: Credenciales de Acceso
+                            with ui.column().classes('w-full p-6 border border-[#83ABF1]/30 rounded-xl bg-[#161B22] shadow-lg'):
+                                ui.label('CREDENCIALES DEL ADMINISTRADOR CLIENTE').classes('text-[#83ABF1] text-xs font-black tracking-widest mb-1')
+                                ui.label('Crea el usuario principal que gestionará esta organización.').classes('text-gray-400 text-xs mb-4')
                                 
                                 inputs['admin_user'] = ui.input('Usuario Admin (ej: ugr_admin)').props('dark outlined').classes('w-full mb-3')
                                 inputs['admin_pass'] = ui.input('Contraseña Admin', password=True).props('dark outlined password-toggle-button').classes('w-full')
@@ -509,11 +522,19 @@ class ConsolaAdmin:
                                 if orgs:
                                     for o in orgs:
                                         with ui.row().classes('w-full justify-between items-center p-4 border-b border-gray-800 hover:bg-[#161B22] rounded-lg transition-colors'):
-                                            with ui.column().classes('gap-1'):
-                                                ui.label(o['name'].upper()).classes('text-white font-bold text-lg')
-                                                ui.label(f"Org_ID: {o['id']} | PIN de Compras: {o.get('pin_seguridad', '1234')}").classes('text-xs text-gray-500 font-mono')
-                                                ui.label(f"SAPE: {o['sape_licenses']} | SAPP: {o['sapp_licenses']} | Ciclos Disponibles: {o.get('licencias_compradas', 0)}").classes('text-sm text-[#83ABF1] font-bold mt-1')
-                                            with ui.row().classes('gap-2'):
+                                            with ui.column().classes('gap-1 w-2/3'):
+                                                with ui.row().classes('items-center gap-2'):
+                                                    ui.label(o['name'].upper()).classes('text-white font-bold text-lg')
+                                                    if not o.get('cif_nif'):
+                                                        ui.icon('warning', color='orange').classes('text-sm').tooltip('Falta CIF/NIF para facturar')
+                                                
+                                                ui.label(f"Org_ID: {o['id']} | PIN: {o.get('pin_seguridad', '1234')}").classes('text-xs text-gray-500 font-mono')
+                                                
+                                                saldo = o.get('licencias_compradas', 0)
+                                                color_saldo = "text-green-400" if saldo > 0 else "text-red-400"
+                                                ui.label(f"Licencias Evolutivas Disponibles: {saldo}").classes(f'text-sm font-bold mt-1 {color_saldo}')
+                                            
+                                            with ui.row().classes('gap-2 w-1/3 justify-end'):
                                                 ui.button(icon='edit', on_click=lambda o=o: self.preparar_edicion(o, inputs)).props('flat round color=blue')
                                 else:
                                     ui.label("Aún no hay organizaciones creadas.").classes('text-gray-500 italic')
