@@ -1,0 +1,151 @@
+﻿id;TITULO;NARRATIVA;VARIABLE;ES_INVERSA
+SAIV_T_001;Optimización de Hardware;Supervisar la instalación y calibración de servidores físicos en un centro de datos.;T;No
+SAIV_T_002;Mantenimiento de Robótica;Reparar y ajustar los brazos mecánicos de una línea de producción automatizada.;T;No
+SAIV_T_003;Infraestructura de Red;Desplegar cableado de fibra óptica y configurar equipos de conmutación física.;T;No
+SAIV_T_004;Sistemas de Energías Renovables;Instalar y mantener paneles solares y sistemas de almacenamiento de energía.;T;No
+SAIV_T_005;Mecánica de Precisión;Desmontar y reconstruir motores de alto rendimiento para mejorar su eficiencia.;T;No
+SAIV_T_006;Telecomunicaciones Críticas;Configurar antenas y sistemas de transmisión en torres de comunicación.;T;No
+SAIV_T_007;Domótica Avanzada;Instalar sistemas físicos de control inteligente en edificios residenciales.;T;No
+SAIV_T_008;Electrónica de Consumo;Reparar circuitos impresos y componentes internos de dispositivos móviles.;T;No
+SAIV_T_009;Construcción Modular;Dirigir el ensamblaje de estructuras arquitectónicas prefabricadas.;T;No
+SAIV_T_010;Soldadura Especializada;Realizar uniones de alta resistencia en estructuras metálicas complejas.;T;No
+SAIV_T_011;Mantenimiento de Drones;Ajustar los componentes mecánicos y sensores físicos de drones industriales.;T;No
+SAIV_T_012;Ingeniería de Planta;Supervisar el funcionamiento de calderas y sistemas de refrigeración industrial.;T;No
+SAIV_T_013;Sistemas Hidráulicos;Reparar sistemas de bombeo y tuberías en plantas de tratamiento de agua.;T;No
+SAIV_T_014;Automoción Eléctrica;Diagnosticar fallos en las baterías y sistemas de tracción de vehículos eléctricos.;T;No
+SAIV_T_015;Logística Física;Operar maquinaria pesada para el movimiento de contenedores en un puerto.;T;No
+SAIV_T_016;Impresión 3D Industrial;Configurar y calibrar máquinas de fabricación aditiva para piezas metálicas.;T;No
+SAIV_T_017;Seguridad Física;Instalar cierres de seguridad y sistemas de acceso biométrico físicos.;T;No
+SAIV_T_018;Técnico de Sonido en Vivo;Montar y cablear sistemas de altavoces y mesas de mezcla para grandes eventos.;T;No
+SAIV_T_019;Refrigeración de Sistemas;Mantener los sistemas de climatización de grandes centros de computación.;T;No
+SAIV_T_020;Montaje de Prototipos;Construir modelos físicos de nuevos productos para pruebas de ergonomía.;T;No
+SAIV_T_021;Instalaciones Eléctricas;Diseñar y ejecutar el esquema eléctrico de una nueva nave industrial.;T;No
+SAIV_T_022;Mantenimiento de Ascensores;Revisar y ajustar los sistemas de frenado y tracción de elevadores.;T;No
+SAIV_T_023;Carpintería de Diseño;Construir muebles a medida utilizando herramientas eléctricas de precisión.;T;No
+SAIV_T_024;Rechazo a lo Manual (INV);Prefieres trabajar exclusivamente con software, evitando cualquier contacto con hardware.;T;Sí
+SAIV_T_025;Aversión al Taller (INV);Te resulta tedioso tener que usar herramientas para arreglar algo que se ha roto.;T;Sí
+SAIV_C_001;Análisis de Datos Genómicos;Identificar patrones en secuencias de ADN mediante algoritmos complejos.;C;No
+SAIV_C_002;Modelado Climático;Desarrollar modelos matemáticos para predecir el impacto del calentamiento global.;C;No
+SAIV_C_003;Investigación Farmacéutica;Analizar la reacción de compuestos químicos para crear nuevas medicinas.;C;No
+SAIV_C_004;Astronomía de Datos;Estudiar señales de radio del espacio profundo para descubrir nuevos exoplanetas.;C;No
+SAIV_C_005;Neurociencia Cognitiva;Investigar cómo los neurotransmisores afectan al comportamiento humano.;C;No
+SAIV_C_006;Matemáticas Aplicadas;Resolver problemas de optimización logística mediante el uso de cálculo avanzado.;C;No
+SAIV_C_007;Ciberseguridad Analítica;Investigar vulnerabilidades en sistemas operativos analizando el código fuente.;C;No
+SAIV_C_008;Física de Partículas;Trabajar en laboratorios de alta energía analizando colisiones atómicas.;C;No
+SAIV_C_009;Inteligencia Artificial;Desarrollar redes neuronales para mejorar el procesamiento del lenguaje natural.;C;No
+SAIV_C_010;Biología Marina;Estudiar el comportamiento de microorganismos en ecosistemas oceánicos profundos.;C;No
+SAIV_C_011;Sociología de Datos;Analizar grandes volúmenes de datos sociales para entender tendencias migratorias.;C;No
+SAIV_C_012;Economía Cuantitativa;Crear modelos econométricos para predecir las fluctuaciones del mercado bursátil.;C;No
+SAIV_C_013;Arqueología Científica;Utilizar técnicas de datación por carbono para analizar restos históricos.;C;No
+SAIV_C_014;Química de Materiales;Investigar nuevos polímeros para crear plásticos biodegradables.;C;No
+SAIV_C_015;Geología de Prospección;Analizar la composición del suelo para localizar yacimientos minerales.;C;No
+SAIV_C_016;Epidemiología;Estudiar la propagación de virus para diseñar estrategias de prevención.;C;No
+SAIV_C_017;Lingüística Computacional;Analizar la estructura del lenguaje para mejorar los traductores automáticos.;C;No
+SAIV_C_018;Investigación Operativa;Aplicar el método científico para mejorar la toma de decisiones empresariales.;C;No
+SAIV_C_019;Biotecnología Agraria;Desarrollar semillas más resistentes mediante la edición genética.;C;No
+SAIV_C_020;Paleontología de Datos;Digitalizar y analizar fósiles para reconstruir ecosistemas antiguos.;C;No
+SAIV_C_021;Estadística Médica;Evaluar la eficacia de tratamientos clínicos mediante pruebas de hipótesis.;C;No
+SAIV_C_022;Filosofía de la Ciencia;Analizar los fundamentos lógicos y éticos de la investigación científica.;C;No
+SAIV_C_023;Nanotecnología;Investigar el comportamiento de la materia a escala atómica para crear circuitos.;C;No
+SAIV_C_024;Desinterés Teórico (INV);Prefieres soluciones rápidas y prácticas antes que entender la teoría científica.;C;Sí
+SAIV_C_025;Rechazo al Análisis (INV);Te aburre pasar horas analizando datos para encontrar una explicación lógica.;C;Sí
+SAIV_A_001;Dirección de Arte Digital;Definir la identidad visual y la estética de una experiencia de realidad aumentada.;A;No
+SAIV_A_002;Guion de Narrativas;Escribir tramas y diálogos originales para videojuegos de mundo abierto.;A;No
+SAIV_A_003;Composición Musical;Crear bandas sonoras electrónicas utilizando sintetizadores y software de audio.;A;No
+SAIV_A_004;Diseño de Moda Sostenible;Diseñar prendas de ropa innovadoras utilizando materiales reciclados.;A;No
+SAIV_A_005;Arquitectura de Interiores;Transformar espacios físicos para que transmitan una emoción específica al usuario.;A;No
+SAIV_A_006;Ilustración Editorial;Crear conceptos visuales para portadas de libros y revistas internacionales.;A;No
+SAIV_A_007;Fotografía Documental;Capturar imágenes que narren historias sociales impactantes en entornos remotos.;A;No
+SAIV_A_008;Artes Escénicas;Participar en la dirección de una obra de teatro experimental.;A;No
+SAIV_A_009;Publicidad Creativa;Idear campañas virales basadas en conceptos disruptivos y artísticos.;A;No
+SAIV_A_010;Diseño de Experiencia (UX);Crear interfaces digitales que sean estéticamente bellas y fáciles de usar.;A;No
+SAIV_A_011;Escultura Digital;Modelar personajes en 3D con un alto nivel de detalle artístico.;A;No
+SAIV_A_012;Dirección de Cine;Coordinar la visión artística de un cortometraje independiente.;A;No
+SAIV_A_013;Curaduría de Arte;Seleccionar y organizar obras para una exposición en una galería moderna.;A;No
+SAIV_A_014;Diseño de Tipografía;Crear nuevas fuentes de letras que combinen legibilidad y expresión artística.;A;No
+SAIV_A_015;Marketing de Guerrilla;Diseñar acciones artísticas en la calle para promocionar una marca.;A;No
+SAIV_A_016;Danza y Expresión;Explorar nuevas formas de movimiento corporal en un entorno profesional.;A;No
+SAIV_A_017;Producción Audiovisual;Editar videos utilizando efectos visuales para crear una atmósfera única.;A;No
+SAIV_A_018;Diseño de Joyería;Crear piezas ornamentales combinando metales preciosos y diseño moderno.;A;No
+SAIV_A_019;Narrativa Transmedia;Escribir una historia que se desarrolle en redes sociales, libros y series.;A;No
+SAIV_A_020;Pintura Mural;Realizar grandes intervenciones artísticas en espacios urbanos.;A;No
+SAIV_A_021;Diseño de Packaging;Crear envases originales que destaquen por su forma y concepto visual.;A;No
+SAIV_A_022;Animación 2D/3D;Dar vida a personajes a través de técnicas de animación tradicionales o digitales.;A;No
+SAIV_A_023;Copywriting Creativo;Escribir textos publicitarios que utilicen la metáfora y el humor para convencer.;A;No
+SAIV_A_024;Rechazo a la Creatividad (INV);Prefieres seguir un manual de estilo estricto antes que crear algo desde cero.;A;Sí
+SAIV_A_025;Aversión a la Improvisación (INV);Te sientes incómodo en entornos donde no hay reglas claras y todo es subjetivo.;A;Sí
+SAIV_S_001;Mentoría de Talento;Guiar el desarrollo profesional de jóvenes, ayudándoles a superar bloqueos.;S;No
+SAIV_S_002;Resolución de Conflictos;Mediar en disputas laborales para asegurar el bienestar del equipo.;S;No
+SAIV_S_003;Psicología de Emergencias;Brindar apoyo emocional a personas que han sufrido una crisis traumática.;S;No
+SAIV_S_004;Educación Especial;Adaptar metodologías de enseñanza para alumnos con discapacidades cognitivas.;S;No
+SAIV_S_005;Trabajo Social Comunitario;Desarrollar programas de integración para colectivos en riesgo de exclusión.;S;No
+SAIV_S_006;Enfermería Especializada;Cuidar de pacientes en unidades de cuidados intensivos con trato humano.;S;No
+SAIV_S_007;Formación en Habilidades;Impartir talleres sobre inteligencia emocional y comunicación asertiva.;S;No
+SAIV_S_008;Orientación Vocacional;Ayudar a estudiantes a descubrir su propósito y elegir su carrera profesional.;S;No
+SAIV_S_009;Cooperación Internacional;Gestionar proyectos de ayuda humanitaria en países en desarrollo.;S;No
+SAIV_S_010;Terapia de Pareja;Ayudar a las personas a mejorar su relación mediante la escucha y el diálogo.;S;No
+SAIV_S_011;Atención al Refugiado;Coordinar la acogida y el soporte legal para personas desplazadas.;S;No
+SAIV_S_012;Gerontología;Mejorar la calidad de vida de las personas mayores mediante actividades sociales.;S;No
+SAIV_S_013;Voluntariado Corporativo;Liderar iniciativas de responsabilidad social dentro de una empresa.;S;No
+SAIV_S_014;Coaching Ejecutivo;Acompañar a directivos en su proceso de mejora personal y de liderazgo.;S;No
+SAIV_S_015;Mediación Familiar;Intervenir en procesos de divorcio para proteger el bienestar de los hijos.;S;No
+SAIV_S_016;Rehabilitación Física;Ayudar a pacientes a recuperar su movilidad tras un accidente.;S;No
+SAIV_S_017;Prevención de Adicciones;Realizar charlas preventivas en institutos sobre el uso de sustancias.;S;No
+SAIV_S_018;Dinamización Juvenil;Organizar eventos culturales y deportivos para jóvenes en barrios humildes.;S;No
+SAIV_S_019;Defensa de Derechos Humanos;Trabajar en una ONG documentando abusos y protegiendo a las víctimas.;S;No
+SAIV_S_020;Psicopedagogía;Diagnosticar problemas de aprendizaje y diseñar planes de intervención.;S;No
+SAIV_S_021;Atención a la Diversidad;Fomentar la inclusión de personas de diferentes culturas en el entorno laboral.;S;No
+SAIV_S_022;Cuidados Paliativos;Acompañar a personas en el final de su vida ofreciendo consuelo y apoyo.;S;No
+SAIV_S_023;Logopedia;Ayudar a niños con dificultades en el habla a comunicarse con fluidez.;S;No
+SAIV_S_024;Falta de Empatía (INV);Prefieres trabajar con máquinas porque las personas suelen ser complicadas.;S;Sí
+SAIV_S_025;Desinterés por Enseñar (INV);No tienes paciencia para explicarle las cosas varias veces a la misma persona.;S;Sí
+SAIV_E_001;Negociación Estratégica;Liderar una ronda de inversión para convencer a inversores de capital riesgo.;E;No
+SAIV_E_002;Dirección de Ventas;Motivar a un equipo comercial para alcanzar objetivos de facturación ambiciosos.;E;No
+SAIV_E_003;Emprendimiento Tech;Fundar una startup y gestionar todos los recursos para que sea rentable.;E;No
+SAIV_E_004;Gestión de Crisis;Tomar decisiones rápidas y firmes para salvar la reputación de una empresa.;E;No
+SAIV_E_005;Derecho Mercantil;Defender los intereses económicos de un cliente en un juicio complejo.;E;No
+SAIV_E_006;Marketing de Influencia;Negociar contratos publicitarios entre marcas y grandes creadores digitales.;E;No
+SAIV_E_007;Expansión Internacional;Dirigir la apertura de nuevas delegaciones comerciales en otros países.;E;No
+SAIV_E_008;Relaciones Públicas;Representar a una organización ante los medios de comunicación y el gobierno.;E;No
+SAIV_E_009;Desarrollo de Negocio;Identificar nuevas oportunidades de mercado y crear alianzas estratégicas.;E;No
+SAIV_E_010;Liderazgo Político;Encabezar una campaña electoral para defender un programa de gobierno.;E;No
+SAIV_E_011;Gestión de Activos;Decidir dónde invertir el capital de una empresa para maximizar beneficios.;E;No
+SAIV_E_012;Franquiciación;Diseñar un modelo de negocio que pueda ser replicado por otros empresarios.;E;No
+SAIV_E_013;Dirección de Operaciones;Supervisar que toda la cadena de valor de la empresa funcione con eficiencia.;E;No
+SAIV_E_014;Headhunting;Localizar y convencer a los mejores directivos para que cambien de empresa.;E;No
+SAIV_E_015;Estrategia de Precios;Analizar la competencia para fijar el precio más competitivo de un producto.;E;No
+SAIV_E_016;Consultoría de Estrategia;Asesorar a CEOs sobre cómo transformar sus empresas para ganar dinero.;E;No
+SAIV_E_017;Gestión de Eventos VIP;Organizar conferencias exclusivas para altos ejecutivos y empresarios.;E;No
+SAIV_E_018;Inversión Inmobiliaria;Comprar y vender propiedades buscando la máxima rentabilidad económica.;E;No
+SAIV_E_019;Trade Marketing;Negociar con grandes superficies la posición de tus productos en el estante.;E;No
+SAIV_E_020;Gestión de Patrocinios;Conseguir fondos de empresas privadas para financiar un equipo deportivo.;E;No
+SAIV_E_021;Venta Consultiva;Convencer a un cliente de que tu software es la mejor solución para sus problemas.;E;No
+SAIV_E_022;Product Management;Liderar el lanzamiento de un nuevo producto coordinando a todos los equipos.;E;No
+SAIV_E_023;E-commerce Manager;Dirigir una tienda online para aumentar las ventas y el número de clientes.;E;No
+SAIV_E_024;Rechazo al Liderazgo (INV);Prefieres que otros tomen las decisiones importantes y tú limitarte a cumplir.;E;Sí
+SAIV_E_025;Aversión al Riesgo (INV);Te genera mucha ansiedad tener que jugarte dinero en una decisión incierta.;E;Sí
+SAIV_O_001;Auditoría de Procesos;Revisar los flujos de trabajo para asegurar el cumplimiento de la normativa.;O;No
+SAIV_O_002;Control de Inventarios;Gestionar bases de datos de suministros con precisión para que no falte nada.;O;No
+SAIV_O_003;Gestión Tributaria;Preparar las declaraciones de impuestos de una empresa sin cometer errores.;O;No
+SAIV_O_004;Contabilidad Analítica;Registrar cada gasto e ingreso para conocer la rentabilidad real de un proyecto.;O;No
+SAIV_O_005;Administración de Personal;Gestionar las nóminas, contratos y seguros sociales de los empleados.;O;No
+SAIV_O_006;Secretaría de Dirección;Organizar la agenda y los viajes de un directivo de forma impecable.;O;No
+SAIV_O_007;Gestión Documental;Clasificar y archivar miles de documentos digitales para que sean fáciles de encontrar.;O;No
+SAIV_O_008;Cumplimiento Legal (Compliance);Asegurar que la empresa cumple con las leyes de protección de datos.;O;No
+SAIV_O_009;Logística de Almacén;Coordinar la entrada y salida de mercancías siguiendo un horario estricto.;O;No
+SAIV_O_010;Análisis de Riesgos Bancarios;Revisar la documentación de un cliente para decidir si se le concede un crédito.;O;No
+SAIV_O_011;Tramitación Aduanera;Gestionar todos los papeles necesarios para importar productos del extranjero.;O;No
+SAIV_O_012;Gestión de Subvenciones;Rellenar formularios y justificar gastos para conseguir ayudas públicas.;O;No
+SAIV_O_013;Atención al Cliente Administrativa;Resolver dudas de facturación y contratos de forma telefónica o por mail.;O;No
+SAIV_O_014;Planificación de Producción;Crear el calendario de trabajo de una fábrica para optimizar los tiempos.;O;No
+SAIV_O_015;Administración de Fincas;Gestionar las cuentas y reuniones de una comunidad de propietarios.;O;No
+SAIV_O_016;Registro de la Propiedad;Verificar la legalidad de las escrituras de casas y terrenos.;O;No
+SAIV_O_017;Control de Calidad de Datos;Limpiar bases de datos para eliminar registros duplicados o incorrectos.;O;No
+SAIV_O_018;Tesorería;Controlar los pagos a proveedores y los cobros de clientes cada día.;O;No
+SAIV_O_019;Secretaría Judicial;Redactar actas y gestionar los expedientes en un juzgado.;O;No
+SAIV_O_020;Gestión de Compras;Comparar presupuestos de varios proveedores para elegir el más barato.;O;No
+SAIV_O_021;Codificación Médica;Clasificar los diagnósticos de los pacientes para la gestión del hospital.;O;No
+SAIV_O_022;Administración Pública;Trabajar en un ayuntamiento gestionando expedientes de obras y licencias.;O;No
+SAIV_O_023;Recepción y Filtro;Gestionar la entrada de visitas y llamadas en una gran corporación.;O;No
+SAIV_O_024;Falta de Método (INV);Te sientes limitado cuando tienes que seguir procesos administrativos rígidos.;O;Sí
+SAIV_O_025;Desprecio por el Orden (INV);Consideras que el orden excesivo en los documentos es una pérdida de tiempo.;O;Sí
