@@ -205,6 +205,9 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.output(filepath)
     return filepath
 
+# ALIAS PARA RETROCOMPATIBILIDAD CON CÓDIGO ANTIGUO
+generar_pdf_sape = generar_informe_sape 
+
 # ==========================================
 # 4.5 MOTOR GENERADOR B2B (PROFORMAS)
 # ==========================================
@@ -345,5 +348,8 @@ def generar_informe(user_info: Dict, results: Dict, test_type: str = 'SAPE') -> 
     
     if test_type.upper() == 'SAPP':
         return generar_informe_sapp(user_info, results, filepath)
+    elif test_type.upper() == 'SAPE':
+        return generar_informe_sape(user_info, results, filepath)
     else:
+        # Por si acaso llega un test_type raro, hace el SAPE por defecto para no fallar
         return generar_informe_sape(user_info, results, filepath)
