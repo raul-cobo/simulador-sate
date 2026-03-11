@@ -7,7 +7,7 @@ from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import pdf_generator
-import pdf_generator_saiv # NUEVO: Importamos el generador específico del SAIV
+import pdf_generator_saiv 
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -63,7 +63,7 @@ class ConsolaOrganizacion:
         self.users_data = []
         self.evals_data = []
         self.logs_data = []
-        self.qr_events_data = [] # NUEVA LISTA
+        self.qr_events_data = [] 
         self.editing_user = None
         self.dialogo_checkout = None
 
@@ -84,7 +84,6 @@ class ConsolaOrganizacion:
             res_logs = supabase.table('action_logs').select('*').eq('org_id', self.org_id).order('created_at', desc=True).limit(50).execute()
             if res_logs.data: self.logs_data = res_logs.data
             
-            # Cargar los eventos QR
             res_qr = supabase.table('qr_events').select('*').eq('org_id', self.org_id).order('created_at', desc=True).execute()
             if res_qr.data: self.qr_events_data = res_qr.data
             
@@ -109,12 +108,14 @@ class ConsolaOrganizacion:
         ui.navigate.to('/')
 
     # ==========================================
-    # NUEVO: PANEL DE EVENTOS QR
+    # NUEVO: PANEL DE EVENTOS QR (Con 3 Cajones)
     # ==========================================
     def render_panel_qr(self):
-        saldo_actual = self.org_data.get('licencias_compradas', 0)
+        # Leemos los tres saldos
+        sape_bal = self.org_data.get('sape_balance', 0)
+        sapp_bal = self.org_data.get('sapp_balance', 0)
+        saiv_bal = self.org_data.get('saiv_balance', 0)
         
-        # Filtramos qué pruebas puede asignar esta organización
         opciones_pruebas = []
         if self.privilegios.get('can_assign_sape'): opciones_pruebas.append('SAPE')
         if self.privilegios.get('can_assign_sapp'): opciones_pruebas.append('SAPP')
@@ -128,7 +129,6 @@ class ConsolaOrganizacion:
 
         with ui.row().classes('w-full gap-8 items-start'):
             
-            # COLUMNA IZQUIERDA: CREAR NUEVO EVENTO
             with ui.column().classes('w-1/3 min-w-[350px] bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
                 ui.label('Generar Nuevo Evento Masivo').classes('text-xl text-[#83ABF1] font-bold mb-4')
                 ui.label('Crea un enlace y código QR para que tus alumnos se registren al instante desde su móvil.').classes('text-sm text-gray-400 mb-6')
@@ -141,19 +141,28 @@ class ConsolaOrganizacion:
 
                 def crear_evento():
                     plazas = int(inputs_qr['plazas'].value)
+                    tipo = inputs_qr['tipo_test'].value
+                    
                     if not inputs_qr['nombre'].value:
                         ui.notify('Debes ponerle un nombre al evento', type='warning')
                         return
                     
-                    if plazas > saldo_actual and inputs_qr['tipo_test'].value != 'SAIV':
-                         ui.notify(f'No tienes licencias suficientes. Saldo: {saldo_actual}', type='negative')
-                         return
+                    # Verificamos si hay saldo en el cajón correspondiente
+                    if tipo == 'SAPE' and plazas > sape_bal:
+                        ui.notify(f'No tienes licencias suficientes. Saldo SAPE: {sape_bal}', type='negative')
+                        return
+                    if tipo == 'SAPP' and plazas > sapp_bal:
+                        ui.notify(f'No tienes licencias suficientes. Saldo SAPP: {sapp_bal}', type='negative')
+                        return
+                    if tipo == 'SAIV' and plazas > saiv_bal:
+                        ui.notify(f'No tienes licencias suficientes. Saldo SAIV: {saiv_bal}', type='negative')
+                        return
                          
                     try:
                         supabase.table('qr_events').insert({
                             'org_id': self.org_id,
                             'event_name': inputs_qr['nombre'].value.strip(),
-                            'test_type': inputs_qr['tipo_test'].value,
+                            'test_type': tipo,
                             'max_slots': plazas,
                             'used_slots': 0,
                             'is_active': True
@@ -161,13 +170,12 @@ class ConsolaOrganizacion:
                         
                         self.registrar_log('QR_EVENT_CREATED', f"{inputs_qr['nombre'].value} ({plazas} plazas)", 'blue')
                         ui.notify('Evento creado correctamente.', type='positive')
-                        self.render() # Recargar para ver el nuevo evento
+                        self.render() 
                     except Exception as e:
                         ui.notify(f'Error creando evento: {e}', type='negative')
 
                 ui.button('CREAR ACCESO QR', on_click=crear_evento).classes('w-full bg-[#83ABF1] text-black font-bold py-3 shadow-lg')
 
-            # COLUMNA DERECHA: EVENTOS ACTIVOS
             with ui.column().classes('flex-1'):
                 if not self.qr_events_data:
                     with ui.column().classes('w-full p-10 items-center border border-dashed border-gray-700 rounded-xl'):
@@ -192,7 +200,7 @@ class ConsolaOrganizacion:
                             
                             with ui.column().classes('items-end gap-2 w-1/3'):
                                 if is_active:
-                                    url_registro = f"https://tu-dominio.com/join/{evento['id']}" # TODO: Cambiar por el dominio real
+                                    url_registro = f"https://tu-dominio.com/join/{evento['id']}"
                                     with ui.row().classes('gap-2'):
                                         ui.button('VER QR', icon='qr_code', on_click=lambda url=url_registro: self.mostrar_qr_grande(url)).props('outline color=white')
                                         ui.button('COPIAR LINK', icon='content_copy', on_click=lambda url=url_registro: ui.run_javascript(f'navigator.clipboard.writeText("{url}")')).props('flat color=blue')
@@ -203,7 +211,6 @@ class ConsolaOrganizacion:
                                     ui.button('REABRIR', icon='restart_alt', on_click=lambda e_id=evento['id']: self.toggle_evento(e_id, True)).props('flat color=gray').classes('mt-2')
 
     def mostrar_qr_grande(self, url):
-        # Utiliza un servicio gratuito para generar la imagen del QR temporalmente en el dialog
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={url}"
         
         with ui.dialog() as dialog, ui.card().classes('p-8 bg-white items-center rounded-2xl'):
@@ -231,7 +238,6 @@ class ConsolaOrganizacion:
         self.editing_user = None
         inputs['u_nom'].value = ""
         inputs['u_pwd'].value = ""
-        inputs['u_intentos'].value = 1
         inputs['u_sectores'].value = []
         inputs['u_perfil'].value = []
         ui.notify("Formulario en modo CREACIÓN", type="info")
@@ -246,10 +252,6 @@ class ConsolaOrganizacion:
         sapp_data = p_data.get('sapp', {})
         saiv_data = p_data.get('saiv', {})
         
-        intentos = user.get('intentos_disponibles', max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0), saiv_data.get('attempts', 0)))
-        inputs['u_intentos'].value = intentos
-        
-        # Lógica simplificada para mostrar tests asignados en el combo
         asignados = []
         if sape_data.get('attempts', 0) > 0: asignados.append("SAPE")
         if sapp_data.get('attempts', 0) > 0: asignados.append("SAPP")
@@ -257,7 +259,7 @@ class ConsolaOrganizacion:
         
         if "SAPE" in asignados and "SAPP" in asignados: inputs['u_tests'].value = "AMBAS"
         elif asignados: inputs['u_tests'].value = asignados[0]
-        else: inputs['u_tests'].value = "SAPE" # fallback
+        else: inputs['u_tests'].value = "SAPE" 
         
         inputs['u_sectores'].value = sape_data.get('sectors', [])
         
@@ -276,7 +278,6 @@ class ConsolaOrganizacion:
             ui.notify('Error: No puedes crear usuarios sin licencias de pruebas asignadas.', type='negative')
             return
 
-        intentos = int(inputs['u_intentos'].value)
         sape_active = test_val in ["SAPE", "AMBAS"]
         sapp_active = test_val in ["SAPP", "AMBAS"]
         saiv_active = test_val == "SAIV"
@@ -284,20 +285,21 @@ class ConsolaOrganizacion:
         sectores_seleccionados = inputs['u_sectores'].value if inputs['u_sectores'].value else []
         perfiles_seleccionados = inputs['u_perfil'].value if inputs['u_perfil'].value else []
 
+        # REGLA DE NEGOCIO: 3 Intentos para Evolutivas, 1 Intento para SAIV
         profile_data = {
-            "sape_attempts_allowed": intentos if sape_active else 0,
-            "sapp_attempts_allowed": intentos if sapp_active else 0,
+            "sape_attempts_allowed": 3 if sape_active else 0,
+            "sapp_attempts_allowed": 3 if sapp_active else 0,
             "sape": {
-                "attempts": intentos if sape_active else 0,
+                "attempts": 3 if sape_active else 0,
                 "sectors": sectores_seleccionados
             },
             "sapp": {
-                "attempts": intentos if sapp_active else 0,
+                "attempts": 3 if sapp_active else 0,
                 "profile": ", ".join(perfiles_seleccionados),
                 "groups": [] 
             },
             "saiv": {
-                "attempts": intentos if saiv_active else 0
+                "attempts": 1 if saiv_active else 0
             }
         }
 
@@ -310,8 +312,8 @@ class ConsolaOrganizacion:
             "role": "USER",
             "is_deleted": False,
             "profile_data": profile_data,
-            "intentos_disponibles": intentos, 
-            "max_intentos": intentos
+            "intentos_disponibles": 3 if (sape_active or sapp_active) else 1, 
+            "max_intentos": 3 if (sape_active or sapp_active) else 1
         }
 
         try:
@@ -321,21 +323,32 @@ class ConsolaOrganizacion:
                 ui.notify('Usuario actualizado correctamente', type='positive')
                 self.limpiar_formulario(inputs)
             else:
-                saldo_actual = self.org_data.get('licencias_compradas', 0)
+                # COMPROBACIÓN DE CAJONES
+                bal_sape = self.org_data.get('sape_balance', 0)
+                bal_sapp = self.org_data.get('sapp_balance', 0)
+                bal_saiv = self.org_data.get('saiv_balance', 0)
                 
-                # OJO: Si es SAIV puro, y la org tiene permiso SAIV, no comprobamos saldo global
-                requiere_saldo = sape_active or sapp_active
-                
-                if requiere_saldo and saldo_actual <= 0:
-                    ui.notify('❌ Saldo de licencias insuficiente para crear este usuario.', type='negative')
+                if sape_active and bal_sape <= 0:
+                    ui.notify('❌ Saldo de licencias SAPE insuficiente.', type='negative')
+                    return
+                if sapp_active and bal_sapp <= 0:
+                    ui.notify('❌ Saldo de licencias SAPP insuficiente.', type='negative')
+                    return
+                if saiv_active and bal_saiv <= 0:
+                    ui.notify('❌ Saldo de licencias SAIV insuficiente.', type='negative')
                     return
 
                 res_insert = supabase.table('users').insert(payload).execute()
                 
-                if requiere_saldo:
-                    nuevo_saldo = saldo_actual - 1
-                    supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
-                    self.org_data['licencias_compradas'] = nuevo_saldo
+                # DESCUENTO DE CAJONES
+                update_payload = {}
+                if sape_active: update_payload['sape_balance'] = bal_sape - 1
+                if sapp_active: update_payload['sapp_balance'] = bal_sapp - 1
+                if saiv_active: update_payload['saiv_balance'] = bal_saiv - 1
+
+                if update_payload:
+                    supabase.table('organizations').update(update_payload).eq('id', self.org_id).execute()
+                    self.org_data.update(update_payload)
                     self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
 
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
@@ -388,19 +401,21 @@ class ConsolaOrganizacion:
             if not all(col in df.columns for col in req):
                 raise ValueError("Faltan columnas requeridas (username, password, tests)")
 
-            usuarios_a_crear = len(df)
-            saldo_actual = self.org_data.get('licencias_compradas', 0)
+            bal_sape = self.org_data.get('sape_balance', 0)
+            bal_sapp = self.org_data.get('sapp_balance', 0)
+            bal_saiv = self.org_data.get('saiv_balance', 0)
             can_assign_saiv = self.privilegios.get('can_assign_saiv', False)
 
-            # Contar licencias requeridas (SAPE/SAPP)
-            licencias_necesarias = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPE", "SAPP", "AMBAS", "TODAS"]))
+            # Contar licencias requeridas por test
+            req_sape = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPE", "AMBAS", "TODAS"]))
+            req_sapp = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPP", "AMBAS", "TODAS"]))
+            req_saiv = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAIV", "TODAS"]))
 
-            if licencias_necesarias > saldo_actual:
-                ui.notify(f'❌ Saldo insuficiente. El archivo requiere {licencias_necesarias} licencias y solo tienes {saldo_actual}.', type='negative', timeout=8000)
+            if req_sape > bal_sape or req_sapp > bal_sapp or req_saiv > bal_saiv:
+                ui.notify(f'❌ Saldo insuficiente. Requerido: {req_sape} SAPE, {req_sapp} SAPP, {req_saiv} SAIV. Disponible: {bal_sape} SAPE, {bal_sapp} SAPP, {bal_saiv} SAIV.', type='negative', timeout=10000)
                 return
 
             count_creados = 0
-            count_gastadas = 0
             errores = 0
             
             for _, row in df.iterrows():
@@ -412,20 +427,18 @@ class ConsolaOrganizacion:
                 if saiv_active and not can_assign_saiv:
                     saiv_active = False
 
-                intentos_defecto = 3
-
                 profile_data = {
                     "sape": {
-                        "attempts": intentos_defecto if sape_active else 0,
+                        "attempts": 3 if sape_active else 0,
                         "sectors": [s.strip().upper() for s in str(row.get('sape_sectors', '')).split(',')] if pd.notna(row.get('sape_sectors')) else []
                     },
                     "sapp": {
-                        "attempts": intentos_defecto if sapp_active else 0,
+                        "attempts": 3 if sapp_active else 0,
                         "profile": str(row.get('sapp_profile', '')).strip().title(),
                         "groups": [g.strip() for g in str(row.get('sapp_groups', '')).split(',')] if pd.notna(row.get('sapp_groups')) else []
                     },
                     "saiv": {
-                        "attempts": intentos_defecto if saiv_active else 0
+                        "attempts": 1 if saiv_active else 0
                     }
                 }
 
@@ -436,8 +449,8 @@ class ConsolaOrganizacion:
                     "role": "USER",
                     "is_deleted": False,
                     "profile_data": profile_data,
-                    "intentos_disponibles": intentos_defecto,
-                    "max_intentos": intentos_defecto
+                    "intentos_disponibles": 3 if (sape_active or sapp_active) else 1,
+                    "max_intentos": 3 if (sape_active or sapp_active) else 1
                 }
                 
                 try:
@@ -447,26 +460,35 @@ class ConsolaOrganizacion:
                     else:
                         supabase.table("users").insert(payload).execute()
                         count_creados += 1
-                        if sape_active or sapp_active:
-                            count_gastadas += 1
                 except Exception as ex_u:
                     print(f"Error insertando {payload['username']}: {ex_u}")
                     errores += 1
 
-            if count_gastadas > 0:
-                nuevo_saldo = saldo_actual - count_gastadas
-                supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
-                self.org_data['licencias_compradas'] = nuevo_saldo
-                self.registrar_log('LICENSE_CONSUMED', f'-{count_gastadas} Licencias', 'green-yellow', 'Carga Masiva')
+            # Descontar los tres cajones a la vez
+            nuevo_sape = bal_sape - req_sape
+            nuevo_sapp = bal_sapp - req_sapp
+            nuevo_saiv = bal_saiv - req_saiv
 
+            supabase.table('organizations').update({
+                'sape_balance': nuevo_sape,
+                'sapp_balance': nuevo_sapp,
+                'saiv_balance': nuevo_saiv
+            }).eq('id', self.org_id).execute()
+            
+            self.org_data['sape_balance'] = nuevo_sape
+            self.org_data['sapp_balance'] = nuevo_sapp
+            self.org_data['saiv_balance'] = nuevo_saiv
+            
+            self.registrar_log('LICENSE_CONSUMED', f'Carga Masiva: -{req_sape}S -{req_sapp}P -{req_saiv}V', 'green-yellow')
             self.registrar_log('BULK_UPLOAD', f'{count_creados} creados', 'green-blue')
 
-            ui.notify(f'Proceso finalizado: {count_creados} creados. Licencias usadas: {count_gastadas}.', type='positive' if errores==0 else 'warning')
+            ui.notify(f'Proceso finalizado: {count_creados} creados.', type='positive' if errores==0 else 'warning')
             self.render()
 
         except Exception as ex:
             self.registrar_log('ERROR_BULK', 'Archivo', 'yellow-red', str(ex))
             ui.notify(f'Error procesando el archivo: {ex}', type='negative')
+
 
     # ==========================================
     # TIENDA Y FACTURACIÓN B2B (PROFORMAS)
@@ -662,17 +684,19 @@ class ConsolaOrganizacion:
                 with ui.row().classes('items-center gap-4'):
                     ui.button('CERRAR SESIÓN', on_click=self.cerrar_sesion, color='red').classes('font-bold rounded-lg px-8 py-2')
 
-            # KPIs RÁPIDOS
+            # KPIs RÁPIDOS: LOS 3 CAJONES
             with ui.row().classes('w-full gap-4 mb-8'):
-                licencias_disponibles = self.org_data.get('licencias_compradas', 0)
-                ui.label(f"Saldo de Ciclos Evolutivos: {licencias_disponibles}").classes('bg-[#0E1117] text-[#22C55E] px-6 py-3 rounded-xl border border-green-900/50 font-black shadow-[0_0_10px_rgba(34,197,94,0.1)]')
+                ui.label(f"SAPE: {self.org_data.get('sape_balance', 0)} licencias").classes('bg-[#0E1117] text-blue-400 px-6 py-3 rounded-xl border border-blue-900/50 font-black shadow-[0_0_10px_rgba(59,130,246,0.1)]')
+                ui.label(f"SAPP: {self.org_data.get('sapp_balance', 0)} licencias").classes('bg-[#0E1117] text-green-400 px-6 py-3 rounded-xl border border-green-900/50 font-black shadow-[0_0_10px_rgba(34,197,94,0.1)]')
+                ui.label(f"SAIV: {self.org_data.get('saiv_balance', 0)} licencias").classes('bg-[#0E1117] text-purple-400 px-6 py-3 rounded-xl border border-purple-900/50 font-black shadow-[0_0_10px_rgba(168,85,247,0.1)]')
+                
                 usuarios_activos = len([u for u in self.users_data if not u.get('is_deleted')])
-                ui.label(f"Usuarios Activos: {usuarios_activos}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
+                ui.label(f"Usuarios Activos: {usuarios_activos}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold ml-auto')
 
             # SISTEMA DE PESTAÑAS
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_users = ui.tab('USUARIOS E HISTORIAL', icon='manage_accounts')
-                t_qr = ui.tab('EVENTOS EN VIVO (QR)', icon='qr_code_scanner') # NUEVA PESTAÑA
+                t_qr = ui.tab('EVENTOS EN VIVO (QR)', icon='qr_code_scanner') 
                 t_store = ui.tab('TIENDA Y LICENCIAS', icon='storefront')
                 t_stats = ui.tab('ESTADÍSTICAS', icon='analytics')
 
@@ -703,7 +727,8 @@ class ConsolaOrganizacion:
                                     
                                     if opciones_test:
                                         inputs['u_tests'] = ui.select(opciones_test, label='Prueba Asignada', value=opciones_test[0]).classes('w-full mb-2').props('dark outlined')
-                                        inputs['u_intentos'] = ui.number('Intentos permitidos', value=3, min=1).classes('w-full mb-2').props('dark outlined')
+                                        # Ya no pedimos intentos, el backend lo fuerza a 3 (SAPE/SAPP) o 1 (SAIV)
+                                        inputs['u_intentos'] = ui.number(value=3).classes('hidden') 
                                         
                                         if can_sape:
                                             sectores_permitidos = self.privilegios.get('allowed_sape_sectors', SECTORES_OFICIALES)
@@ -748,7 +773,16 @@ class ConsolaOrganizacion:
                                     for u in self.users_data:
                                         if u.get('role') == 'ORG_ADMIN' or u.get('is_deleted'): continue
                                         with ui.row().classes('w-full justify-between items-center p-3 border-b border-gray-800 hover:bg-[#161B22]'):
-                                            ui.label(u['username']).classes('text-white font-bold')
+                                            with ui.column().classes('gap-0'):
+                                                ui.label(u['username']).classes('text-white font-bold')
+                                                
+                                                p_data = u.get('profile_data', {})
+                                                chips = []
+                                                if p_data.get('sape', {}).get('attempts', 0) > 0: chips.append('SAPE')
+                                                if p_data.get('sapp', {}).get('attempts', 0) > 0: chips.append('SAPP')
+                                                if p_data.get('saiv', {}).get('attempts', 0) > 0: chips.append('SAIV')
+                                                ui.label(" | ".join(chips)).classes('text-xs text-gray-500')
+
                                             if self.privilegios.get('can_create_users', False):
                                                 with ui.row().classes('gap-2'):
                                                     ui.button(icon='edit', on_click=lambda u=u: self.preparar_edicion_usuario(u, inputs)).props('flat round color=blue size=sm')
