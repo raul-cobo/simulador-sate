@@ -28,7 +28,7 @@ class SAPEInterface:
         self.limites_sector = self._calcular_limites_sector()
         self._preparar_opciones_actuales()
 
-    def _calcular_limites_sector(self) -> Dict[str, Dict[str, int]]:
+    def _calcular_limites_sector(self) -> Dict[str, Dict[str, float]]:
         limites = {}
         for _, row in self.df_sector.iterrows():
             q_data = {}
@@ -41,10 +41,23 @@ class SAPEInterface:
                             dim, val = partes[0], int(partes[1])
                             if dim not in q_data: q_data[dim] = []
                             q_data[dim].append(val)
+            
+            # NUEVA LÓGICA DE LÍMITES (Suelo de Azar)
             for dim, valores in q_data.items():
-                if dim not in limites: limites[dim] = {'max': 0, 'min': 0}
+                if dim not in limites: limites[dim] = {'max': 0.0, 'min_practico': 0.0}
+                
+                # El máximo sigue siendo elegir la mejor opción
                 limites[dim]['max'] += max(valores + [0])
-                limites[dim]['min'] += min(valores + [0])
+                
+                # El "Mínimo Práctico" ahora es la MEDIA de las opciones (lo que sacarías al azar).
+                # Se asume que hay 4 opciones (A,B,C,D). Sumamos los valores y dividimos por 4.
+                # Nota: Si una opción no tenía valor para esta dimensión, su valor es 0 en el azar.
+                # Completamos la lista hasta tener 4 valores (las 4 opciones)
+                valores_completos = valores + [0] * (4 - len(valores))
+                media_azar = sum(valores_completos) / 4.0
+                
+                limites[dim]['min_practico'] += media_azar
+                
         return limites
 
     def _calcular_brutos_reales(self) -> tuple[Dict[str, float], Dict[str, float]]:
@@ -63,9 +76,27 @@ class SAPEInterface:
         scores = {}
         for dim, suma in sumas_brutas.items():
             if dim in self.limites_sector:
-                rango = self.limites_sector[dim]['max'] - self.limites_sector[dim]['min']
-                val_norm = ((suma - self.limites_sector[dim]['min']) / rango) * 100 if rango != 0 else 50.0
+                maximo = self.limites_sector[dim]['max']
+                suelo_azar = self.limites_sector[dim]['min_practico']
+                rango = maximo - suelo_azar
+                
+                # Nueva Normalización: Si sacas menos que el suelo de azar, la nota es 0 o muy baja.
+                # Si sacas el máximo, es 100.
+                if rango > 0:
+                    val_norm = ((suma - suelo_azar) / rango) * 100
+                elif rango == 0 and suma >= maximo:
+                    val_norm = 100.0 # Caso extremo (solo hay opciones positivas iguales)
+                else:
+                    val_norm = 0.0
+                    
                 scores[dim] = round(max(0.0, min(100.0, val_norm)), 1)
+                
+        # AQUÍ ESTÁ LA MAGIA: Para el Refinador, mandamos la 'suma' en bruto, pero los limites los convertimos
+        # a formato compatible para que el Refinador (IRE) no se rompa
+        limites_compatibles = {
+            dim: {'min': int(limites[dim]['min_practico']), 'max': int(limites[dim]['max'])} 
+            for dim in limites
+        }
                 
         return scores, sumas_brutas
 
@@ -89,7 +120,14 @@ class SAPEInterface:
 
     async def _finalizar_test(self):
         raw_scores, sumas_brutas = self._calcular_brutos_reales() 
-        datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=self.limites_sector)
+        
+        # Generamos limites compatibles para el cálculo del IRE
+        limites_compatibles = {
+            dim: {'min': int(self.limites_sector[dim]['min_practico']), 'max': int(self.limites_sector[dim]['max'])} 
+            for dim in self.limites_sector
+        }
+        
+        datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=limites_compatibles)
         
         # OBTENER EL ID REAL (UUID) PARA SUPABASE, NO SOLO EL USERNAME
         user_uuid = app.storage.user.get('user_id') 

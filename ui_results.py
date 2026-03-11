@@ -4,14 +4,14 @@ from typing import Dict, Any
 from logic_sape_refinery import SAPERefinery
 
 DIMENSION_LABELS = {
-    'achievement': 'Logro',
-    'risk_propensity': 'Riesgo',
+    'achievement': 'Orientación al Logro',
+    'risk_propensity': 'tolerancia al Riesgo',
     'innovativeness': 'Innovación',
-    'locus_control': 'Locus Control',
+    'locus_control': 'Locus Control interno',
     'self_efficacy': 'Autoeficacia',
     'autonomy': 'Autonomía',
-    'ambiguity_tolerance': 'Incertidumbre',
-    'emotional_stability': 'Estabilidad'
+    'ambiguity_tolerance': 'Toleráncia a la Incertidumbre',
+    'emotional_stability': 'Estabilidad emocional'
 }
 
 def render_dashboard_resultados(refined_data: Dict[str, Any]):
