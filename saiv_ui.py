@@ -1,14 +1,13 @@
 # saiv_ui.py
 import pandas as pd
-import random
 import asyncio
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 from nicegui import ui, app
 
-# Asumimos que crearemos un logic_saiv.py para corregir (similar a SAPPRefinery)
-# from logic_saiv import SAIVRefinery 
-# from ui_results_saiv import render_dashboard_saiv
+# Importaciones de la lógica y la interfaz visual
+from logic_saiv import SAIVRefinery 
+from ui_results_saiv import render_dashboard_saiv
 
 BG_COLOR = "#0E1117"
 
@@ -21,7 +20,7 @@ class SAIVInterface:
         self.total_preguntas = 0
         
         self.current_idx = 0
-        self.respuestas_usuario: Dict[str, str] = {}
+        self.respuestas_usuario: Dict[str, int] = {} # Guardamos ints directamente
         
         # En SAIV, no hay opciones A,B,C,D en columnas. 
         # Es una escala Likert fija de 1 a 5 para el grado de interés.
@@ -86,7 +85,7 @@ class SAIVInterface:
                 ui.icon('verified', color='#22C55E', size='5rem').classes('mb-4 mt-10')
                 ui.label('EVALUACIÓN COMPLETADA').classes('text-2xl text-white font-black tracking-widest mb-2')
                 ui.label('Has agotado las pasaciones de este test.').classes('text-gray-400 mb-8')
-                ui.button('VER INFORME VOCACIONAL', on_click=self._mostrar_informe_evolutivo).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
+                ui.button('VER INFORME VOCACIONAL', on_click=lambda: ui.notify('Ir al perfil de usuario (Pendiente)', type='info')).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
             return
 
         # --- CASO B: CON INTENTOS (INICIAR TEST DIRECTAMENTE) ---
@@ -139,26 +138,30 @@ class SAIVInterface:
                         ui.label(txt).classes('text-[16px] font-bold w-full text-center')
 
     async def _finalizar_evaluacion(self):
-        ui.notify("Evaluación vocacional completada. Procesando...", color='positive')
+        ui.notify("Evaluación vocacional completada. Procesando perfil...", color='positive')
         
         user_id = app.storage.user.get('user_id')
         
-        # TODO: Aquí llamaremos a SAIVRefinery para calcular RIASEC
-        # Por ahora simulamos un resultado crudo
-        raw_scores = self.respuestas_usuario
-        results = {"status": "procesamiento_pendiente", "modelo": "RIASEC"} 
-        
+        # 1. Llamamos al Motor de Refinería SAIV
+        try:
+            results = SAIVRefinery.refine_results(self.respuestas_usuario, self.df_preguntas)
+        except Exception as e:
+            ui.notify(f"Error procesando resultados: {e}", type="negative")
+            print(f"Error Refinería SAIV: {e}")
+            return
+            
+        # 2. Guardamos en Supabase
         if self.supabase and user_id:
             current_attempt = self.max_intentos - self.intentos_disponibles + 1
             
+            # Formato estándar de Audeo para la tabla evaluations
             eval_data = {
                 "user_id": user_id,
                 "org_id": app.storage.user.get('org_id'),
                 "test_type": "SAIV",
-                "sector_profile": "Orientacion Vocacional (RIASEC)",
+                "sector_profile": "Orientacion Vocacional",
                 "raw_responses": self.respuestas_usuario,
-                "calculated_scores": raw_scores,
-                "refined_metrics": results,
+                "refined_metrics": results,  # Aquí va el dict que devuelve el logic_saiv
                 "attempt_number": current_attempt,
                 "created_at": datetime.now().isoformat()
             }
@@ -170,16 +173,23 @@ class SAIVInterface:
                 self.intentos_disponibles = nuevos_intentos
                 
             except Exception as e:
-                print(f"Error en el guardado de SAIV: {e}")
+                print(f"Error en el guardado Supabase SAIV: {e}")
+                ui.notify("Aviso: No se pudo guardar en la nube. Mostrando resultados en local.", type="warning")
 
-        self._mostrar_informe_evolutivo()
+        # 3. Lanzamos la pantalla de resultados
+        self._mostrar_informe_evolutivo(results)
 
-    def _mostrar_informe_evolutivo(self):
+    def _mostrar_informe_evolutivo(self, results):
         self.header_contenedor.clear()
         self.main_contenedor.clear()
+        
+        # Ajustamos clases para el dashboard final
         self.main_contenedor.classes(remove='px-10 max-w-[1400px] flex-nowrap min-h-[70vh]')
         self.main_contenedor.classes(add='w-full justify-center p-0')
         
         with self.main_contenedor:
-            ui.label("Cálculo de Perfil RIASEC en desarrollo...").classes('text-2xl text-[#83ABF1] font-bold p-10')
-            # render_dashboard_saiv(app.storage.user, self.supabase)
+            try:
+                # Llamada al nuevo componente visual
+                render_dashboard_saiv(results)
+            except Exception as e:
+                ui.label(f"⚠️ Error cargando la pantalla de resultados RIASEC: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
