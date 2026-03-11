@@ -7,11 +7,6 @@ from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from admin_console import ConsolaAdmin
-from org_console import ConsolaOrganizacion
-from sape_ui import SAPEInterface
-from sapp_ui import SAPPInterface
-from saiv_ui import SAIVInterface  
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO
@@ -257,7 +252,7 @@ async def qr_access_broker(event_id: str):
                         }
                         supabase.table('users').insert(payload_user).execute()
                         
-                        # D. Loguear automáticamente
+                        # D. Loguear automáticamente e Inyectar Event ID
                         app.storage.user.update({
                             'authenticated': True,
                             'role': 'USER',
@@ -265,7 +260,8 @@ async def qr_access_broker(event_id: str):
                             'org_id': org_id,
                             'user_id': username_generado, 
                             'from_qr': True,
-                            'force_test': tipo_test
+                            'force_test': tipo_test,
+                            'qr_event_id': event_id  # <--- CRÍTICO PARA EL PASO 5 DE TRAZABILIDAD
                         })
                         
                         ui.notify('Acceso concedido. Preparando prueba...', type='positive')
@@ -537,14 +533,49 @@ def panel_page():
 
 
 # ==========================================
-# 6. ENRUTAMIENTO HACIA LOS MOTORES
+# 6. ENRUTAMIENTO HACIA LOS MOTORES CON LAZY LOADING
 # ==========================================
+# Para evitar errores 404, importamos las clases de forma dinámica (Lazy Load)
+
+@ui.page('/admin')
+def admin_page():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ADMIN':
+        ui.navigate.to('/')
+        return
+        
+    try:
+        from admin_console import ConsolaAdmin
+        admin_console = ConsolaAdmin()
+        admin_console.render()
+    except Exception as e:
+        ui.label(f'Error Crítico cargando Consola Admin: {e}').classes('text-red-500 font-bold p-10')
+
+@ui.page('/org-admin')
+def org_admin_page():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ORG_ADMIN':
+        ui.navigate.to('/')
+        return
+        
+    try:
+        from org_console import ConsolaOrganizacion
+        org_console = ConsolaOrganizacion()
+        org_console.render()
+    except Exception as e:
+        ui.label(f'Error Crítico cargando Consola Organización: {e}').classes('text-red-500 font-bold p-10')
+
 @ui.page('/sape-test')
 def sape_test(sector: str = 'TECH'):
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     if not app.storage.user.get('authenticated'): ui.navigate.to('/'); return
     try:
+        from sape_ui import SAPEInterface
         interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector, supabase_client=supabase)
         interfaz.render()
     except Exception as e:
@@ -565,6 +596,7 @@ def pagina_sapp():
         perfil_seleccionado = perfiles_lista[0] if perfiles_lista else 'Psicología organizacional'
 
     try:
+        from sapp_ui import SAPPInterface
         motor_sapp = SAPPInterface(df_path='Prueba_SAPP.csv', sector=perfil_seleccionado, supabase_client=supabase)
         motor_sapp.render()
     except Exception as e:
@@ -579,6 +611,7 @@ def pagina_saiv():
         ui.navigate.to('/'); return
 
     try:
+        from saiv_ui import SAIVInterface
         motor_saiv = SAIVInterface(df_path='Prueba_SAIV.csv', supabase_client=supabase)
         motor_saiv.render()
     except Exception as e:
