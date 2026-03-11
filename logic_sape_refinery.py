@@ -21,35 +21,23 @@ class SAPERefinery:
         # ==========================================
         
         # --- POTENCIAL EMPRENDEDOR ---
-        # Calculamos la media. Penalizamos la inestabilidad usando la Desviación Típica (no la varianza bruta)
         media_potencial = sum(puntuaciones) / len(puntuaciones) if puntuaciones else 0.0
         desviacion_tipica = statistics.pstdev(puntuaciones) if len(puntuaciones) > 0 else 0.0
         
-        # El potencial es la media, pero restando la mitad de su desviación para penalizar perfiles erráticos
+        # El potencial es la media penalizada suavemente por la inestabilidad (desviación)
         refined['potencial'] = round(clamp(media_potencial - (desviacion_tipica * 0.5)), 1)
 
-        # --- ÍNDICE DE RESILIENCIA EVOLUTIVA (IRE) ---
-        if raw_sums and limites:
-            ires_rasgo = []
-            for k in rasgos_keys:
-                min_t = limites.get(k, {}).get('min', 0)
-                max_t = limites.get(k, {}).get('max', 100)
-                user_raw = raw_sums.get(k, min_t)
-                
-                # Puntuación percentil 90%
-                p90 = min_t + 0.9 * (max_t - min_t)
-                
-                if p90 != 0:
-                    ire_r = (user_raw / p90) * 100
-                else:
-                    ire_r = 0.0
-                ires_rasgo.append(ire_r)
-            
-            ire_general = sum(ires_rasgo) / len(ires_rasgo) if ires_rasgo else 0
-            refined['ire'] = round(clamp(ire_general), 1)
+        # --- ÍNDICE DE RESILIENCIA EMPRENDEDORA (IRE) ---
+        # Según Manual (pág 29): Relación entre los puntos obtenidos y el objetivo del 90%
+        # Calculamos la media de las puntuaciones porcentuales (que ya es media_potencial)
+        # Y la comparamos contra el 90% (franja óptima)
+        if media_potencial > 0:
+            # Fórmula: (Media obtenida / 90) * 100
+            ire_calculado = (media_potencial / 90.0) * 100.0
         else:
-            # Fallback robusto si fallan los límites
-            refined['ire'] = round(clamp(media_potencial * 0.9), 1)
+            ire_calculado = 0.0
+            
+        refined['ire'] = round(clamp(ire_calculado), 1)
 
         # --- FRICCIÓN (UNIFICADA) ---
         puntuacion_min = min(puntuaciones) if puntuaciones else 0
@@ -58,14 +46,19 @@ class SAPERefinery:
         friccion_total = 0.0
         if puntuacion_max > 90.0:
             friccion_total += (puntuacion_max - refined['potencial'])
-        if puntuacion_min < 50.0: # Ajustado a 50 para detectar cuellos de botella reales
+        if puntuacion_min < 50.0: 
             friccion_total += (refined['potencial'] - puntuacion_min)
             
-        refined['friccion'] = round(clamp(friccion_total / 2), 1) # Lo promediamos para no asustar
+        refined['friccion'] = round(clamp(friccion_total / 2), 1)
 
         # --- DELTA ---
-        # Diferencia entre el potencial actual y el perfil ideal (85)
-        refined['delta'] = round(clamp(85.0 - refined['potencial']), 1)
+        # Según Manual (pág 30): Distancia al P80 de los rasgos fuera de la zona óptima
+        rasgos_desviados = [p for p in puntuaciones if p < 70.0 or p > 90.0]
+        if rasgos_desviados:
+            media_desviados = sum(rasgos_desviados) / len(rasgos_desviados)
+            refined['delta'] = round(abs(80.0 - media_desviados), 1)
+        else:
+            refined['delta'] = 0.0
 
         # ==========================================
         # 2. ESCÁNER DE DESCARRILADORES
