@@ -105,6 +105,9 @@ class ConsolaAdmin:
         inputs['p_sapp_perfiles'].value = p.get('allowed_sapp_profiles', [])
         inputs['p_sapp_comp'].value = p.get('allowed_sapp_comps', [])
         
+        # NUEVO: Pre-carga del SAIV
+        inputs['p_saiv'].value = p.get('can_assign_saiv', False)
+        
         ui.notify(f"Modo Edición: {org['name']}", type='info')
 
     def guardar_organizacion(self, inputs: dict) -> None:
@@ -135,7 +138,9 @@ class ConsolaAdmin:
                 "allowed_sape_sectors": inputs['p_sape_sectores'].value or [],
                 "can_assign_sapp": inputs['p_sapp'].value,
                 "allowed_sapp_profiles": inputs['p_sapp_perfiles'].value or [],
-                "allowed_sapp_comps": inputs['p_sapp_comp'].value or []
+                "allowed_sapp_comps": inputs['p_sapp_comp'].value or [],
+                # NUEVO: Guardado del SAIV
+                "can_assign_saiv": inputs['p_saiv'].value
             }
         }
 
@@ -518,7 +523,10 @@ class ConsolaAdmin:
                                     
                                     'p_sapp': ui.checkbox('Habilitar asignación de SAPP').classes('text-green-400 font-bold mt-2'),
                                     'p_sapp_perfiles': ui.select(PERFILES_SAPP, multiple=True, label='Sectores SAPP Permitidos').classes('w-full mb-2 ml-4').props('dark outlined use-chips'),
-                                    'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips')
+                                    'p_sapp_comp': ui.select(COMPETENCIAS_SAPP, multiple=True, label='Competencias SAPP Permitidas').classes('w-full mb-2 ml-4').props('dark outlined use-chips'),
+                                    
+                                    # NUEVO: SAIV Completo
+                                    'p_saiv': ui.checkbox('Habilitar asignación de SAIV (Prueba Completa)').classes('text-purple-400 font-bold mt-4')
                                 }
                                 
                                 inputs['p_sape_sectores'].bind_visibility_from(inputs['p_sape'], 'value')
