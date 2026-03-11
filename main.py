@@ -1,6 +1,8 @@
 import os
 import ast
 import json
+import uuid
+import re
 from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
@@ -9,7 +11,7 @@ from admin_console import ConsolaAdmin
 from org_console import ConsolaOrganizacion
 from sape_ui import SAPEInterface
 from sapp_ui import SAPPInterface
-from saiv_ui import SAIVInterface  # <-- NUEVO: Importamos la interfaz SAIV
+from saiv_ui import SAIVInterface  
 
 # ==========================================
 # 1. CONFIGURACIÓN DEL ENTORNO
@@ -58,7 +60,6 @@ def login_page():
             ui.image('logo_original.png').classes('w-64 mb-4')
             ui.label('ACCESO PLATAFORMA').classes('text-gray-500 font-bold tracking-widest text-xs mb-4')
             
-            # --- SISTEMA DE PESTAÑAS SUTIL ---
             with ui.tabs().classes('w-full text-[#0D248D] mb-4') as tabs:
                 tab_login = ui.tab('CREDENCIALES').classes('font-bold')
                 tab_token = ui.tab('CÓDIGO INVITADO').classes('font-bold')
@@ -150,223 +151,128 @@ def login_page():
                         'w-full bg-[#83ABF1] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
                     )
 
+
 # ==========================================
-# 3.5 BROKER QR Y SELECTOR DE DINÁMICA (CON GATEKEEPER FISCAL Y DE LICENCIAS)
+# NUEVO 3.5: BROKER QR DE ACCESO RELÁMPAGO 
 # ==========================================
-@ui.page('/join/{org_id}')
-async def qr_access_broker(org_id: str):
+@ui.page('/join/{event_id}')
+async def qr_access_broker(event_id: str):
+    """ Landing pública a la que llegan los usuarios al escanear el QR """
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     
+    if not supabase:
+        with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
+            ui.label('Error interno del servidor.').classes('text-red-500 font-bold')
+        return
+
     try:
-        # --- 1. GATEKEEPER: VERIFICACIÓN DE SALDO DE LA ORGANIZACIÓN ---
+        # 1. VERIFICAR QUE EL EVENTO EXISTE Y ESTÁ ACTIVO
+        res_ev = supabase.table('qr_events').select('*').eq('id', event_id).single().execute()
+        if not res_ev.data:
+            raise Exception("Código de acceso inválido o caducado.")
+            
+        evento = res_ev.data
+        if not evento.get('is_active'):
+            raise Exception("El administrador ha cerrado el acceso a esta sesión.")
+            
+        if evento['used_slots'] >= evento['max_slots']:
+            raise Exception("El aforo de este evento está completo.")
+
+        # 2. VERIFICAR SALDO DE LA ORGANIZACIÓN (Excepto SAIV que no descuenta)
+        org_id = evento['org_id']
+        tipo_test = evento['test_type']
+        
         res_org = supabase.table('organizations').select('name, licencias_compradas').eq('id', org_id).single().execute()
-        
-        if not res_org.data:
-            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
-                ui.icon('domain_disabled', size='4rem', color='red').classes('mb-4')
-                ui.label('Organización no encontrada.').classes('text-2xl font-bold')
-            return
+        org_name = res_org.data.get('name', org_id) if res_org.data else 'Organización'
+        saldo_actual = res_org.data.get('licencias_compradas', 0) if res_org.data else 0
 
-        org_data = res_org.data
-        licencias_disponibles = org_data.get('licencias_compradas', 0)
+        if tipo_test != 'SAIV' and saldo_actual <= 0:
+            raise Exception(f"La organización {org_name} ha agotado su saldo de licencias.")
 
-        # Si el saldo es 0, cortamos el acceso inmediatamente
-        if licencias_disponibles <= 0:
-            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
-                ui.icon('money_off', size='4rem', color='orange').classes('mb-4')
-                ui.label(f'Acceso Denegado').classes('text-3xl font-black text-white tracking-widest mb-2')
-                ui.label(f'La institución {org_data.get("name", org_id).upper()} ha agotado su saldo de licencias.').classes('text-gray-400 text-lg mb-8')
-                ui.label('Por favor, contacta con tu tutor o responsable de departamento para solicitar una ampliación de aforo.').classes('text-sm text-gray-500 max-w-md')
-                ui.button('VOLVER A INICIO', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
-            return
+        # 3. RENDERIZAR FORMULARIO DE ACCESO RÁPIDO
+        with ui.column().classes('w-full min-h-screen items-center justify-center gap-6 p-4'):
+            with ui.card().classes('bg-[#161B22] p-10 rounded-3xl border border-[#83ABF1]/50 shadow-2xl items-center w-full max-w-md'):
+                ui.image('logo_blanco.png').classes('w-48 mb-2')
+                ui.label(evento['event_name'].upper()).classes('text-[#83ABF1] font-black tracking-widest text-lg mb-1')
+                ui.label(org_name).classes('text-gray-400 text-sm font-bold mb-6 border-b border-gray-800 pb-4 w-full text-center')
+                
+                ui.label('Para iniciar la prueba, introduce tus datos:').classes('text-white text-sm mb-4 self-start')
+                
+                in_nombre = ui.input('Nombre').classes('w-full mb-3').props('dark outlined')
+                in_apellidos = ui.input('Apellidos').classes('w-full mb-6').props('dark outlined')
+                
+                async def registrar_y_entrar():
+                    nom = in_nombre.value.strip() if in_nombre.value else ""
+                    ape = in_apellidos.value.strip() if in_apellidos.value else ""
+                    
+                    if not nom or not ape:
+                        ui.notify('Por favor, rellena tu nombre y apellidos.', type='warning')
+                        return
+                    
+                    username_generado = f"QR_{nom}_{ape}_{str(uuid.uuid4())[:4]}".replace(" ", "")
+                    # Limpiamos caracteres raros por si acaso
+                    username_generado = re.sub(r'[^a-zA-Z0-9_]', '', username_generado)
 
-        # --- 2. BUSCAR ASIENTO LIBRE (Usuario Demo sin reclamar) ---
-        res_user = supabase.table('users') \
-            .select('*') \
-            .eq('org_id', org_id) \
-            .eq('is_claimed', False) \
-            .eq('is_demo', True) \
-            .limit(1).execute()
+                    try:
+                        # A. Incrementar contador del evento (Puede fallar si hubo carrera de clics por el constraint)
+                        res_update_ev = supabase.table('qr_events').update({'used_slots': evento['used_slots'] + 1}).eq('id', event_id).execute()
+                        
+                        # B. Descontar licencia a la Org (Si no es SAIV)
+                        if tipo_test != 'SAIV':
+                            nuevo_saldo = saldo_actual - 1
+                            supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', org_id).execute()
 
-        if not res_user.data:
-            with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
-                ui.icon('block', size='4rem', color='red')
-                ui.label('El aforo de la dinámica está completo.').classes('text-2xl font-bold mt-4')
-                ui.label('Todos los accesos previamente creados han sido asignados.').classes('text-gray-400 mt-2')
-            return
+                        # C. Crear usuario temporal
+                        profile_data = {
+                            "sape": {"attempts": 1 if tipo_test == 'SAPE' else 0, "sectors": []},
+                            "sapp": {"attempts": 1 if tipo_test == 'SAPP' else 0, "profile": "", "groups": []},
+                            "saiv": {"attempts": 1 if tipo_test == 'SAIV' else 0}
+                        }
+                        
+                        payload_user = {
+                            "username": username_generado,
+                            "password": str(uuid.uuid4())[:8], # Contraseña aleatoria, no la necesita
+                            "org_id": org_id,
+                            "role": "USER",
+                            "is_deleted": False,
+                            "profile_data": profile_data,
+                            "intentos_disponibles": 1,
+                            "max_intentos": 1
+                        }
+                        supabase.table('users').insert(payload_user).execute()
+                        
+                        # D. Loguear automáticamente
+                        app.storage.user.update({
+                            'authenticated': True,
+                            'role': 'USER',
+                            'username': username_generado,
+                            'org_id': org_id,
+                            'user_id': username_generado, # En la beta el ID es el nombre para simplificar
+                            'from_qr': True,
+                            'force_test': tipo_test
+                        })
+                        
+                        ui.notify('Acceso concedido. Preparando prueba...', type='positive')
+                        
+                        # Redirigir al test correspondiente
+                        if tipo_test == 'SAPE': ui.navigate.to('/sape-test')
+                        elif tipo_test == 'SAPP': ui.navigate.to('/sapp')
+                        elif tipo_test == 'SAIV': ui.navigate.to('/saiv')
+                        
+                    except Exception as err:
+                        if 'check_slots' in str(err).lower():
+                            ui.notify('Lo sentimos, justo ahora se han agotado las plazas.', type='negative')
+                        else:
+                            ui.notify(f'Error en el registro: {err}', type='negative')
 
-        user_data = res_user.data[0]
-        nombre_usuario = user_data['username']
-
-        # --- 3. TRANSACCIÓN: RECLAMAR ASIENTO Y DESCONTAR LICENCIA ---
-        
-        # Bloquear el usuario
-        supabase.table('users').update({'is_claimed': True}).eq('username', nombre_usuario).execute()
-        
-        # Restar 1 licencia a la organización
-        nuevas_licencias = licencias_disponibles - 1
-        supabase.table('organizations').update({'licencias_compradas': nuevas_licencias}).eq('id', org_id).execute()
-
-        # Registrar el gasto en el log
-        supabase.table('action_logs').insert({
-            'org_id': org_id, 'action_type': 'LICENSE_CONSUMED', 'target_user': nombre_usuario, 
-            'performed_by': 'SYSTEM (QR)', 'status_color': 'green-yellow', 'metadata': {'restantes': nuevas_licencias}
-        }).execute()
-
-        # --- 4. INICIO DE SESIÓN TRANSPARENTE ---
-        app.storage.user.update({
-            'authenticated': True,
-            'role': 'USER',
-            'username': nombre_usuario,
-            'org_id': org_id,
-            'user_id': user_data.get('id', nombre_usuario), 
-            'is_demo': True
-        })
-
-        ui.navigate.to('/selector-especialidad')
+                ui.button('COMENZAR EVALUACIÓN', on_click=registrar_y_entrar).classes('w-full bg-[#83ABF1] text-[#0E1117] font-black py-4 rounded-xl shadow-lg hover:scale-105 transition-transform')
 
     except Exception as e:
-        with ui.column().classes('w-full h-screen items-center justify-center'):
-            ui.label(f'Error de conexión: {str(e)}').classes('text-red-500')
-
-@ui.page('/selector-especialidad')
-def selector_especialidad():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    
-    if not app.storage.user.get('authenticated') or not app.storage.user.get('is_demo'):
-        ui.navigate.to('/')
-        return
-
-    with ui.column().classes('w-full h-screen items-center justify-center gap-6 p-4'):
-        ui.label('BIENVENIDO A LA DINÁMICA AUDEO').classes('text-[#83ABF1] font-black text-2xl md:text-3xl tracking-widest text-center')
-        ui.label('Seleccione su área de especialización para comenzar:').classes('text-lg md:text-xl mb-8 text-gray-400 text-center')
-
-        with ui.grid(columns=2).classes('w-full max-w-3xl gap-4 md:gap-6'):
-            sectores = ['Psicología educativa', 'Psicología organizacional', 'Psicología sanitaria', 'Psicología social']
-            
-            def iniciar_dinamica(sector_elegido):
-                app.storage.user['current_sector'] = sector_elegido
-                ui.navigate.to('/sapp')
-
-            for sector in sectores:
-                ui.button(sector, on_click=lambda s=sector: iniciar_dinamica(s)).classes(
-                    'w-full h-24 md:h-32 text-sm md:text-lg font-bold bg-[#161B22] border border-[#83ABF1] text-white hover:bg-[#83ABF1] hover:text-black transition-all shadow-lg rounded-xl'
-                )
-
-# ==========================================
-# 4. CONSOLAS DE ADMINISTRACIÓN
-# ==========================================
-@ui.page('/admin')
-def admin_page():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    inicializar_sesion()
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ADMIN':
-        ui.navigate.to('/'); return
-    admin_console = ConsolaAdmin(); admin_console.render()
-
-@ui.page('/org-admin')
-def org_admin_page():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    inicializar_sesion()
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ORG_ADMIN':
-        ui.navigate.to('/'); return
-    org_console = ConsolaOrganizacion(); org_console.render()
-
-# ==========================================
-# 4.5 DASHBOARD EN DIRECTO (PROYECCIÓN)
-# ==========================================
-@ui.page('/directo-uma')
-def vista_directo_uma():
-    import json
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    
-    # 1. SEGURIDAD
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['ADMIN', 'ORG_ADMIN']:
-        ui.navigate.to('/')
-        return
-
-    org_objetivo = 'UMA_DEMO'
-
-    # --- DISEÑO DE LA PÁGINA ---
-    with ui.column().classes('w-full min-h-screen items-center p-8'):
-        ui.image('logo_blanco.png').classes('w-48 mb-6')
-        ui.label('MAPA COMPETENCIAL EN TIEMPO REAL').classes('text-3xl font-black text-[#83ABF1] tracking-widest text-center')
-        
-        # Indicador de estado para saber si el código está vivo
-        estado_conexion = ui.label('Iniciando conexión...').classes('text-xs text-gray-500 mb-4')
-
-        with ui.row().classes('w-full max-w-5xl justify-center gap-16 mb-12'):
-            with ui.column().classes('items-center'):
-                ui.icon('group', size='4rem', color='#83ABF1').classes('mb-2')
-                lbl_total = ui.label('0').classes('text-7xl font-bold text-white')
-                ui.label('EVALUACIONES COMPLETADAS').classes('text-sm text-gray-500 font-bold tracking-widest')
-
-        grafico_contenedor = ui.card().classes('w-full max-w-5xl h-[500px] bg-[#161B22] border border-gray-800 p-4 shadow-xl')
-        
-        # Inicialización del gráfico
-        grafico = ui.echart({
-            'tooltip': {'trigger': 'axis'},
-            'xAxis': {'type': 'category', 'data': [], 'axisLabel': {'color': 'white'}},
-            'yAxis': {'type': 'value', 'max': 100, 'axisLabel': {'color': 'gray'}},
-            'series': [{'data': [], 'type': 'bar', 'itemStyle': {'color': '#83ABF1'}, 'label': {'show': True, 'position': 'top', 'color': 'white', 'formatter': '{c}%'}}]
-        }).classes('w-full h-full')
-        grafico.move(grafico_contenedor)
-
-    # --- MOTOR DE ACTUALIZACIÓN (DENTRO DE LA PÁGINA) ---
-    async def actualizar_datos_directo():
-        if not supabase: 
-            estado_conexion.set_text("❌ ERROR: Supabase no configurado")
-            return
-            
-        try:
-            # Consultamos los datos
-            res = supabase.table('evaluations').select('refined_metrics').eq('org_id', org_objetivo).execute()
-            datos = res.data
-            
-            # Actualizamos el contador
-            total = len(datos)
-            lbl_total.set_text(str(total))
-            estado_conexion.set_text(f"✅ Conectado. Última actualización: {datetime.now().strftime('%H:%M:%S')}")
-
-            if total > 0:
-                sumas = {}
-                traductor = {
-                    'child_advocacy': 'Defensa menor',
-                    'family_collaboration': 'Colaboración fam.',
-                    'diversity_sensitivity': 'Sensibilidad div.',
-                    'interdisciplinary_work': 'Trabajo interdis.'
-                }
-                
-                for fila in datos:
-                    # Extraemos métricas (soporta texto o dict)
-                    m = fila.get('refined_metrics', {})
-                    if isinstance(m, str): m = json.loads(m)
-                    
-                    # Buscamos en el subdiccionario 'competencies' (Refinery style)
-                    comps = m.get('competencies', m)
-                    
-                    for k, v in comps.items():
-                        # Obtenemos el porcentaje
-                        p = v['percentage'] if isinstance(v, dict) and 'percentage' in v else (v if isinstance(v, (int,float)) else 0)
-                        
-                        nombre = traductor.get(k, k.replace('_', ' ').capitalize())
-                        sumas[nombre] = sumas.get(nombre, 0) + p
-                
-                if sumas:
-                    grafico.options['xAxis']['data'] = list(sumas.keys())
-                    grafico.options['series'][0]['data'] = [round(s / total, 1) for s in sumas.values()]
-                    grafico.update()
-            else:
-                grafico.options['xAxis']['data'] = []
-                grafico.options['series'][0]['data'] = []
-                grafico.update()
-
-        except Exception as e:
-            print(f"Error en timer: {e}")
-            estado_conexion.set_text(f"⚠️ Error: {str(e)[:50]}...")
-
-    # Timer cada 5 segundos
-    ui.timer(5.0, actualizar_datos_directo)
+        with ui.column().classes('w-full h-screen items-center justify-center p-8 text-center'):
+            ui.icon('warning', size='4rem', color='red').classes('mb-4')
+            ui.label('Acceso Denegado').classes('text-2xl font-black text-red-500 mb-2')
+            ui.label(str(e)).classes('text-gray-400')
+            ui.button('VOLVER A INICIO', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
@@ -376,10 +282,16 @@ def panel_page():
     ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
     inicializar_sesion()
     
-    # Redirección de seguridad para invitados (Tokens tradicionales)
-    if app.storage.user.get('force_test') == 'SAPP' and app.storage.user.get('force_sector'):
-        app.storage.user['current_sector'] = app.storage.user.get('force_sector')
+    # Redirección de seguridad para invitados (Tokens o QR)
+    if app.storage.user.get('force_test') == 'SAPP':
+        if app.storage.user.get('force_sector'): app.storage.user['current_sector'] = app.storage.user.get('force_sector')
         ui.navigate.to('/sapp')
+        return
+    elif app.storage.user.get('force_test') == 'SAPE':
+        ui.navigate.to('/sape-test')
+        return
+    elif app.storage.user.get('force_test') == 'SAIV':
+        ui.navigate.to('/saiv')
         return
 
     if not app.storage.user.get('authenticated') or app.storage.user.get('role') not in ['USER', 'STUDENT']:
@@ -404,11 +316,11 @@ def panel_page():
     profile_data = user_db.get('profile_data', {})
     sape_data = profile_data.get('sape', {})
     sapp_data = profile_data.get('sapp', {})
-    # Asumimos que podemos tener permisos de SAIV en el futuro, por ahora lo dejamos libre si tiene SAPE o SAPP
+    saiv_data = profile_data.get('saiv', {})
     
     sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
     sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
-    saiv_allowed = True # Permitimos SAIV por defecto para probarlo. 
+    saiv_allowed = saiv_data.get('attempts', 0) > 0 
 
     def safe_list(data):
         if not data: return []
@@ -457,7 +369,7 @@ def panel_page():
             self.employment = user_db.get('employment_status')
             self.entrepreneurship = user_db.get('entrepreneurship_status')
             
-            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else 'SAIV')
+            self.test_type = 'SAPE' if sape_allowed else ('SAPP' if sapp_allowed else ('SAIV' if saiv_allowed else None))
             self.sector_sape = sectores_finales[0] if sectores_finales else None
             self.perfil_sapp = perfiles_finales[0] if perfiles_finales else None
 
@@ -552,17 +464,15 @@ def panel_page():
                     if saiv_allowed: opciones_radio.append('SAIV (Vocacional)')
                     
                     if not opciones_radio:
-                        ui.label('No tienes pruebas asignadas.').classes('text-red-400 font-bold mb-8')
+                        ui.label('No tienes pruebas asignadas. Contacta con tu tutor.').classes('text-red-400 font-bold mb-8')
                         return
 
                     def cambiar_prueba(e):
-                        # Convertimos el label visual al nombre de código interno
                         if 'SAPE' in e.value: state.test_type = 'SAPE'
                         elif 'SAPP' in e.value: state.test_type = 'SAPP'
                         elif 'SAIV' in e.value: state.test_type = 'SAIV'
                         render_stepper.refresh()
                     
-                    # Seleccionamos visualmente la opción correcta en el radio button
                     valor_radio_actual = [opt for opt in opciones_radio if state.test_type in opt]
                     valor_radio = valor_radio_actual[0] if valor_radio_actual else opciones_radio[0]
 
@@ -589,12 +499,12 @@ def panel_page():
                     
                     def comenzar():
                         if state.test_type == 'SAPE':
-                            if not state.sector_sape: return ui.notify('Abre el desplegable y elige un sector.', type='warning')
+                            if not state.sector_sape: return ui.notify('Elige un sector.', type='warning')
                             app.storage.user.update({'current_sector': state.sector_sape})
                             ui.navigate.to(f'/sape-test?sector={state.sector_sape}')
                         
                         elif state.test_type == 'SAPP':
-                            if not state.perfil_sapp: return ui.notify('Abre el desplegable y elige un perfil.', type='warning')
+                            if not state.perfil_sapp: return ui.notify('Elige un perfil.', type='warning')
                             app.storage.user.update({'current_sector': state.perfil_sapp})
                             ui.navigate.to(f'/sapp')
                             
@@ -607,6 +517,7 @@ def panel_page():
 
     render_stepper()
 
+
 # ==========================================
 # 6. ENRUTAMIENTO HACIA LOS MOTORES
 # ==========================================
@@ -616,7 +527,7 @@ def sape_test(sector: str = 'TECH'):
     inicializar_sesion()
     if not app.storage.user.get('authenticated'): ui.navigate.to('/'); return
     try:
-        interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector)
+        interfaz = SAPEInterface(df_path='Prueba_SAPE.csv', sector=sector, supabase_client=supabase)
         interfaz.render()
     except Exception as e:
         ui.label(f'Error crítico al cargar SAPE: {e}').classes('text-red-500 font-bold text-2xl p-10')
@@ -657,6 +568,25 @@ def pagina_saiv():
             ui.label('Error iniciando SAIV').classes('text-red-500 text-2xl font-bold mb-4')
             ui.label(str(e)).classes('text-gray-400')
             ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
+
+# ==========================================
+# 4. CONSOLAS DE ADMINISTRACIÓN
+# ==========================================
+@ui.page('/admin')
+def admin_page():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ADMIN':
+        ui.navigate.to('/'); return
+    admin_console = ConsolaAdmin(); admin_console.render()
+
+@ui.page('/org-admin')
+def org_admin_page():
+    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
+    inicializar_sesion()
+    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ORG_ADMIN':
+        ui.navigate.to('/'); return
+    org_console = ConsolaOrganizacion(); org_console.render()
 
 # ==========================================
 # INICIADOR DEL SERVIDOR

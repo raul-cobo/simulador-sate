@@ -7,6 +7,7 @@ from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import pdf_generator
+import pdf_generator_saiv # NUEVO: Importamos el generador específico del SAIV
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -29,11 +30,6 @@ def descargar_informe_desde_consola(row_data):
     ev_data = row_data.get('raw_data', {})
     test_type = ev_data.get('test_type', 'SAPE')
     
-    if test_type == 'SAPP':
-        results = ev_data.get('refined_metrics', ev_data.get('results', {}))
-    else:
-        results = ev_data.get('results', ev_data.get('calculated_scores', {}))
-        
     user_info = {
         'user_id': ev_data.get('user_id', 'N/A'),
         'username': 'Candidato Evaluación'
@@ -41,7 +37,18 @@ def descargar_informe_desde_consola(row_data):
     
     try:
         ui.notify(f"Generando informe {test_type}...", color="info")
-        ruta_pdf = pdf_generator.generar_informe(user_info, results, test_type=test_type)
+        
+        # Enrutamiento según el tipo de test
+        if test_type == 'SAIV':
+            results = ev_data.get('refined_metrics', {})
+            ruta_pdf = pdf_generator_saiv.generar_informe_saiv(user_info, results)
+        else:
+            if test_type == 'SAPP':
+                results = ev_data.get('refined_metrics', ev_data.get('results', {}))
+            else:
+                results = ev_data.get('results', ev_data.get('calculated_scores', {}))
+            ruta_pdf = pdf_generator.generar_informe(user_info, results, test_type=test_type)
+            
         ui.download(ruta_pdf)
     except Exception as e:
         ui.notify(f"Error generando PDF: {e}", color="negative")
@@ -56,6 +63,7 @@ class ConsolaOrganizacion:
         self.users_data = []
         self.evals_data = []
         self.logs_data = []
+        self.qr_events_data = [] # NUEVA LISTA
         self.editing_user = None
         self.dialogo_checkout = None
 
@@ -75,6 +83,11 @@ class ConsolaOrganizacion:
             
             res_logs = supabase.table('action_logs').select('*').eq('org_id', self.org_id).order('created_at', desc=True).limit(50).execute()
             if res_logs.data: self.logs_data = res_logs.data
+            
+            # Cargar los eventos QR
+            res_qr = supabase.table('qr_events').select('*').eq('org_id', self.org_id).order('created_at', desc=True).execute()
+            if res_qr.data: self.qr_events_data = res_qr.data
+            
         except Exception as e:
             ui.notify(f"Error cargando datos: {e}", type='negative')
 
@@ -96,6 +109,122 @@ class ConsolaOrganizacion:
         ui.navigate.to('/')
 
     # ==========================================
+    # NUEVO: PANEL DE EVENTOS QR
+    # ==========================================
+    def render_panel_qr(self):
+        saldo_actual = self.org_data.get('licencias_compradas', 0)
+        
+        # Filtramos qué pruebas puede asignar esta organización
+        opciones_pruebas = []
+        if self.privilegios.get('can_assign_sape'): opciones_pruebas.append('SAPE')
+        if self.privilegios.get('can_assign_sapp'): opciones_pruebas.append('SAPP')
+        if self.privilegios.get('can_assign_saiv'): opciones_pruebas.append('SAIV')
+
+        if not opciones_pruebas:
+            with ui.column().classes('w-full items-center justify-center p-12 bg-[#0E1117] rounded-xl border border-gray-800'):
+                ui.icon('block', size='4rem', color='gray')
+                ui.label('No tienes pruebas habilitadas para generar eventos masivos.').classes('text-gray-400 font-bold mt-4')
+            return
+
+        with ui.row().classes('w-full gap-8 items-start'):
+            
+            # COLUMNA IZQUIERDA: CREAR NUEVO EVENTO
+            with ui.column().classes('w-1/3 min-w-[350px] bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
+                ui.label('Generar Nuevo Evento Masivo').classes('text-xl text-[#83ABF1] font-bold mb-4')
+                ui.label('Crea un enlace y código QR para que tus alumnos se registren al instante desde su móvil.').classes('text-sm text-gray-400 mb-6')
+                
+                inputs_qr = {
+                    'nombre': ui.input('Nombre de la sesión (Ej: Clase 1B)').classes('w-full mb-4').props('dark outlined'),
+                    'tipo_test': ui.select(opciones_pruebas, label='Prueba a realizar', value=opciones_pruebas[0]).classes('w-full mb-4').props('dark outlined'),
+                    'plazas': ui.number('Plazas Reservadas (Máx. alumnos)', value=10, min=1).classes('w-full mb-6').props('dark outlined')
+                }
+
+                def crear_evento():
+                    plazas = int(inputs_qr['plazas'].value)
+                    if not inputs_qr['nombre'].value:
+                        ui.notify('Debes ponerle un nombre al evento', type='warning')
+                        return
+                    
+                    if plazas > saldo_actual and inputs_qr['tipo_test'].value != 'SAIV':
+                         ui.notify(f'No tienes licencias suficientes. Saldo: {saldo_actual}', type='negative')
+                         return
+                         
+                    try:
+                        supabase.table('qr_events').insert({
+                            'org_id': self.org_id,
+                            'event_name': inputs_qr['nombre'].value.strip(),
+                            'test_type': inputs_qr['tipo_test'].value,
+                            'max_slots': plazas,
+                            'used_slots': 0,
+                            'is_active': True
+                        }).execute()
+                        
+                        self.registrar_log('QR_EVENT_CREATED', f"{inputs_qr['nombre'].value} ({plazas} plazas)", 'blue')
+                        ui.notify('Evento creado correctamente.', type='positive')
+                        self.render() # Recargar para ver el nuevo evento
+                    except Exception as e:
+                        ui.notify(f'Error creando evento: {e}', type='negative')
+
+                ui.button('CREAR ACCESO QR', on_click=crear_evento).classes('w-full bg-[#83ABF1] text-black font-bold py-3 shadow-lg')
+
+            # COLUMNA DERECHA: EVENTOS ACTIVOS
+            with ui.column().classes('flex-1'):
+                if not self.qr_events_data:
+                    with ui.column().classes('w-full p-10 items-center border border-dashed border-gray-700 rounded-xl'):
+                        ui.label('Aún no has creado ningún evento masivo.').classes('text-gray-500 italic')
+                else:
+                    for evento in self.qr_events_data:
+                        is_active = evento['is_active']
+                        bg_card = "bg-[#161B22] border-[#83ABF1]" if is_active else "bg-[#0A0C10] border-gray-800 opacity-70"
+                        
+                        with ui.card().classes(f'w-full flex-row items-center justify-between p-6 mb-4 rounded-xl border {bg_card} shadow-xl'):
+                            with ui.column().classes('gap-1 w-1/3'):
+                                ui.label(evento['event_name']).classes('text-lg font-black text-white')
+                                ui.label(f"Prueba: {evento['test_type']}").classes('text-[#83ABF1] font-bold text-sm')
+                                ui.label(f"Fecha: {evento['created_at'][:10]}").classes('text-gray-500 text-xs')
+                            
+                            with ui.column().classes('items-center gap-2 w-1/3'):
+                                progreso = evento['used_slots'] / evento['max_slots'] if evento['max_slots'] > 0 else 0
+                                color_progreso = "green" if progreso < 0.8 else "orange" if progreso < 1 else "red"
+                                
+                                ui.label(f"{evento['used_slots']} / {evento['max_slots']} Plazas Usadas").classes('text-white font-bold font-mono')
+                                ui.linear_progress(value=progreso, show_value=False).props(f'color="{color_progreso}"').classes('w-full h-3 rounded-full')
+                            
+                            with ui.column().classes('items-end gap-2 w-1/3'):
+                                if is_active:
+                                    url_registro = f"https://tu-dominio.com/join/{evento['id']}" # TODO: Cambiar por el dominio real
+                                    with ui.row().classes('gap-2'):
+                                        ui.button('VER QR', icon='qr_code', on_click=lambda url=url_registro: self.mostrar_qr_grande(url)).props('outline color=white')
+                                        ui.button('COPIAR LINK', icon='content_copy', on_click=lambda url=url_registro: ui.run_javascript(f'navigator.clipboard.writeText("{url}")')).props('flat color=blue')
+                                    
+                                    ui.button('CERRAR ACCESO', icon='block', on_click=lambda e_id=evento['id']: self.toggle_evento(e_id, False)).classes('bg-red-900/50 text-red-400 font-bold mt-2 shadow-none hover:bg-red-800')
+                                else:
+                                    ui.label('FINALIZADO').classes('text-red-500 font-bold tracking-widest border border-red-500 px-4 py-1 rounded')
+                                    ui.button('REABRIR', icon='restart_alt', on_click=lambda e_id=evento['id']: self.toggle_evento(e_id, True)).props('flat color=gray').classes('mt-2')
+
+    def mostrar_qr_grande(self, url):
+        # Utiliza un servicio gratuito para generar la imagen del QR temporalmente en el dialog
+        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={url}"
+        
+        with ui.dialog() as dialog, ui.card().classes('p-8 bg-white items-center rounded-2xl'):
+            ui.label('ESCANEA PARA ACCEDER').classes('text-2xl font-black text-black tracking-widest mb-4')
+            ui.image(qr_url).classes('w-64 h-64 border-4 border-black p-2 rounded')
+            ui.label(url).classes('text-blue-600 font-mono text-xs mt-4 mb-4 select-all')
+            ui.button('CERRAR', on_click=dialog.close).classes('bg-black text-white font-bold w-full')
+        dialog.open()
+
+    def toggle_evento(self, event_id, nuevo_estado):
+        try:
+            supabase.table('qr_events').update({'is_active': nuevo_estado}).eq('id', event_id).execute()
+            estado_txt = "Abierto" if nuevo_estado else "Cerrado"
+            self.registrar_log('QR_EVENT_TOGGLED', f"ID: {str(event_id)[:8]} -> {estado_txt}", 'yellow')
+            ui.notify(f'Evento marcado como {estado_txt}', type='info')
+            self.render()
+        except Exception as e:
+            ui.notify(f'Error al cambiar estado: {e}', type='negative')
+
+
+    # ==========================================
     # GESTIÓN INDIVIDUAL DE USUARIOS
     # ==========================================
     def limpiar_formulario(self, inputs):
@@ -115,11 +244,20 @@ class ConsolaOrganizacion:
         p_data = user.get('profile_data', {})
         sape_data = p_data.get('sape', {})
         sapp_data = p_data.get('sapp', {})
+        saiv_data = p_data.get('saiv', {})
         
-        intentos = user.get('intentos_disponibles', max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0)))
+        intentos = user.get('intentos_disponibles', max(sape_data.get('attempts', 0), sapp_data.get('attempts', 0), saiv_data.get('attempts', 0)))
         inputs['u_intentos'].value = intentos
         
-        inputs['u_tests'].value = 'AMBAS' if sape_data.get('attempts',0)>0 and sapp_data.get('attempts',0)>0 else 'SAPE' if sape_data.get('attempts',0)>0 else 'SAPP' if sapp_data.get('attempts',0)>0 else 'SAPE'
+        # Lógica simplificada para mostrar tests asignados en el combo
+        asignados = []
+        if sape_data.get('attempts', 0) > 0: asignados.append("SAPE")
+        if sapp_data.get('attempts', 0) > 0: asignados.append("SAPP")
+        if saiv_data.get('attempts', 0) > 0: asignados.append("SAIV")
+        
+        if "SAPE" in asignados and "SAPP" in asignados: inputs['u_tests'].value = "AMBAS"
+        elif asignados: inputs['u_tests'].value = asignados[0]
+        else: inputs['u_tests'].value = "SAPE" # fallback
         
         inputs['u_sectores'].value = sape_data.get('sectors', [])
         
@@ -141,6 +279,7 @@ class ConsolaOrganizacion:
         intentos = int(inputs['u_intentos'].value)
         sape_active = test_val in ["SAPE", "AMBAS"]
         sapp_active = test_val in ["SAPP", "AMBAS"]
+        saiv_active = test_val == "SAIV"
 
         sectores_seleccionados = inputs['u_sectores'].value if inputs['u_sectores'].value else []
         perfiles_seleccionados = inputs['u_perfil'].value if inputs['u_perfil'].value else []
@@ -156,6 +295,9 @@ class ConsolaOrganizacion:
                 "attempts": intentos if sapp_active else 0,
                 "profile": ", ".join(perfiles_seleccionados),
                 "groups": [] 
+            },
+            "saiv": {
+                "attempts": intentos if saiv_active else 0
             }
         }
 
@@ -168,38 +310,37 @@ class ConsolaOrganizacion:
             "role": "USER",
             "is_deleted": False,
             "profile_data": profile_data,
-            "intentos_disponibles": intentos, # ¡CLAVE PARA QUE PUEDAN ENTRAR!
+            "intentos_disponibles": intentos, 
             "max_intentos": intentos
         }
 
         try:
             if getattr(self, 'editing_user', None):
-                # ES UNA EDICIÓN
                 supabase.table('users').update(payload).eq('username', self.editing_user).execute()
                 self.registrar_log('EDIT_USER', payload['username'], 'green-yellow')
                 ui.notify('Usuario actualizado correctamente', type='positive')
                 self.limpiar_formulario(inputs)
             else:
-                # ES UNA CREACIÓN NUEVA
                 saldo_actual = self.org_data.get('licencias_compradas', 0)
-                if saldo_actual <= 0:
+                
+                # OJO: Si es SAIV puro, y la org tiene permiso SAIV, no comprobamos saldo global
+                requiere_saldo = sape_active or sapp_active
+                
+                if requiere_saldo and saldo_actual <= 0:
                     ui.notify('❌ Saldo de licencias insuficiente para crear este usuario.', type='negative')
                     return
 
-                # PASO 1: INTENTAR CREAR AL USUARIO PRIMERO
-                # Si falla aquí (ej: nombre repetido), salta al except y no descuenta la licencia
                 res_insert = supabase.table('users').insert(payload).execute()
                 
-                # PASO 2: SI SE CREÓ BIEN, DESCONTAMOS LA LICENCIA
-                nuevo_saldo = saldo_actual - 1
-                supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
-                self.org_data['licencias_compradas'] = nuevo_saldo
+                if requiere_saldo:
+                    nuevo_saldo = saldo_actual - 1
+                    supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
+                    self.org_data['licencias_compradas'] = nuevo_saldo
+                    self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
 
                 self.registrar_log('NEW_USER', payload['username'], 'green-blue')
-                self.registrar_log('LICENSE_CONSUMED', payload['username'], 'green-yellow', 'Creación Manual')
-                
                 ui.notify('Usuario creado con éxito', type='positive')
-                self.limpiar_formulario(inputs) # Limpiar para evitar duplicados accidentales
+                self.limpiar_formulario(inputs) 
             
             self.render()
         except Exception as e:
@@ -226,8 +367,8 @@ class ConsolaOrganizacion:
         df = pd.DataFrame({
             "username": ["usuario_01", "usuario_02"],
             "password": ["Pass123*", "Pass456*"],
-            "tests": ["SAPE", "AMBAS"],
-            "sape_sectors": ["TECH, SOCIAL", "SALUD"],
+            "tests": ["SAPE", "SAIV"],
+            "sape_sectors": ["TECH, SOCIAL", ""],
             "sapp_profile": ["", "Sanitario, Educativo"],
             "sapp_groups": ["", "competencias personales, técnicas"]
         })
@@ -249,19 +390,28 @@ class ConsolaOrganizacion:
 
             usuarios_a_crear = len(df)
             saldo_actual = self.org_data.get('licencias_compradas', 0)
+            can_assign_saiv = self.privilegios.get('can_assign_saiv', False)
 
-            if usuarios_a_crear > saldo_actual:
-                ui.notify(f'❌ Saldo insuficiente. Intentas subir {usuarios_a_crear} usuarios, pero solo tienes {saldo_actual} licencias.', type='negative', timeout=8000)
+            # Contar licencias requeridas (SAPE/SAPP)
+            licencias_necesarias = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPE", "SAPP", "AMBAS", "TODAS"]))
+
+            if licencias_necesarias > saldo_actual:
+                ui.notify(f'❌ Saldo insuficiente. El archivo requiere {licencias_necesarias} licencias y solo tienes {saldo_actual}.', type='negative', timeout=8000)
                 return
 
-            count = 0
+            count_creados = 0
+            count_gastadas = 0
             errores = 0
+            
             for _, row in df.iterrows():
                 tests = str(row['tests']).upper()
-                sape_active = any(x in tests for x in ["SAPE", "AMBAS"])
-                sapp_active = any(x in tests for x in ["SAPP", "AMBAS"])
+                sape_active = any(x in tests for x in ["SAPE", "AMBAS", "TODAS"])
+                sapp_active = any(x in tests for x in ["SAPP", "AMBAS", "TODAS"])
+                saiv_active = any(x in tests for x in ["SAIV", "TODAS"])
                 
-                # Asumimos 3 intentos evolutivos por defecto en carga masiva
+                if saiv_active and not can_assign_saiv:
+                    saiv_active = False
+
                 intentos_defecto = 3
 
                 profile_data = {
@@ -273,6 +423,9 @@ class ConsolaOrganizacion:
                         "attempts": intentos_defecto if sapp_active else 0,
                         "profile": str(row.get('sapp_profile', '')).strip().title(),
                         "groups": [g.strip() for g in str(row.get('sapp_groups', '')).split(',')] if pd.notna(row.get('sapp_groups')) else []
+                    },
+                    "saiv": {
+                        "attempts": intentos_defecto if saiv_active else 0
                     }
                 }
 
@@ -287,29 +440,28 @@ class ConsolaOrganizacion:
                     "max_intentos": intentos_defecto
                 }
                 
-                # Intentar crear uno a uno para no romper todo el batch si uno falla
                 try:
-                    # Usamos match de username para simular un upsert más seguro sin ID
                     existente = supabase.table("users").select("id").eq("username", payload["username"]).execute()
                     if existente.data:
                         supabase.table("users").update(payload).eq("username", payload["username"]).execute()
                     else:
                         supabase.table("users").insert(payload).execute()
-                        count += 1 # Solo restamos licencia si es un usuario NUEVO
+                        count_creados += 1
+                        if sape_active or sapp_active:
+                            count_gastadas += 1
                 except Exception as ex_u:
                     print(f"Error insertando {payload['username']}: {ex_u}")
                     errores += 1
 
-            # Descontar licencias SOLO por los creados exitosamente
-            nuevo_saldo = saldo_actual - count
-            supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
-            self.org_data['licencias_compradas'] = nuevo_saldo
+            if count_gastadas > 0:
+                nuevo_saldo = saldo_actual - count_gastadas
+                supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', self.org_id).execute()
+                self.org_data['licencias_compradas'] = nuevo_saldo
+                self.registrar_log('LICENSE_CONSUMED', f'-{count_gastadas} Licencias', 'green-yellow', 'Carga Masiva')
 
-            self.registrar_log('BULK_UPLOAD', f'{count} creados, {errores} fallos', 'green-blue')
-            if count > 0:
-                self.registrar_log('LICENSE_CONSUMED', f'-{count} Licencias', 'green-yellow', 'Carga Masiva')
+            self.registrar_log('BULK_UPLOAD', f'{count_creados} creados', 'green-blue')
 
-            ui.notify(f'Proceso finalizado: {count} creados. Saldo restante: {nuevo_saldo}', type='positive' if errores==0 else 'warning')
+            ui.notify(f'Proceso finalizado: {count_creados} creados. Licencias usadas: {count_gastadas}.', type='positive' if errores==0 else 'warning')
             self.render()
 
         except Exception as ex:
@@ -381,7 +533,6 @@ class ConsolaOrganizacion:
                     return
 
                 try:
-                    # 1. Guardar en Supabase
                     res_order = supabase.table('orders').insert({
                         'org_id': self.org_id,
                         'cantidad_licencias': cantidad,
@@ -398,12 +549,11 @@ class ConsolaOrganizacion:
                     ui.notify('✅ Pedido registrado. Descargando Factura Proforma...', type='positive', timeout=5000)
                     self.dialogo_checkout.close()
                     
-                    # 2. Generar y descargar la Proforma
                     try:
                         ruta_proforma = pdf_generator.generar_informe(
-                            user_info=self.org_data, # Pasamos los datos de la org
-                            results=order_data,      # Pasamos los datos financieros
-                            test_type='PROFORMA'     # Activamos el motor financiero
+                            user_info=self.org_data,
+                            results=order_data,
+                            test_type='PROFORMA'
                         )
                         ui.download(ruta_proforma)
                     except Exception as pdf_error:
@@ -417,7 +567,6 @@ class ConsolaOrganizacion:
                 ui.button('CONFIRMAR PEDIDO', on_click=procesar_compra_final).classes('flex-1 bg-[#22C55E] text-[#0E1117] font-black')
 
         self.dialogo_checkout.open()
-
 
     def render_tienda(self):
         with ui.column().classes('w-full items-center p-8'):
@@ -520,9 +669,10 @@ class ConsolaOrganizacion:
                 usuarios_activos = len([u for u in self.users_data if not u.get('is_deleted')])
                 ui.label(f"Usuarios Activos: {usuarios_activos}").classes('bg-[#0E1117] text-white px-6 py-3 rounded-xl border border-gray-800 font-bold')
 
-            # SISTEMA DE PESTAÑAS (NUEVO ORDEN)
+            # SISTEMA DE PESTAÑAS
             with ui.tabs().classes('w-full bg-[#161B22] text-[#83ABF1] rounded-t-2xl font-bold') as tabs:
                 t_users = ui.tab('USUARIOS E HISTORIAL', icon='manage_accounts')
+                t_qr = ui.tab('EVENTOS EN VIVO (QR)', icon='qr_code_scanner') # NUEVA PESTAÑA
                 t_store = ui.tab('TIENDA Y LICENCIAS', icon='storefront')
                 t_stats = ui.tab('ESTADÍSTICAS', icon='analytics')
 
@@ -532,10 +682,8 @@ class ConsolaOrganizacion:
                 with ui.tab_panel(t_users).classes('p-8'):
                     with ui.row().classes('w-full gap-8 items-start'):
                         
-                        # COLUMNA IZQUIERDA: CREACIÓN Y CARGA
                         with ui.column().classes('w-1/3 min-w-[350px]'):
                             if self.privilegios.get('can_create_users', False):
-                                # Gestión Manual
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800 mb-6'):
                                     ui.label('Gestión Individual').classes('text-lg text-[#83ABF1] font-bold mb-4')
                                     inputs = {
@@ -545,10 +693,12 @@ class ConsolaOrganizacion:
                                     
                                     can_sape = self.privilegios.get('can_assign_sape', False)
                                     can_sapp = self.privilegios.get('can_assign_sapp', False)
+                                    can_saiv = self.privilegios.get('can_assign_saiv', False)
                                     
                                     opciones_test = []
                                     if can_sape: opciones_test.append('SAPE')
                                     if can_sapp: opciones_test.append('SAPP')
+                                    if can_saiv: opciones_test.append('SAIV')
                                     if can_sape and can_sapp: opciones_test.append('AMBAS')
                                     
                                     if opciones_test:
@@ -579,7 +729,6 @@ class ConsolaOrganizacion:
                                         ui.button('LIMPIAR', on_click=lambda: self.limpiar_formulario(inputs)).classes('w-1/3 bg-gray-700 text-white font-bold')
                                         ui.button('GUARDAR', on_click=lambda: self.guardar_usuario_manual(inputs)).classes('flex-1 bg-[#83ABF1] text-[#0E1117] font-bold hover:scale-105 transition-all')
 
-                                # Carga Masiva
                                 with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
                                     ui.label('Carga Masiva (CSV / XLSX)').classes('text-lg text-[#83ABF1] font-bold mb-4')
                                     ui.button('Descargar Plantilla XLSX', icon='download', on_click=self.descargar_plantilla_org).classes('w-full mb-4 bg-green-700 text-white font-bold')
@@ -590,9 +739,7 @@ class ConsolaOrganizacion:
                                     ui.label('Privilegios insuficientes').classes('text-red-400 font-bold mb-2')
                                     ui.label('No puedes registrar ni editar usuarios. Contacta con Administración.').classes('text-sm text-gray-500')
 
-                        # COLUMNA DERECHA: DIRECTORIO E HISTORIAL
                         with ui.column().classes('flex-1'):
-                            # Tabla de Usuarios
                             with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800 mb-6'):
                                 ui.label('Directorio de Usuarios').classes('text-xl text-[#83ABF1] font-bold mb-4')
                                 if not self.users_data:
@@ -607,7 +754,6 @@ class ConsolaOrganizacion:
                                                     ui.button(icon='edit', on_click=lambda u=u: self.preparar_edicion_usuario(u, inputs)).props('flat round color=blue size=sm')
                                                     ui.button(icon='delete', on_click=lambda user=u['username']: self.eliminar_usuario(user)).props('flat round color=red size=sm')
 
-                            # Historial de Registros
                             with ui.column().classes('w-full bg-[#0E1117] p-6 rounded-2xl border border-gray-800'):
                                 ui.label('Historial de Registros').classes('text-xl text-[#83ABF1] font-bold mb-4')
                                 
@@ -631,6 +777,10 @@ class ConsolaOrganizacion:
                                             ui.label(log.get('action_type')).classes('text-white text-xs font-bold w-24')
                                             ui.label(log.get('target_user')).classes('text-[#83ABF1] text-sm')
 
+                # NUEVA PESTAÑA: EVENTOS QR
+                with ui.tab_panel(t_qr).classes('p-8'):
+                    self.render_panel_qr()
+
                 # PESTAÑA 2: TIENDA B2B
                 with ui.tab_panel(t_store).classes('p-0'):
                     self.render_tienda()
@@ -646,7 +796,7 @@ class ConsolaOrganizacion:
                             ui.label('Panel Analítico').classes('text-2xl text-[#83ABF1] font-bold mb-6')
                             
                             with ui.row().classes('w-full gap-4 mb-8 bg-[#161B22] p-4 rounded-xl'):
-                                ui.select(['Todas', 'SAPE', 'SAPP'], label='Por Prueba', value='Todas').classes('w-48').props('dark outlined')
+                                ui.select(['Todas', 'SAPE', 'SAPP', 'SAIV'], label='Por Prueba', value='Todas').classes('w-48').props('dark outlined')
                                 ui.select(['Todos'] + SECTORES_OFICIALES, label='Por Sector', value='Todos').classes('w-48').props('dark outlined')
                                 ui.input('Filtrar Fecha').classes('w-48').props('dark outlined type=date')
                                 ui.select(['Todos los usuarios'], label='Por Usuario', value='Todos los usuarios').classes('w-64').props('dark outlined')
@@ -667,13 +817,20 @@ class ConsolaOrganizacion:
                                         res_sapp = ev.get('refined_metrics', ev.get('results', {})) 
                                         is_apt = res_sapp.get('global_compliance', False)
                                         score_str = "🟢 APTO" if is_apt else "🔴 NO APTO (Riesgo)"
+                                    elif test_type == 'SAIV':
+                                        res_saiv = ev.get('refined_metrics', {})
+                                        codigo = res_saiv.get('riasec_code', 'N/A')
+                                        score_str = f"🟣 Perfil {codigo}"
                                     else:
                                         res_sape = ev.get('results', ev.get('calculated_scores', {}))
                                         potencial = res_sape.get('potencial', 0)
                                         score_str = f"🚀 {potencial}% Potencial"
 
+                                    # Aquí intentaremos buscar el nombre del usuario si coincide con el ID
+                                    nombre_usr = next((u['username'] for u in self.users_data if u['username'] == user_id or u.get('id') == user_id), user_id)
+
                                     filas_ev.append({
-                                        'user': user_id, 
+                                        'user': nombre_usr, 
                                         'test': f"{test_type} - {sector}",
                                         'score': score_str,
                                         'date': fecha,
@@ -681,7 +838,7 @@ class ConsolaOrganizacion:
                                     })
 
                                 cols_ev = [
-                                    {'name': 'user', 'label': 'ID Usuario', 'field': 'user', 'align': 'left'},
+                                    {'name': 'user', 'label': 'Candidato', 'field': 'user', 'align': 'left'},
                                     {'name': 'test', 'label': 'Prueba y Sector', 'field': 'test', 'align': 'left'},
                                     {'name': 'score', 'label': 'Resultado', 'field': 'score', 'align': 'center'},
                                     {'name': 'date', 'label': 'Fecha', 'field': 'date', 'align': 'right'},
@@ -691,7 +848,11 @@ class ConsolaOrganizacion:
                                 with ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white border border-[#83ABF1]/20 rounded-xl shadow-lg') as table:
                                     table.add_slot('body-cell-score', '''
                                         <q-td :props="props">
-                                            <span :class="props.value.includes('APTO') && !props.value.includes('NO') ? 'text-green-400 font-bold' : props.value.includes('NO APTO') ? 'text-red-400 font-bold' : 'text-blue-300 font-bold'">
+                                            <span :class="
+                                                props.value.includes('APTO') && !props.value.includes('NO') ? 'text-green-400 font-bold' : 
+                                                props.value.includes('NO APTO') ? 'text-red-400 font-bold' : 
+                                                props.value.includes('Perfil') ? 'text-purple-400 font-bold tracking-widest' :
+                                                'text-blue-300 font-bold'">
                                                 {{ props.value }}
                                             </span>
                                         </q-td>
