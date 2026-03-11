@@ -1,13 +1,8 @@
-# pdf_generator_saiv.py
 from fpdf import FPDF
 import os
 from datetime import datetime
 from typing import Dict, Any
 
-# ==========================================
-# 1. DICCIONARIO DE DEFINICIONES RIASEC 
-# Ajustado a las claves estándar (R,I,A,S,E,C) para que coincida con el motor lógico
-# ==========================================
 RIASEC_DESC = {
     'R': {
         'nombre': 'Realista (Técnico)',
@@ -43,13 +38,11 @@ RIASEC_DESC = {
 
 class PDF_SAIV(FPDF):
     def header(self):
-        # Fondo oscuro para la cabecera
-        self.set_fill_color(14, 17, 23) # #0E1117
+        self.set_fill_color(14, 17, 23)
         self.rect(0, 0, 210, 30, 'F')
-        
         self.set_y(12)
         self.set_font('Arial', 'B', 20)
-        self.set_text_color(131, 171, 241) # #83ABF1
+        self.set_text_color(131, 171, 241)
         self.cell(0, 10, 'INFORME VOCACIONAL S.A.I.V.', 0, 1, 'C')
 
     def footer(self):
@@ -59,21 +52,13 @@ class PDF_SAIV(FPDF):
         self.cell(0, 10, f'Generado por Audeo - Plataforma de Evaluación - Página {self.page_no()}', 0, 0, 'C')
 
 def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> str:
-    """
-    Genera el PDF del informe vocacional SAIV.
-    Retorna la ruta absoluta del archivo generado.
-    """
     pdf = PDF_SAIV()
     pdf.add_page()
     
-    # Manejo robusto de datos (Soporta 'metrics' con % o 'scores' brutos)
     metrics = results.get('metrics', {})
     scores = results.get('scores', {})
     riasec_code = results.get('riasec_code', '---')
     
-    # ---------------------------------------------------------
-    # SECCIÓN 1: DATOS DEL USUARIO
-    # ---------------------------------------------------------
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 12)
     pdf.set_text_color(0, 0, 0)
@@ -87,53 +72,38 @@ def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> 
     pdf.cell(0, 8, datetime.now().strftime('%d/%m/%Y'), 0, 1)
     pdf.ln(5)
 
-    # ---------------------------------------------------------
-    # SECCIÓN 2: EL CÓDIGO RIASEC DOMINANTE
-    # ---------------------------------------------------------
-    pdf.set_fill_color(13, 36, 141) # #0D248D
+    pdf.set_fill_color(13, 36, 141)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Arial', 'B', 16)
     pdf.cell(0, 15, f'  TU CODIGO VOCACIONAL DOMINANTE: {riasec_code}', 0, 1, 'C', 1)
     pdf.ln(10)
 
-    # ---------------------------------------------------------
-    # SECCIÓN 3: DISTRIBUCIÓN DE INTERESES (BARRAS)
-    # ---------------------------------------------------------
     pdf.set_text_color(0, 0, 0)
     pdf.set_font('Arial', 'B', 14)
     pdf.cell(0, 10, 'Distribucion de Intereses (0% - 100%)', 0, 1, 'L')
     pdf.set_font('Arial', '', 11)
     
-    # Orden internacional estándar RIASEC
     orden_letras = ['R', 'I', 'A', 'S', 'E', 'C']
     
     for letra in orden_letras:
         nombre = RIASEC_DESC[letra]['nombre']
-        
-        # Calcular porcentaje de forma segura
         pct = 0
         if letra in metrics and isinstance(metrics[letra], dict):
             pct = metrics[letra].get('percentage', 0)
         elif letra in scores:
-            # Si solo vienen scores (asumimos max de 125 puntos por dimensión como ejemplo o relativo)
             max_val = max(scores.values()) if scores.values() else 1
             pct = int((scores[letra] / max_val) * 100) if max_val > 0 else 0
         
-        # Fila de texto
         pdf.set_font('Arial', 'B', 10)
         pdf.cell(60, 8, nombre, 0, 0)
         
-        # Barra visual (simulada con rectángulos en FPDF)
         x_start = pdf.get_x()
         y_start = pdf.get_y() + 2
         
-        # Fondo de la barra (gris claro)
         pdf.set_fill_color(230, 230, 230)
         pdf.rect(x_start, y_start, 100, 4, 'F')
         
-        # Relleno de la barra (azul)
         if pct > 0:
-            # Evitamos que la barra se salga del recuadro si hay un % mayor a 100 por error de cálculo
             pct_draw = min(pct, 100) 
             pdf.set_fill_color(131, 171, 241)
             pdf.rect(x_start, y_start, pct_draw, 4, 'F')
@@ -144,9 +114,6 @@ def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> 
 
     pdf.ln(10)
 
-    # ---------------------------------------------------------
-    # SECCIÓN 4: ANÁLISIS DE LAS DIMENSIONES TOP
-    # ---------------------------------------------------------
     pdf.set_font('Arial', 'B', 14)
     pdf.cell(0, 10, 'Analisis de tu Perfil Principal', 'B', 1, 'L')
     pdf.ln(5)
@@ -158,7 +125,7 @@ def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> 
             desc = desc_data.get('desc', '')
             roles = desc_data.get('roles', '')
             
-            if not nombre: continue # Por si entra una letra no reconocida
+            if not nombre: continue 
             
             pdf.set_font('Arial', 'B', 12)
             pdf.set_text_color(13, 36, 141)
@@ -173,9 +140,6 @@ def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> 
             pdf.multi_cell(0, 6, f"Roles afines: {roles}")
             pdf.ln(4)
 
-    # ---------------------------------------------------------
-    # SECCIÓN 5: LEGAL Y METODOLOGÍA
-    # ---------------------------------------------------------
     pdf.set_y(-50)
     pdf.set_font('Arial', 'B', 8)
     pdf.set_text_color(100, 100, 100)
@@ -190,12 +154,7 @@ def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> 
     )
     pdf.multi_cell(0, 4, legal_text)
 
-    # ---------------------------------------------------------
-    # GUARDADO DEL ARCHIVO
-    # ---------------------------------------------------------
-    # Aseguramos que existe la carpeta
     os.makedirs('temp_reports', exist_ok=True)
-    
     filename = f"SAIV_{user_info.get('username', 'User')}_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
     filename = filename.replace(" ", "_").replace("/", "-")
     filepath = os.path.join(os.getcwd(), 'temp_reports', filename)
