@@ -151,7 +151,6 @@ def login_page():
                         'w-full bg-[#83ABF1] text-white font-bold py-4 rounded-xl hover:scale-105 transition-all shadow-lg'
                     )
 
-
 # ==========================================
 # NUEVO 3.5: BROKER QR DE ACCESO RELÁMPAGO 
 # ==========================================
@@ -178,16 +177,33 @@ async def qr_access_broker(event_id: str):
         if evento['used_slots'] >= evento['max_slots']:
             raise Exception("El aforo de este evento está completo.")
 
-        # 2. VERIFICAR SALDO DE LA ORGANIZACIÓN (Excepto SAIV que no descuenta)
+        # 2. VERIFICAR SALDO ESPECÍFICO DE LA ORGANIZACIÓN
         org_id = evento['org_id']
         tipo_test = evento['test_type']
         
-        res_org = supabase.table('organizations').select('name, licencias_compradas').eq('id', org_id).single().execute()
-        org_name = res_org.data.get('name', org_id) if res_org.data else 'Organización'
-        saldo_actual = res_org.data.get('licencias_compradas', 0) if res_org.data else 0
+        res_org = supabase.table('organizations').select('name, sape_balance, sapp_balance, saiv_balance').eq('id', org_id).single().execute()
+        if not res_org.data:
+            raise Exception("Organización no encontrada.")
+            
+        org_data = res_org.data
+        org_name = org_data.get('name', org_id)
+        
+        # Validar el cajón correcto
+        saldo_disponible = 0
+        columna_saldo = ""
+        
+        if tipo_test == 'SAPE':
+            saldo_disponible = org_data.get('sape_balance', 0)
+            columna_saldo = 'sape_balance'
+        elif tipo_test == 'SAPP':
+            saldo_disponible = org_data.get('sapp_balance', 0)
+            columna_saldo = 'sapp_balance'
+        elif tipo_test == 'SAIV':
+            saldo_disponible = org_data.get('saiv_balance', 0)
+            columna_saldo = 'saiv_balance'
 
-        if tipo_test != 'SAIV' and saldo_actual <= 0:
-            raise Exception(f"La organización {org_name} ha agotado su saldo de licencias.")
+        if saldo_disponible <= 0:
+            raise Exception(f"La organización {org_name} no dispone de licencias para esta prueba ({tipo_test}).")
 
         # 3. RENDERIZAR FORMULARIO DE ACCESO RÁPIDO
         with ui.column().classes('w-full min-h-screen items-center justify-center gap-6 p-4'):
@@ -210,34 +226,34 @@ async def qr_access_broker(event_id: str):
                         return
                     
                     username_generado = f"QR_{nom}_{ape}_{str(uuid.uuid4())[:4]}".replace(" ", "")
-                    # Limpiamos caracteres raros por si acaso
                     username_generado = re.sub(r'[^a-zA-Z0-9_]', '', username_generado)
 
                     try:
-                        # A. Incrementar contador del evento (Puede fallar si hubo carrera de clics por el constraint)
-                        res_update_ev = supabase.table('qr_events').update({'used_slots': evento['used_slots'] + 1}).eq('id', event_id).execute()
+                        # A. Incrementar contador del evento
+                        supabase.table('qr_events').update({'used_slots': evento['used_slots'] + 1}).eq('id', event_id).execute()
                         
-                        # B. Descontar licencia a la Org (Si no es SAIV)
-                        if tipo_test != 'SAIV':
-                            nuevo_saldo = saldo_actual - 1
-                            supabase.table('organizations').update({'licencias_compradas': nuevo_saldo}).eq('id', org_id).execute()
+                        # B. Descontar licencia específica de la Org
+                        nuevo_saldo = saldo_disponible - 1
+                        supabase.table('organizations').update({columna_saldo: nuevo_saldo}).eq('id', org_id).execute()
 
-                        # C. Crear usuario temporal
+                        # C. Crear usuario temporal asignando los intentos correctos
+                        intentos_asignar = 3 if tipo_test in ['SAPE', 'SAPP'] else 1
+                        
                         profile_data = {
-                            "sape": {"attempts": 1 if tipo_test == 'SAPE' else 0, "sectors": []},
-                            "sapp": {"attempts": 1 if tipo_test == 'SAPP' else 0, "profile": "", "groups": []},
-                            "saiv": {"attempts": 1 if tipo_test == 'SAIV' else 0}
+                            "sape": {"attempts": intentos_asignar if tipo_test == 'SAPE' else 0, "sectors": []},
+                            "sapp": {"attempts": intentos_asignar if tipo_test == 'SAPP' else 0, "profile": "", "groups": []},
+                            "saiv": {"attempts": intentos_asignar if tipo_test == 'SAIV' else 0}
                         }
                         
                         payload_user = {
                             "username": username_generado,
-                            "password": str(uuid.uuid4())[:8], # Contraseña aleatoria, no la necesita
+                            "password": str(uuid.uuid4())[:8], 
                             "org_id": org_id,
                             "role": "USER",
                             "is_deleted": False,
                             "profile_data": profile_data,
-                            "intentos_disponibles": 1,
-                            "max_intentos": 1
+                            "intentos_disponibles": intentos_asignar,
+                            "max_intentos": intentos_asignar
                         }
                         supabase.table('users').insert(payload_user).execute()
                         
@@ -247,7 +263,7 @@ async def qr_access_broker(event_id: str):
                             'role': 'USER',
                             'username': username_generado,
                             'org_id': org_id,
-                            'user_id': username_generado, # En la beta el ID es el nombre para simplificar
+                            'user_id': username_generado, 
                             'from_qr': True,
                             'force_test': tipo_test
                         })
@@ -273,6 +289,7 @@ async def qr_access_broker(event_id: str):
             ui.label('Acceso Denegado').classes('text-2xl font-black text-red-500 mb-2')
             ui.label(str(e)).classes('text-gray-400')
             ui.button('VOLVER A INICIO', on_click=lambda: ui.navigate.to('/')).classes('mt-8 bg-transparent border border-gray-600 text-white px-8')
+
 
 # ==========================================
 # 5. PORTAL DEL CANDIDATO (ONBOARDING PRO)
@@ -318,8 +335,9 @@ def panel_page():
     sapp_data = profile_data.get('sapp', {})
     saiv_data = profile_data.get('saiv', {})
     
-    sape_allowed = profile_data.get('sape_attempts_allowed', 0) > 0 or sape_data.get('attempts', 0) > 0
-    sapp_allowed = profile_data.get('sapp_attempts_allowed', 0) > 0 or sapp_data.get('attempts', 0) > 0
+    # Validamos que tengan más de 0 intentos para permitirles ver el botón
+    sape_allowed = sape_data.get('attempts', 0) > 0
+    sapp_allowed = sapp_data.get('attempts', 0) > 0
     saiv_allowed = saiv_data.get('attempts', 0) > 0 
 
     def safe_list(data):
@@ -568,25 +586,6 @@ def pagina_saiv():
             ui.label('Error iniciando SAIV').classes('text-red-500 text-2xl font-bold mb-4')
             ui.label(str(e)).classes('text-gray-400')
             ui.button('VOLVER', on_click=lambda: ui.navigate.to('/')).classes('mt-6 bg-[#83ABF1] text-[#0E1117] font-bold')
-
-# ==========================================
-# 4. CONSOLAS DE ADMINISTRACIÓN
-# ==========================================
-@ui.page('/admin')
-def admin_page():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    inicializar_sesion()
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ADMIN':
-        ui.navigate.to('/'); return
-    admin_console = ConsolaAdmin(); admin_console.render()
-
-@ui.page('/org-admin')
-def org_admin_page():
-    ui.query('body').style(f'background-color: {BG_COLOR}; color: white; margin: 0;')
-    inicializar_sesion()
-    if not app.storage.user.get('authenticated') or app.storage.user.get('role') != 'ORG_ADMIN':
-        ui.navigate.to('/'); return
-    org_console = ConsolaOrganizacion(); org_console.render()
 
 # ==========================================
 # INICIADOR DEL SERVIDOR
