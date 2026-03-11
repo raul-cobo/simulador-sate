@@ -154,53 +154,146 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
                 
             pdf.ln(12)
 
+    # --- CLÁUSULA LEGAL SAPP ---
     pdf.ln(10)
-    pdf.set_font('Arial', 'I', 9)
-    pdf.set_text_color(150, 150, 150)
-    pdf.multi_cell(0, 5, "Este informe ha sido generado mediante el motor psicométrico de Audeo. "
-                         "Los resultados porcentuales reflejan la alineación del candidato con las conductas "
-                         "esperadas para el módulo evaluado.")
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.rect(10, pdf.get_y(), 190, 25, 'FD')
+    pdf.set_y(pdf.get_y() + 2)
+    pdf.set_font('Arial', 'B', 8)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 5, "AVISO LEGAL Y DEONTOLÓGICO (Art. 22 RGPD):", 0, 1, 'L')
+    pdf.set_font('Arial', '', 8)
+    pdf.multi_cell(186, 4, "Los resultados de este informe se basan en un procesamiento automatizado. Constituyen una herramienta de apoyo al diagnóstico profesional y no tienen efectos jurídicos vinculantes por sí mismos. Queda terminantemente prohibido su uso como único criterio en procesos de selección o evaluación sin la validación e intervención directa de un profesional humano cualificado.")
 
     pdf.output(filepath)
     return filepath
 
 # ==========================================
-# 4. MOTOR GENERADOR SAPE
+# 4. MOTOR GENERADOR SAPE (ACTUALIZADO)
 # ==========================================
 
 def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
-    """Genera el PDF del informe de Personalidad SAPE."""
+    """Genera el PDF del informe de Personalidad SAPE con los nuevos KPIs."""
     pdf = AudeoPDF()
     pdf.add_page()
     
+    # Título Principal
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, "INFORME DE PERFIL EMPRENDEDOR S.A.P.E.", 0, 1, 'C')
+    
+    pdf.set_font('Arial', 'I', 11)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 8, f"Candidato: {user_info.get('username', 'Anónimo')} | Org: {user_info.get('org_id', 'N/A').upper()}", 0, 1, 'C')
     pdf.ln(10)
     
-    potencial = results.get('potencial', 0)
-    ire = results.get('ire', 0)
-    patrones = results.get('patrones_clinicos', [])
+    # 1. BLOQUE DE KPIs
+    potencial = results.get('potencial', 0.0)
+    ire = results.get('ire', 0.0)
+    friccion = results.get('friccion', 0.0)
+    delta = results.get('delta', 0.0)
     
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, "MÉTRICAS PRINCIPALES", 0, 1, 'L')
-    pdf.set_font('Arial', '', 11)
-    pdf.cell(0, 8, f"Potencial Emprendedor: {potencial}/100", 0, 1)
-    pdf.cell(0, 8, f"Índice de Resiliencia (IRE): {ire}", 0, 1)
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, "MÉTRICAS PRINCIPALES (KPIs)", 0, 1, 'L')
+    
+    # Dibujar cajas de KPI
+    pdf.set_font('Arial', 'B', 11)
+    
+    # Fila 1: Potencial e IRE
+    y_kpi = pdf.get_y()
+    pdf.set_fill_color(240, 240, 245)
+    
+    pdf.rect(10, y_kpi, 90, 20, 'F')
+    pdf.set_xy(10, y_kpi + 5)
+    pdf.cell(45, 10, "Potencial:", 0, 0, 'C')
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(13, 36, 141) # Azul oscuro
+    pdf.cell(45, 10, f"{potencial}%", 0, 0, 'C')
+    
+    pdf.set_font('Arial', 'B', 11)
+    pdf.set_text_color(0, 0, 0)
+    pdf.rect(110, y_kpi, 90, 20, 'F')
+    pdf.set_xy(110, y_kpi + 5)
+    pdf.cell(45, 10, "IRE (Resiliencia):", 0, 0, 'C')
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(34, 197, 94) # Verde
+    pdf.cell(45, 10, f"{ire}%", 0, 1, 'C')
+    
+    # Fila 2: Fricción y Delta
     pdf.ln(5)
+    y_kpi = pdf.get_y()
+    
+    pdf.set_font('Arial', 'B', 11)
+    pdf.set_text_color(0, 0, 0)
+    pdf.rect(10, y_kpi, 90, 20, 'F')
+    pdf.set_xy(10, y_kpi + 5)
+    pdf.cell(45, 10, "Fricción:", 0, 0, 'C')
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(239, 68, 68) # Rojo
+    pdf.cell(45, 10, f"{friccion}", 0, 0, 'C')
+    
+    pdf.set_font('Arial', 'B', 11)
+    pdf.set_text_color(0, 0, 0)
+    pdf.rect(110, y_kpi, 90, 20, 'F')
+    pdf.set_xy(110, y_kpi + 5)
+    pdf.cell(45, 10, "Delta:", 0, 0, 'C')
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(234, 179, 8) # Naranja
+    pdf.cell(45, 10, f"{delta}", 0, 1, 'C')
 
+    # 2. DESGLOSE DEL OCTÓGONO (8 RASGOS)
+    pdf.ln(10)
+    pdf.set_font('Arial', 'B', 14)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, "DESGLOSE POR DIMENSIÓN", 0, 1, 'L')
+    pdf.ln(2)
+    
+    for key, dict_textos in TEXTOS_RASGOS.items():
+        valor = results.get(key, 50.0) # 50 por defecto si no lo encuentra
+        
+        pdf.set_font('Arial', 'B', 10)
+        pdf.set_text_color(0, 0, 0)
+        pdf.cell(120, 6, dict_textos['nombre'], 0, 0, 'L')
+        pdf.cell(0, 6, f"{valor}%", 0, 1, 'R')
+        
+        # Barra visual pequeña
+        pdf.set_fill_color(230, 230, 230)
+        pdf.rect(10, pdf.get_y(), 190, 3, 'F')
+        if valor > 0:
+            pdf.set_fill_color(131, 171, 241) # Azul claro
+            pdf.rect(10, pdf.get_y(), (valor/100)*190, 3, 'F')
+        pdf.ln(5)
+
+    # 3. PATRONES CLÍNICOS (DESCARRILADORES)
+    patrones = results.get('patrones_clinicos', [])
     if patrones:
-        pdf.set_font('Arial', 'B', 12)
+        pdf.ln(5)
+        pdf.set_font('Arial', 'B', 14)
         pdf.set_text_color(200, 0, 0)
-        pdf.cell(0, 10, "RIESGOS ESTRUCTURALES DETECTADOS", 0, 1, 'L')
+        pdf.cell(0, 10, "RIESGOS Y PATRONES DETECTADOS", 0, 1, 'L')
         pdf.set_text_color(0, 0, 0)
         for pat in patrones:
             pdf.set_font('Arial', 'B', 10)
-            pdf.cell(0, 6, f"Patrón: {pat.get('nombre', '')}", 0, 1)
-            pdf.set_font('Arial', '', 10)
-            pdf.multi_cell(0, 6, pat.get('desc', ''))
-            pdf.ln(4)
+            pdf.cell(0, 6, f"Patrón: {pat.get('nombre', 'Desconocido')}", 0, 1)
+            pdf.set_font('Arial', '', 9)
+            pdf.multi_cell(0, 5, pat.get('desc', ''))
+            pdf.ln(2)
+
+    # --- 4. CLÁUSULA LEGAL (ART. 22 RGPD) ---
+    # Lo empujamos hacia el final de la página
+    pdf.set_y(-45)
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.rect(10, pdf.get_y(), 190, 25, 'FD')
+    pdf.set_y(pdf.get_y() + 2)
+    pdf.set_font('Arial', 'B', 8)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 5, "AVISO LEGAL Y DEONTOLÓGICO (Art. 22 RGPD):", 0, 1, 'L')
+    pdf.set_font('Arial', '', 8)
+    pdf.multi_cell(186, 4, "Los resultados de este informe se basan en un procesamiento automatizado. Constituyen una herramienta de apoyo al diagnóstico profesional y no tienen efectos jurídicos vinculantes por sí mismos. Queda terminantemente prohibido su uso como único criterio en procesos de selección o evaluación sin la validación e intervención directa de un profesional humano cualificado.")
 
     pdf.output(filepath)
     return filepath
@@ -234,7 +327,7 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     # --- DATOS FISCALES (EMISOR Y RECEPTOR) ---
     y_current = pdf.get_y()
     
-    # Emisor (Audeo) - RELLENA ESTOS DATOS CON LOS TUYOS
+    # Emisor (Audeo)
     pdf.set_font('Arial', 'B', 10)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(95, 6, "EMISOR:", 0, 1, 'L')
@@ -308,7 +401,7 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.cell(35, 10, "TOTAL A PAGAR:", 0, 0, 'R')
     pdf.cell(35, 10, f"{total:.2f} EUR", 0, 1, 'R')
 
-    # --- INSTRUCCIONES DE PAGO Y CONDICIONES (Alineado con T&C) ---
+    # --- INSTRUCCIONES DE PAGO Y CONDICIONES ---
     pdf.set_y(-65)
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Arial', 'B', 9)
@@ -351,5 +444,4 @@ def generar_informe(user_info: Dict, results: Dict, test_type: str = 'SAPE') -> 
     elif test_type.upper() == 'SAPE':
         return generar_informe_sape(user_info, results, filepath)
     else:
-        # Por si acaso llega un test_type raro, hace el SAPE por defecto para no fallar
         return generar_informe_sape(user_info, results, filepath)
