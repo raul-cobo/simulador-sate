@@ -1,163 +1,223 @@
-from fpdf import FPDF
-import os
+# saiv_ui.py
+import pandas as pd
+import asyncio
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict
+from nicegui import ui, app
 
-RIASEC_DESC = {
-    'R': {
-        'nombre': 'Realista (Técnico)',
-        'desc': 'Preferencia por actividades prácticas y tangibles. Disfrutas trabajando con herramientas, máquinas, o en entornos físicos y operativos.',
-        'roles': 'Ingeniería, Operaciones, Mantenimiento, Arquitectura de Hardware.'
-    },
-    'I': {
-        'nombre': 'Investigador (Científico)',
-        'desc': 'Fuerte inclinación hacia la observación, el análisis y la resolución de problemas complejos o abstractos mediante la lógica.',
-        'roles': 'Data Science, I+D, Estrategia Analítica, Investigación.'
-    },
-    'A': {
-        'nombre': 'Artístico',
-        'desc': 'Alta necesidad de expresión creativa, innovación y diseño. Prefieres entornos de trabajo no estructurados donde fluya la imaginación.',
-        'roles': 'Diseño UX/UI, Dirección Creativa, Creación de Contenido, Marketing Visual.'
-    },
-    'S': {
-        'nombre': 'Social',
-        'desc': 'Motivación genuina por informar, formar, desarrollar, curar o guiar a otras personas. Tu foco principal es el bienestar y la interacción humana.',
-        'roles': 'Recursos Humanos, Mentoría, Customer Success, Gestión de Comunidades.'
-    },
-    'E': {
-        'nombre': 'Emprendedor',
-        'desc': 'Disfrutas asumiendo riesgos, liderando equipos, persuadiendo a otros y gestionando proyectos para alcanzar metas económicas u organizacionales.',
-        'roles': 'Desarrollo de Negocio, Dirección General (CEO), Ventas, Management.'
-    },
-    'C': {
-        'nombre': 'Convencional (Organizativo)',
-        'desc': 'Habilidad para el orden, la sistematización, el trabajo con datos precisos y el cumplimiento de procedimientos establecidos.',
-        'roles': 'Finanzas, Administración, Control de Calidad, Auditoría.'
-    }
-}
+# Importaciones de la lógica y la interfaz visual
+from logic_saiv import SAIVRefinery 
+from ui_results_saiv import render_dashboard_saiv
+import pdf_generator_saiv  # AQUI IMPORTAMOS EL ARCHIVO FPDF CORRECTO
 
-class PDF_SAIV(FPDF):
-    def header(self):
-        self.set_fill_color(14, 17, 23)
-        self.rect(0, 0, 210, 30, 'F')
-        self.set_y(12)
-        self.set_font('Arial', 'B', 20)
-        self.set_text_color(131, 171, 241)
-        self.cell(0, 10, 'INFORME VOCACIONAL S.A.I.V.', 0, 1, 'C')
+BG_COLOR = "#0E1117"
 
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'Generado por Audeo - Plataforma de Evaluación - Página {self.page_no()}', 0, 0, 'C')
-
-def generar_informe_saiv(user_info: Dict[str, Any], results: Dict[str, Any]) -> str:
-    pdf = PDF_SAIV()
-    pdf.add_page()
-    
-    metrics = results.get('metrics', {})
-    scores = results.get('scores', {})
-    riasec_code = results.get('riasec_code', '---')
-    
-    pdf.set_y(40)
-    pdf.set_font('Arial', 'B', 12)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(50, 8, 'Candidato / Usuario:', 0, 0)
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 8, str(user_info.get('username', 'Usuario_Demo')).upper(), 0, 1)
-    
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(50, 8, 'Fecha de Evaluacion:', 0, 0)
-    pdf.set_font('Arial', '', 12)
-    pdf.cell(0, 8, datetime.now().strftime('%d/%m/%Y'), 0, 1)
-    pdf.ln(5)
-
-    pdf.set_fill_color(13, 36, 141)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(0, 15, f'  TU CODIGO VOCACIONAL DOMINANTE: {riasec_code}', 0, 1, 'C', 1)
-    pdf.ln(10)
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Distribucion de Intereses (0% - 100%)', 0, 1, 'L')
-    pdf.set_font('Arial', '', 11)
-    
-    orden_letras = ['R', 'I', 'A', 'S', 'E', 'C']
-    
-    for letra in orden_letras:
-        nombre = RIASEC_DESC[letra]['nombre']
-        pct = 0
-        if letra in metrics and isinstance(metrics[letra], dict):
-            pct = metrics[letra].get('percentage', 0)
-        elif letra in scores:
-            max_val = max(scores.values()) if scores.values() else 1
-            pct = int((scores[letra] / max_val) * 100) if max_val > 0 else 0
+class SAIVInterface:
+    def __init__(self, df_path: str, supabase_client=None):
+        self.df_path = df_path
+        self.supabase = supabase_client
         
-        pdf.set_font('Arial', 'B', 10)
-        pdf.cell(60, 8, nombre, 0, 0)
+        self.df_preguntas = None
+        self.total_preguntas = 0
         
-        x_start = pdf.get_x()
-        y_start = pdf.get_y() + 2
+        self.current_idx = 0
+        self.respuestas_usuario: Dict[str, int] = {} # Guardamos ints directamente
         
-        pdf.set_fill_color(230, 230, 230)
-        pdf.rect(x_start, y_start, 100, 4, 'F')
+        # En SAIV, no hay opciones A,B,C,D en columnas. 
+        # Es una escala Likert fija de 1 a 5 para el grado de interés.
+        self.opciones_likert = [
+            ("1 - Nada interesante", 1),
+            ("2 - Poco interesante", 2),
+            ("3 - Indiferente", 3),
+            ("4 - Bastante interesante", 4),
+            ("5 - Muy interesante", 5)
+        ]
         
-        if pct > 0:
-            pct_draw = min(pct, 100) 
-            pdf.set_fill_color(131, 171, 241)
-            pdf.rect(x_start, y_start, pct_draw, 4, 'F')
+        # Variables de control evolutivo
+        self.intentos_disponibles = 3
+        self.max_intentos = 3
         
-        pdf.set_x(x_start + 105)
-        pdf.set_font('Arial', '', 10)
-        pdf.cell(20, 8, f'{pct}%', 0, 1)
+        # Carga del CSV
+        try:
+            self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='utf-8-sig')
+            self.df_preguntas = self.df_completo # En SAIV usamos todos los ítems
+            self.total_preguntas = len(self.df_preguntas)
+        except UnicodeDecodeError:
+            self.df_completo = pd.read_csv(self.df_path, sep=';', encoding='latin1')
+            self.df_preguntas = self.df_completo
+            self.total_preguntas = len(self.df_preguntas)
+        except Exception as e:
+            ui.notify(f"Error cargando CSV SAIV: {e}", type='negative')
 
-    pdf.ln(10)
+    def render(self):
+        ui.query('body').style(f'background-color: {BG_COLOR}; margin: 0;')
+        
+        # 1. CABECERA FIJA
+        self.header_contenedor = ui.row().classes('w-full justify-between items-center px-10 py-4 bg-[#0E1117] border-b border-gray-800 flex-nowrap')
+        
+        # 2. CONTENEDOR PRINCIPAL
+        self.main_contenedor = ui.row().classes('w-full max-w-[1400px] mx-auto min-h-[70vh] items-center px-10 flex-nowrap')
+        
+        self.verificar_e_iniciar()
 
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, 'Analisis de tu Perfil Principal', 'B', 1, 'L')
-    pdf.ln(5)
+    def verificar_e_iniciar(self):
+        self.header_contenedor.clear()
+        with self.header_contenedor:
+            ui.image('logo_blanco.png').classes('w-48')
+            ui.label('S.A.I.V. - ORIENTACIÓN VOCACIONAL').classes('text-[#83ABF1] font-bold tracking-widest')
 
-    if len(riasec_code) >= 1 and riasec_code != '---':
-        for idx, letra in enumerate(riasec_code):
-            desc_data = RIASEC_DESC.get(letra, {})
-            nombre = desc_data.get('nombre', '')
-            desc = desc_data.get('desc', '')
-            roles = desc_data.get('roles', '')
+        self.main_contenedor.clear()
+        
+        user_id = app.storage.user.get('user_id') # Usamos username como ID
+        
+        # --- VERIFICACIÓN DE CRÉDITOS ---
+        if self.supabase and user_id:
+            try:
+                res = self.supabase.table('users').select('intentos_disponibles, max_intentos').eq('username', user_id).execute()
+                if res.data:
+                    self.intentos_disponibles = res.data[0].get('intentos_disponibles', 3)
+                    self.max_intentos = res.data[0].get('max_intentos', 3)
+            except Exception as e:
+                print(f"Error al verificar créditos: {e}")
+
+        # --- CASO A: SIN INTENTOS (BLOQUEO) ---
+        if self.intentos_disponibles <= 0:
+            with self.main_contenedor.classes('justify-center flex-col items-center'):
+                ui.icon('verified', color='#22C55E', size='5rem').classes('mb-4 mt-10')
+                ui.label('EVALUACIÓN COMPLETADA').classes('text-2xl text-white font-black tracking-widest mb-2')
+                ui.label('Has agotado las pasaciones de este test.').classes('text-gray-400 mb-8')
+                ui.button('VOLVER AL INICIO', on_click=lambda: ui.navigate.to('/')).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
+            return
+
+        # --- CASO B: CON INTENTOS (INICIAR TEST DIRECTAMENTE) ---
+        self.current_idx = 0
+        self.respuestas_usuario.clear()
+        self.main_contenedor.classes(remove='justify-center flex-col')
+        self._mostrar_pregunta()
+
+    # --- MOTOR DE PREGUNTAS ---
+    async def _handle_click(self, valor_respuesta: int):
+        row = self.df_preguntas.iloc[self.current_idx]
+        self.respuestas_usuario[str(row['id'])] = valor_respuesta
+        
+        self.current_idx += 1
+        if self.current_idx < self.total_preguntas:
+            self._mostrar_pregunta()
+        else:
+            await self._finalizar_evaluacion()
+
+    def _mostrar_pregunta(self):
+        self.header_contenedor.clear()
+        progreso = self.current_idx / self.total_preguntas
+        
+        with self.header_contenedor:
+            ui.image('logo_blanco.png').classes('w-48')
+            with ui.row().classes('items-center gap-4 w-1/3 justify-end flex-nowrap'):
+                ui.linear_progress(value=progreso, show_value=False).props('color="blue"').classes('w-full h-2 rounded-full')
+                ui.label(f"{self.current_idx + 1}/{self.total_preguntas}").classes('text-[#83ABF1] font-bold text-sm min-w-[40px] text-right')
+
+        self.main_contenedor.clear()
+        row_data = self.df_preguntas.iloc[self.current_idx]
+        
+        with self.main_contenedor:
+            # Columna Izquierda: La Pregunta/Situación
+            with ui.column().classes('w-[55%] flex flex-col gap-6 justify-center pr-16 pb-20'):
+                ui.label("EVALÚA TU INTERÉS EN ESTA ACTIVIDAD").classes('text-[12px] text-gray-500 font-black tracking-widest uppercase')
+                ui.label(row_data['TITULO']).classes('text-[24px] font-bold text-[#83ABF1] leading-tight')
+                ui.label(row_data['NARRATIVA']).classes('text-[18px] text-white leading-relaxed')
+
+            # Columna Derecha: Escala Likert de Interés
+            with ui.column().classes('w-[45%] flex flex-col justify-center gap-4 pb-20'):
+                for txt, valor in self.opciones_likert:
+                    btn = ui.button(on_click=lambda v=valor: self._handle_click(v), color=None)
+                    btn.props('no-caps')
+                    btn.classes(
+                        'w-full text-left p-5 rounded-xl text-white '
+                        '!bg-[#161B22] border border-gray-800 hover:border-[#83ABF1] hover:!bg-[#0D248D] transition-all duration-300 shadow-md'
+                    )
+                    with btn: 
+                        ui.label(txt).classes('text-[16px] font-bold w-full text-center')
+
+    async def _finalizar_evaluacion(self):
+        ui.notify("Evaluación vocacional completada. Procesando perfil...", color='positive')
+        
+        user_id = app.storage.user.get('user_id') # Es el username 'sochoa'
+        qr_event_id = app.storage.user.get('qr_event_id')
+        
+        # 1. Llamamos al Motor de Refinería SAIV
+        try:
+            results = SAIVRefinery.refine_results(self.respuestas_usuario, self.df_preguntas)
+            scores = results.get('scores', {})
+        except Exception as e:
+            ui.notify(f"Error procesando resultados: {e}", type="negative")
+            print(f"Error Refinería SAIV: {e}")
+            return
             
-            if not nombre: continue 
+        # 2. Guardamos en Supabase en la TABLA DEDICADA 'evaluations_saiv'
+        if self.supabase and user_id:
+            payload_saiv = {
+                "username": user_id,
+                "org_id": app.storage.user.get('org_id'),
+                "qr_event_id": qr_event_id,
+                "r_score": scores.get('R', 0),
+                "i_score": scores.get('I', 0),
+                "a_score": scores.get('A', 0),
+                "s_score": scores.get('S', 0),
+                "e_score": scores.get('E', 0),
+                "c_score": scores.get('C', 0),
+                "riasec_code": results.get('riasec_code', '---'),
+                "full_results": results, 
+                "created_at": datetime.now().isoformat()
+            }
             
-            pdf.set_font('Arial', 'B', 12)
-            pdf.set_text_color(13, 36, 141)
-            pdf.cell(0, 8, f"{idx+1}. {nombre} ({letra})", 0, 1)
-            
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font('Arial', '', 11)
-            pdf.multi_cell(0, 6, desc)
-            
-            pdf.set_font('Arial', 'I', 10)
-            pdf.set_text_color(100, 100, 100)
-            pdf.multi_cell(0, 6, f"Roles afines: {roles}")
-            pdf.ln(4)
+            try:
+                # INSERTAMOS EN LA NUEVA TABLA DEDICADA
+                self.supabase.table("evaluations_saiv").insert(payload_saiv).execute()
+                
+                # Descontamos el intento del usuario (usando username como filtro)
+                nuevos_intentos = max(0, self.intentos_disponibles - 1)
+                self.supabase.table("users").update({"intentos_disponibles": nuevos_intentos}).eq("username", user_id).execute()
+                self.intentos_disponibles = nuevos_intentos
+                
+            except Exception as e:
+                print(f"Error crítico en Nueva Tabla SAIV: {e}")
+                ui.notify("Aviso: No se pudo guardar en la nube. Verifica que la tabla evaluations_saiv exista.", type="warning")
 
-    pdf.set_y(-50)
-    pdf.set_font('Arial', 'B', 8)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 5, 'NOTA METODOLOGICA Y LEGAL', 0, 1)
-    pdf.set_font('Arial', '', 7)
-    legal_text = (
-        "Este informe ha sido generado de forma automatizada mediante el Sistema de Actitudes e Intereses Vocacionales (SAIV), "
-        "basado en el modelo tipologico de John Holland (RIASEC). Los resultados son de caracter orientativo e indican preferencias "
-        "o tendencias vocacionales, no habilidades innatas ni pronosticos definitivos de exito profesional.\n"
-        "De conformidad con el Art. 22 del RGPD, este informe no constituye una decision automatizada con efectos juridicos "
-        "vinculantes y debe ser interpretado como una herramienta de apoyo al desarrollo personal y profesional."
-    )
-    pdf.multi_cell(0, 4, legal_text)
+        # 3. Lanzamos la pantalla de resultados
+        self._mostrar_informe_evolutivo(results)
 
-    os.makedirs('temp_reports', exist_ok=True)
-    filename = f"SAIV_{user_info.get('username', 'User')}_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
-    filename = filename.replace(" ", "_").replace("/", "-")
-    filepath = os.path.join(os.getcwd(), 'temp_reports', filename)
-    
-    pdf.output(filepath)
-    return filepath
+    def _mostrar_informe_evolutivo(self, results):
+        self.header_contenedor.clear()
+        self.main_contenedor.clear()
+        
+        # Ajustamos clases para el dashboard final
+        self.main_contenedor.classes(remove='px-10 max-w-[1400px] flex-nowrap min-h-[70vh]')
+        self.main_contenedor.classes(add='w-full justify-center p-0 flex-col items-center')
+        
+        with self.main_contenedor:
+            try:
+                # Llamada al nuevo componente visual
+                render_dashboard_saiv(results)
+                
+                # BOTÓN DE DESCARGA PDF SAIV
+                with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
+                    async def iniciar_descarga_saiv():
+                        username = app.storage.user.get('username', 'anonimo')
+                        u_info = {'username': username}
+                        
+                        try:
+                            ui.notify('Generando informe vocacional SAIV...', type='info')
+                            # Llamada al script FPDF
+                            ruta_pdf = pdf_generator_saiv.generar_informe_saiv(u_info, results)
+                            ui.download(ruta_pdf)
+                            ui.notify('Informe SAIV descargado con éxito', type='positive')
+                        except Exception as e:
+                            ui.notify(f"Error PDF SAIV: {str(e)}", type='negative')
+                            print(f"Error PDF detallado: {e}")
+
+                    ui.button('DESCARGAR INFORME VOCACIONAL', on_click=iniciar_descarga_saiv).classes(
+                        'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
+                    ).props('icon=picture_as_pdf')
+                    
+            except Exception as e:
+                ui.label(f"⚠️ Error cargando la pantalla de resultados RIASEC: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
