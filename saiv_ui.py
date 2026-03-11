@@ -68,12 +68,12 @@ class SAIVInterface:
 
         self.main_contenedor.clear()
         
-        user_id = app.storage.user.get('user_id')
+        user_id = app.storage.user.get('user_id') # Recuerda: Ahora esto es el username
         
         # --- VERIFICACIÓN DE CRÉDITOS ---
         if self.supabase and user_id:
             try:
-                res = self.supabase.table('users').select('intentos_disponibles, max_intentos').eq('id', user_id).execute()
+                res = self.supabase.table('users').select('intentos_disponibles, max_intentos').eq('username', user_id).execute()
                 if res.data:
                     self.intentos_disponibles = res.data[0].get('intentos_disponibles', 3)
                     self.max_intentos = res.data[0].get('max_intentos', 3)
@@ -139,45 +139,52 @@ class SAIVInterface:
                         ui.label(txt).classes('text-[16px] font-bold w-full text-center')
 
     async def _finalizar_evaluacion(self):
-        ui.notify("Evaluación vocacional completada. Procesando perfil...", color='positive')
+        ui.notify("Evaluación vocacional completada. Guardando perfil...", color='positive')
         
-        user_id = app.storage.user.get('user_id')
-        qr_event_id = app.storage.user.get('qr_event_id') # NUEVO: Rescatar el ID del evento si entró por QR
+        user_id = app.storage.user.get('user_id') # Es el username
+        qr_event_id = app.storage.user.get('qr_event_id') 
         
         # 1. Llamamos al Motor de Refinería SAIV
         try:
             results = SAIVRefinery.refine_results(self.respuestas_usuario, self.df_preguntas)
+            # Extraemos los scores individuales del diccionario devuelto por logic_saiv
+            scores = results.get('scores', {})
         except Exception as e:
             ui.notify(f"Error procesando resultados: {e}", type="negative")
             print(f"Error Refinería SAIV: {e}")
             return
             
-        # 2. Guardamos en Supabase
+        # 2. Guardamos en Supabase en la TABLA DEDICADA
         if self.supabase and user_id:
-            current_attempt = self.max_intentos - self.intentos_disponibles + 1
             
-            # Formato estándar de Audeo para la tabla evaluations
-            eval_data = {
-                "user_id": user_id,
+            # Preparamos el payload para evaluations_saiv
+            payload_saiv = {
+                "username": user_id,
                 "org_id": app.storage.user.get('org_id'),
-                "test_type": "SAIV",
-                "sector_profile": "Orientacion Vocacional",
-                "raw_responses": self.respuestas_usuario,
-                "refined_metrics": results,  # Aquí va el dict que devuelve el logic_saiv
-                "attempt_number": current_attempt,
-                "created_at": datetime.now().isoformat(),
-                "qr_event_id": qr_event_id # NUEVO: Guardamos la relación
+                "qr_event_id": qr_event_id,
+                "r_score": scores.get('R', 0),
+                "i_score": scores.get('I', 0),
+                "a_score": scores.get('A', 0),
+                "s_score": scores.get('S', 0),
+                "e_score": scores.get('E', 0),
+                "c_score": scores.get('C', 0),
+                "riasec_code": results.get('riasec_code', '---'),
+                "full_results": results, # Backup del JSON completo
+                "created_at": datetime.now().isoformat()
             }
             
             try:
-                self.supabase.table("evaluations").insert(eval_data).execute()
+                # INSERTAMOS EN LA NUEVA TABLA DEDICADA
+                self.supabase.table("evaluations_saiv").insert(payload_saiv).execute()
+                
+                # Descontamos el intento del usuario (usando username como filtro)
                 nuevos_intentos = max(0, self.intentos_disponibles - 1)
-                self.supabase.table("users").update({"intentos_disponibles": nuevos_intentos}).eq("id", user_id).execute()
+                self.supabase.table("users").update({"intentos_disponibles": nuevos_intentos}).eq("username", user_id).execute()
                 self.intentos_disponibles = nuevos_intentos
                 
             except Exception as e:
-                print(f"Error en el guardado Supabase SAIV: {e}")
-                ui.notify("Aviso: No se pudo guardar en la nube. Mostrando resultados en local.", type="warning")
+                print(f"Error crítico en Nueva Tabla SAIV: {e}")
+                ui.notify("Aviso: No se pudo guardar en la base de datos.", type="warning")
 
         # 3. Lanzamos la pantalla de resultados
         self._mostrar_informe_evolutivo(results)
