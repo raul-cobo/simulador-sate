@@ -32,7 +32,7 @@ def descargar_informe_desde_consola(row_data):
     
     user_info = {
         'user_id': ev_data.get('user_id', 'N/A'),
-        'username': 'Candidato Evaluación'
+        'username': row_data.get('user', 'Candidato Evaluación') # Usar el nombre de la tabla si es posible
     }
     
     try:
@@ -66,6 +66,8 @@ class ConsolaOrganizacion:
         self.qr_events_data = [] 
         self.editing_user = None
         self.dialogo_checkout = None
+        # NUEVO: Estado del filtro
+        self.filtro_evento = 'Todos'
 
     def cargar_datos(self):
         if not supabase or not self.org_id: return
@@ -727,7 +729,6 @@ class ConsolaOrganizacion:
                                     
                                     if opciones_test:
                                         inputs['u_tests'] = ui.select(opciones_test, label='Prueba Asignada', value=opciones_test[0]).classes('w-full mb-2').props('dark outlined')
-                                        # Ya no pedimos intentos, el backend lo fuerza a 3 (SAPE/SAPP) o 1 (SAIV)
                                         inputs['u_intentos'] = ui.number(value=3).classes('hidden') 
                                         
                                         if can_sape:
@@ -819,7 +820,7 @@ class ConsolaOrganizacion:
                 with ui.tab_panel(t_store).classes('p-0'):
                     self.render_tienda()
 
-                # PESTAÑA 3: ESTADÍSTICAS
+                # PESTAÑA 3: ESTADÍSTICAS Y FILTROS POR EVENTO QR
                 with ui.tab_panel(t_stats).classes('p-8'):
                     if not self.privilegios.get('can_view_org_stats', False):
                         with ui.column().classes('w-full items-center text-center py-10'):
@@ -827,73 +828,106 @@ class ConsolaOrganizacion:
                             ui.label('Estadísticas bloqueadas').classes('text-xl text-gray-400 font-bold')
                     else:
                         with ui.column().classes('w-full bg-[#0E1117] p-8 rounded-2xl border border-gray-800'):
-                            ui.label('Panel Analítico').classes('text-2xl text-[#83ABF1] font-bold mb-6')
+                            ui.label('Panel Analítico y Descarga de Informes').classes('text-2xl text-[#83ABF1] font-bold mb-6')
                             
-                            with ui.row().classes('w-full gap-4 mb-8 bg-[#161B22] p-4 rounded-xl'):
-                                ui.select(['Todas', 'SAPE', 'SAPP', 'SAIV'], label='Por Prueba', value='Todas').classes('w-48').props('dark outlined')
-                                ui.select(['Todos'] + SECTORES_OFICIALES, label='Por Sector', value='Todos').classes('w-48').props('dark outlined')
-                                ui.input('Filtrar Fecha').classes('w-48').props('dark outlined type=date')
-                                ui.select(['Todos los usuarios'], label='Por Usuario', value='Todos los usuarios').classes('w-64').props('dark outlined')
-
-                            if not self.evals_data:
-                                ui.label('No hay evaluaciones completadas para mostrar estadísticas.').classes('text-gray-500 italic')
-                            else:
-                                ui.label('Evaluaciones Completadas:').classes('text-lg text-[#83ABF1] font-bold mb-4 tracking-widest uppercase')
-                                filas_ev = []
-                                
-                                for ev in self.evals_data:
-                                    test_type = ev.get('test_type', 'SAPE')
-                                    sector = ev.get('sector_profile', 'N/A')
-                                    fecha = ev.get('created_at', '')[:10]
-                                    user_id = ev.get('user_id', 'Desconocido')
+                            # PREPARAR LISTA DE EVENTOS PARA EL FILTRO
+                            opciones_eventos = ['Todos']
+                            dic_eventos = {} # Para traducir el UUID a Nombre en la tabla
+                            for ev in self.qr_events_data:
+                                opciones_eventos.append(ev['event_name'])
+                                dic_eventos[ev['id']] = ev['event_name']
+                            
+                            @ui.refreshable
+                            def render_tabla_stats():
+                                with ui.row().classes('w-full gap-4 mb-8 bg-[#161B22] p-4 rounded-xl items-center'):
+                                    ui.select(['Todas', 'SAPE', 'SAPP', 'SAIV'], label='Por Prueba', value='Todas').classes('w-40').props('dark outlined')
                                     
-                                    if test_type == 'SAPP':
-                                        res_sapp = ev.get('refined_metrics', ev.get('results', {})) 
-                                        is_apt = res_sapp.get('global_compliance', False)
-                                        score_str = "🟢 APTO" if is_apt else "🔴 NO APTO (Riesgo)"
-                                    elif test_type == 'SAIV':
-                                        res_saiv = ev.get('refined_metrics', {})
-                                        codigo = res_saiv.get('riasec_code', 'N/A')
-                                        score_str = f"🟣 Perfil {codigo}"
-                                    else:
-                                        res_sape = ev.get('results', ev.get('calculated_scores', {}))
-                                        potencial = res_sape.get('potencial', 0)
-                                        score_str = f"🚀 {potencial}% Potencial"
+                                    # NUEVO: Selector de Evento QR
+                                    def cambiar_filtro_evento(e):
+                                        self.filtro_evento = e.value
+                                        render_tabla_stats.refresh()
+                                        
+                                    ui.select(opciones_eventos, label='Filtrar por Evento QR', value=self.filtro_evento, on_change=cambiar_filtro_evento).classes('w-64').props('dark outlined')
+                                    
+                                    ui.space()
+                                    ui.button('DESCARGAR SELECCIÓN (ZIP)', icon='archive', on_click=lambda: ui.notify('Función ZIP en desarrollo')).classes('bg-[#22C55E] text-[#0E1117] font-bold')
 
-                                    # Aquí intentaremos buscar el nombre del usuario si coincide con el ID
-                                    nombre_usr = next((u['username'] for u in self.users_data if u['username'] == user_id or u.get('id') == user_id), user_id)
+                                if not self.evals_data:
+                                    ui.label('No hay evaluaciones completadas para mostrar estadísticas.').classes('text-gray-500 italic')
+                                else:
+                                    ui.label('Evaluaciones Completadas:').classes('text-lg text-[#83ABF1] font-bold mb-4 tracking-widest uppercase')
+                                    filas_ev = []
+                                    
+                                    for ev in self.evals_data:
+                                        # FILTRO POR EVENTO
+                                        qr_id_eval = ev.get('qr_event_id')
+                                        nombre_evento_eval = dic_eventos.get(qr_id_eval, 'Directo') if qr_id_eval else 'Directo'
+                                        
+                                        if self.filtro_evento != 'Todos' and nombre_evento_eval != self.filtro_evento:
+                                            continue # Saltamos las filas que no coinciden con el filtro
+                                            
+                                        test_type = ev.get('test_type', 'SAPE')
+                                        sector = ev.get('sector_profile', 'N/A')
+                                        fecha = ev.get('created_at', '')[:10]
+                                        user_id = ev.get('user_id', 'Desconocido')
+                                        
+                                        if test_type == 'SAPP':
+                                            res_sapp = ev.get('refined_metrics', ev.get('results', {})) 
+                                            is_apt = res_sapp.get('global_compliance', False)
+                                            score_str = "🟢 APTO" if is_apt else "🔴 NO APTO (Riesgo)"
+                                        elif test_type == 'SAIV':
+                                            res_saiv = ev.get('refined_metrics', {})
+                                            codigo = res_saiv.get('riasec_code', 'N/A')
+                                            score_str = f"🟣 Perfil {codigo}"
+                                        else:
+                                            res_sape = ev.get('results', ev.get('calculated_scores', {}))
+                                            potencial = res_sape.get('potencial', 0)
+                                            score_str = f"🚀 {potencial}% Potencial"
 
-                                    filas_ev.append({
-                                        'user': nombre_usr, 
-                                        'test': f"{test_type} - {sector}",
-                                        'score': score_str,
-                                        'date': fecha,
-                                        'raw_data': ev 
-                                    })
+                                        nombre_usr = next((u['username'] for u in self.users_data if u['username'] == user_id or u.get('id') == user_id), user_id)
 
-                                cols_ev = [
-                                    {'name': 'user', 'label': 'Candidato', 'field': 'user', 'align': 'left'},
-                                    {'name': 'test', 'label': 'Prueba y Sector', 'field': 'test', 'align': 'left'},
-                                    {'name': 'score', 'label': 'Resultado', 'field': 'score', 'align': 'center'},
-                                    {'name': 'date', 'label': 'Fecha', 'field': 'date', 'align': 'right'},
-                                    {'name': 'actions', 'label': 'Acciones', 'field': 'actions', 'align': 'center'}
-                                ]
+                                        filas_ev.append({
+                                            'user': nombre_usr, 
+                                            'test': f"{test_type} - {sector}",
+                                            'origen': nombre_evento_eval, # Nueva columna
+                                            'score': score_str,
+                                            'date': fecha,
+                                            'raw_data': ev 
+                                        })
 
-                                with ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white border border-[#83ABF1]/20 rounded-xl shadow-lg') as table:
-                                    table.add_slot('body-cell-score', '''
-                                        <q-td :props="props">
-                                            <span :class="
-                                                props.value.includes('APTO') && !props.value.includes('NO') ? 'text-green-400 font-bold' : 
-                                                props.value.includes('NO APTO') ? 'text-red-400 font-bold' : 
-                                                props.value.includes('Perfil') ? 'text-purple-400 font-bold tracking-widest' :
-                                                'text-blue-300 font-bold'">
-                                                {{ props.value }}
-                                            </span>
-                                        </q-td>
-                                    ''')
-                                    table.add_slot('body-cell-actions', '''
-                                        <q-td :props="props">
-                                            <q-btn flat icon="picture_as_pdf" color="primary" @click="$parent.$emit('download_pdf', props.row)" />
-                                        </q-td>
-                                    ''')
-                                    table.on('download_pdf', lambda e: descargar_informe_desde_consola(e.args))
+                                    cols_ev = [
+                                        {'name': 'user', 'label': 'Candidato', 'field': 'user', 'align': 'left', 'sortable': True},
+                                        {'name': 'test', 'label': 'Prueba', 'field': 'test', 'align': 'left', 'sortable': True},
+                                        {'name': 'origen', 'label': 'Origen / Evento', 'field': 'origen', 'align': 'center', 'sortable': True},
+                                        {'name': 'score', 'label': 'Resultado', 'field': 'score', 'align': 'center'},
+                                        {'name': 'date', 'label': 'Fecha', 'field': 'date', 'align': 'right', 'sortable': True},
+                                        {'name': 'actions', 'label': 'Descargar PDF', 'field': 'actions', 'align': 'center'}
+                                    ]
+
+                                    with ui.table(columns=cols_ev, rows=filas_ev, row_key='user').classes('w-full bg-[#161B22] text-white border border-[#83ABF1]/20 rounded-xl shadow-lg') as table:
+                                        table.add_slot('body-cell-origen', '''
+                                            <q-td :props="props">
+                                                <q-badge :color="props.value === 'Directo' ? 'grey-8' : 'blue-8'" class="font-bold">
+                                                    {{ props.value }}
+                                                </q-badge>
+                                            </q-td>
+                                        ''')
+                                        table.add_slot('body-cell-score', '''
+                                            <q-td :props="props">
+                                                <span :class="
+                                                    props.value.includes('APTO') && !props.value.includes('NO') ? 'text-green-400 font-bold' : 
+                                                    props.value.includes('NO APTO') ? 'text-red-400 font-bold' : 
+                                                    props.value.includes('Perfil') ? 'text-purple-400 font-bold tracking-widest' :
+                                                    'text-blue-300 font-bold'">
+                                                    {{ props.value }}
+                                                </span>
+                                            </q-td>
+                                        ''')
+                                        table.add_slot('body-cell-actions', '''
+                                            <q-td :props="props">
+                                                <q-btn flat icon="picture_as_pdf" color="primary" @click="$parent.$emit('download_pdf', props.row)" />
+                                            </q-td>
+                                        ''')
+                                        table.on('download_pdf', lambda e: descargar_informe_desde_consola(e.args))
+                                        
+                            render_tabla_stats()
