@@ -8,6 +8,7 @@ from nicegui import ui, app
 # Importaciones de la lógica y la interfaz visual
 from logic_saiv import SAIVRefinery 
 from ui_results_saiv import render_dashboard_saiv
+import pdf_generator_saiv
 
 BG_COLOR = "#0E1117"
 
@@ -85,7 +86,7 @@ class SAIVInterface:
                 ui.icon('verified', color='#22C55E', size='5rem').classes('mb-4 mt-10')
                 ui.label('EVALUACIÓN COMPLETADA').classes('text-2xl text-white font-black tracking-widest mb-2')
                 ui.label('Has agotado las pasaciones de este test.').classes('text-gray-400 mb-8')
-                ui.button('VER INFORME VOCACIONAL', on_click=lambda: ui.notify('Ir al perfil de usuario (Pendiente)', type='info')).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
+                ui.button('VOLVER AL INICIO', on_click=lambda: ui.navigate.to('/')).classes('bg-[#0D248D] text-white font-bold px-8 py-3 rounded-xl shadow-lg')
             return
 
         # --- CASO B: CON INTENTOS (INICIAR TEST DIRECTAMENTE) ---
@@ -141,6 +142,7 @@ class SAIVInterface:
         ui.notify("Evaluación vocacional completada. Procesando perfil...", color='positive')
         
         user_id = app.storage.user.get('user_id')
+        qr_event_id = app.storage.user.get('qr_event_id') # NUEVO: Rescatar el ID del evento si entró por QR
         
         # 1. Llamamos al Motor de Refinería SAIV
         try:
@@ -163,7 +165,8 @@ class SAIVInterface:
                 "raw_responses": self.respuestas_usuario,
                 "refined_metrics": results,  # Aquí va el dict que devuelve el logic_saiv
                 "attempt_number": current_attempt,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
+                "qr_event_id": qr_event_id # NUEVO: Guardamos la relación
             }
             
             try:
@@ -185,11 +188,31 @@ class SAIVInterface:
         
         # Ajustamos clases para el dashboard final
         self.main_contenedor.classes(remove='px-10 max-w-[1400px] flex-nowrap min-h-[70vh]')
-        self.main_contenedor.classes(add='w-full justify-center p-0')
+        self.main_contenedor.classes(add='w-full justify-center p-0 flex-col items-center')
         
         with self.main_contenedor:
             try:
                 # Llamada al nuevo componente visual
                 render_dashboard_saiv(results)
+                
+                # BOTÓN DE DESCARGA PDF SAIV
+                with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
+                    async def iniciar_descarga_saiv():
+                        username = app.storage.user.get('username', 'anonimo')
+                        u_info = {'username': username}
+                        
+                        try:
+                            ui.notify('Generando informe vocacional SAIV...', type='info')
+                            ruta_pdf = pdf_generator_saiv.generar_informe_saiv(u_info, results)
+                            ui.download(ruta_pdf)
+                            ui.notify('Informe SAIV descargado con éxito', type='positive')
+                        except Exception as e:
+                            ui.notify(f"Error PDF SAIV: {str(e)}", type='negative')
+                            print(f"Error PDF detallado: {e}")
+
+                    ui.button('DESCARGAR INFORME VOCACIONAL', on_click=iniciar_descarga_saiv).classes(
+                        'bg-[#0D248D] hover:bg-[#5898D4] text-white font-bold py-4 px-10 rounded-xl shadow-2xl transition-all hover:scale-105'
+                    ).props('icon=picture_as_pdf')
+                    
             except Exception as e:
                 ui.label(f"⚠️ Error cargando la pantalla de resultados RIASEC: {e}").classes('text-red-500 font-bold p-4 bg-red-100 rounded')
