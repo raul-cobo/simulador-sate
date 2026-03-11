@@ -89,7 +89,12 @@ def login_page():
                             if user_data:
                                 rol = user_data.get('role', 'USER')
                                 app.storage.user.update({
-                                    'authenticated': True, 'role': rol, 'username': user_data.get('username'), 'org_id': user_data.get('org_id', 'sistema'), 'user_id': user_data.get('id')
+                                    'authenticated': True, 
+                                    'role': rol, 
+                                    'username': user_data.get('username'), 
+                                    'org_id': user_data.get('org_id', 'sistema'), 
+                                    # USAMOS USERNAME COMO ID UNIVERSAL YA QUE LA TABLA NO TIENE COLUMNA 'ID'
+                                    'user_id': user_data.get('username') 
                                 })
                                 ui.notify(f'Bienvenido, {user_data.get("username")}', color='positive')
                                 if rol == 'ADMIN': ui.navigate.to('/admin')
@@ -129,7 +134,7 @@ def login_page():
                                 'role': 'USER',
                                 'username': f"Invitado_{token_str}",
                                 'org_id': token_data.get('org_id', 'UMA'),
-                                'user_id': f"guest_{token_str}" 
+                                'user_id': f"Invitado_{token_str}"  # USAMOS USERNAME COMO ID
                             })
                             
                             app.storage.user['force_test'] = token_data.get('test_type', 'SAPP')
@@ -258,10 +263,10 @@ async def qr_access_broker(event_id: str):
                             'role': 'USER',
                             'username': username_generado,
                             'org_id': org_id,
-                            'user_id': username_generado, 
+                            'user_id': username_generado, # USAMOS USERNAME COMO ID
                             'from_qr': True,
                             'force_test': tipo_test,
-                            'qr_event_id': event_id  # <--- CRÍTICO PARA EL PASO 5 DE TRAZABILIDAD
+                            'qr_event_id': event_id
                         })
                         
                         ui.notify('Acceso concedido. Preparando prueba...', type='positive')
@@ -535,7 +540,6 @@ def panel_page():
 # ==========================================
 # 6. ENRUTAMIENTO HACIA LOS MOTORES CON LAZY LOADING
 # ==========================================
-# Para evitar errores 404, importamos las clases de forma dinámica (Lazy Load)
 
 @ui.page('/admin')
 def admin_page():
