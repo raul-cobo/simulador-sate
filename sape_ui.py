@@ -51,8 +51,6 @@ class SAPEInterface:
                 
                 # El "Mínimo Práctico" ahora es la MEDIA de las opciones (lo que sacarías al azar).
                 # Se asume que hay 4 opciones (A,B,C,D). Sumamos los valores y dividimos por 4.
-                # Nota: Si una opción no tenía valor para esta dimensión, su valor es 0 en el azar.
-                # Completamos la lista hasta tener 4 valores (las 4 opciones)
                 valores_completos = valores + [0] * (4 - len(valores))
                 media_azar = sum(valores_completos) / 4.0
                 
@@ -81,22 +79,16 @@ class SAPEInterface:
                 rango = maximo - suelo_azar
                 
                 # Nueva Normalización: Si sacas menos que el suelo de azar, la nota es 0 o muy baja.
-                # Si sacas el máximo, es 100.
                 if rango > 0:
                     val_norm = ((suma - suelo_azar) / rango) * 100
                 elif rango == 0 and suma >= maximo:
-                    val_norm = 100.0 # Caso extremo (solo hay opciones positivas iguales)
+                    val_norm = 100.0 # Caso extremo
                 else:
                     val_norm = 0.0
                     
                 scores[dim] = round(max(0.0, min(100.0, val_norm)), 1)
                 
-        # AQUÍ ESTÁ LA MAGIA: Para el Refinador, mandamos la 'suma' en bruto, pero los limites los convertimos
-        # a formato compatible para que el Refinador (IRE) no se rompa
-        limites_compatibles = {
-            dim: {'min': int(limites[dim]['min_practico']), 'max': int(limites[dim]['max'])} 
-            for dim in limites
-        }
+        # ELIMINADO EL BLOQUE QUE CAUSABA EL NAME ERROR (CRASH PREGUNTA 40)
                 
         return scores, sumas_brutas
 
@@ -119,16 +111,21 @@ class SAPEInterface:
             await self._finalizar_test()
 
     async def _finalizar_test(self):
-        raw_scores, sumas_brutas = self._calcular_brutos_reales() 
-        
-        # Generamos limites compatibles para el cálculo del IRE
-        limites_compatibles = {
-            dim: {'min': int(self.limites_sector[dim]['min_practico']), 'max': int(self.limites_sector[dim]['max'])} 
-            for dim in self.limites_sector
-        }
-        
-        datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=limites_compatibles)
-        
+        try:
+            raw_scores, sumas_brutas = self._calcular_brutos_reales() 
+            
+            # Generamos limites compatibles para el cálculo del IRE
+            limites_compatibles = {
+                dim: {'min': int(self.limites_sector[dim]['min_practico']), 'max': int(self.limites_sector[dim]['max'])} 
+                for dim in self.limites_sector
+            }
+            
+            datos_refinados = SAPERefinery.refine_results(raw_scores=raw_scores, raw_sums=sumas_brutas, limites=limites_compatibles)
+        except Exception as e:
+            ui.notify(f"Error procesando los resultados matemáticos: {e}", type="negative", timeout=10000)
+            print(f"Error de cálculo: {e}")
+            return # Detiene la ejecución si los números fallan irremediablemente
+            
         # OBTENER EL ID REAL (UUID) PARA SUPABASE, NO SOLO EL USERNAME
         user_uuid = app.storage.user.get('user_id') 
         username = app.storage.user.get('username', 'anonimo')
@@ -141,7 +138,7 @@ class SAPEInterface:
                     "user_id": user_uuid, # AHORA USAMOS EL UUID REAL
                     "org_id": org_id, 
                     "test_type": "SAPE", 
-                    "sector_profile": self.sector, # Ajustado al nombre de columna estándar
+                    "sector_profile": self.sector, 
                     "raw_responses": self.respuestas_usuario,
                     "refined_metrics": datos_refinados,
                     "attempt_number": 1,
@@ -156,7 +153,7 @@ class SAPEInterface:
                     if licencias_actuales > 0:
                         self.supabase.table('organizations').update({'licencias_compradas': licencias_actuales - 1}).eq('id', org_id).execute()
                         
-                        # Historial (si tienes la tabla, si no, fallará silenciosamente sin romper el flujo)
+                        # Historial
                         try:
                             log_payload = {
                                 "org_id": org_id,
@@ -168,9 +165,9 @@ class SAPEInterface:
                             }
                             self.supabase.table('action_logs').insert(log_payload).execute()
                         except Exception as el:
-                            print(f"No se pudo guardar el log (posiblemente la tabla no exista): {el}")
+                            print(f"No se pudo guardar el log: {el}")
 
-                # 3. Descontar intento de usuario (si usas 'intentos_disponibles' como en SAPP)
+                # 3. Descontar intento de usuario
                 res_user = self.supabase.table('users').select('intentos_disponibles').eq('id', user_uuid).execute()
                 if res_user.data:
                     intentos = res_user.data[0].get('intentos_disponibles', 0)
@@ -179,8 +176,9 @@ class SAPEInterface:
 
             except Exception as e:
                 print(f"Error Crítico guardando en Supabase: {e}")
+                ui.notify(f"Aviso: Error de guardado en la nube. Mostrando resultados de todas formas.", type="warning")
 
-        # Continuamos con el renderizado visual de resultados
+        # Continuamos con el renderizado visual de resultados pase lo que pase con Supabase
         self.header_contenedor.clear()
         self.contenedor_principal.clear()
         
@@ -194,7 +192,6 @@ class SAPEInterface:
             with ui.row().classes('w-full max-w-5xl mx-auto justify-center pb-12 pt-4 bg-[#0E1117]'):
                 
                 async def iniciar_descarga():
-                    # Pasamos un dict con info del usuario para el PDF unificado
                     u_info = {'username': username, 'org_id': org_id}
                     await self._descargar_pdf(datos_refinados, u_info)
                 
@@ -205,10 +202,7 @@ class SAPEInterface:
     async def _descargar_pdf(self, datos, u_info):
         try:
             ui.notify('Generando informe corporativo...', type='info')
-            
-            # Usamos la función unificada de pdf_generator
             ruta = pdf_generator.generar_informe(user_info=u_info, results=datos, test_type='SAPE')
-            
             ui.download(ruta)
             ui.notify('Informe descargado con éxito', type='positive')
             
