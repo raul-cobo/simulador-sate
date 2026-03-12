@@ -160,16 +160,17 @@ class SAIVInterface:
         if self.supabase and user_id:
             
             # Preparamos el payload para evaluations_saiv
+            # TRADUCCIÓN: T -> R (Técnico a Realista) y O -> C (Organizativo a Convencional)
             payload_saiv = {
                 "username": user_id,
                 "org_id": app.storage.user.get('org_id'),
                 "qr_event_id": qr_event_id,
-                "r_score": scores.get('R', 0),
-                "i_score": scores.get('I', 0),
+                "r_score": scores.get('T', scores.get('R', 0)), 
+                "i_score": scores.get('C', scores.get('I', 0)), 
                 "a_score": scores.get('A', 0),
                 "s_score": scores.get('S', 0),
                 "e_score": scores.get('E', 0),
-                "c_score": scores.get('C', 0),
+                "c_score": scores.get('O', scores.get('C', 0)), 
                 "riasec_code": results.get('riasec_code', '---'),
                 "full_results": results, # Backup del JSON completo
                 "created_at": datetime.now().isoformat()
