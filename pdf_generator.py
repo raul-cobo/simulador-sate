@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 # ==========================================
-# 1. DICCIONARIOS DE DATOS (SAPE & SAPP)
+# 1. DICCIONARIOS DE DATOS (SAPE, SAPP & SAIV)
 # ==========================================
 
 TEXTOS_RASGOS = {
@@ -37,17 +37,24 @@ SAPP_LABELS = {
     "telepractice": "Telepráctica"
 }
 
+RIASEC_DESC = {
+    'R': {'nombre': 'Realista (Técnico)', 'desc': 'Preferencia por actividades prácticas y tangibles. Disfrutas trabajando con herramientas, máquinas, o en entornos físicos y operativos.', 'roles': 'Ingeniería, Operaciones, Arquitectura de Hardware.'},
+    'I': {'nombre': 'Investigador (Científico)', 'desc': 'Fuerte inclinación hacia la observación, el análisis y la resolución de problemas complejos mediante la lógica.', 'roles': 'Data Science, I+D, Investigación.'},
+    'A': {'nombre': 'Artístico', 'desc': 'Alta necesidad de expresión creativa, innovación y diseño. Prefieres entornos de trabajo no estructurados.', 'roles': 'Diseño UX/UI, Dirección Creativa, Contenido.'},
+    'S': {'nombre': 'Social', 'desc': 'Motivación genuina por informar, formar, desarrollar, curar o guiar a otras personas. Foco en el bienestar humano.', 'roles': 'RRHH, Mentoría, Customer Success.'},
+    'E': {'nombre': 'Emprendedor', 'desc': 'Disfrutas asumiendo riesgos, liderando equipos, persuadiendo a otros y gestionando proyectos para alcanzar metas.', 'roles': 'Business Dev, Ventas, Management.'},
+    'C': {'nombre': 'Convencional (Organizativo)', 'desc': 'Habilidad para el orden, la sistematización, el trabajo con datos precisos y el cumplimiento de procedimientos.', 'roles': 'Finanzas, Administración, Auditoría.'}
+}
+
 # ==========================================
 # 2. CLASE BASE: IDENTIDAD CORPORATIVA
 # ==========================================
 
 class AudeoPDF(FPDF):
     def header(self):
-        # Fondo oscuro corporativo para la cabecera
         self.set_fill_color(14, 17, 23) # #0E1117
         self.rect(0, 0, 210, 30, 'F')
         
-        # Intentar colocar logo si existe
         if os.path.exists("logo_blanco.png"):
             self.image("logo_blanco.png", x=10, y=5, w=40)
         else:
@@ -72,14 +79,12 @@ class AudeoPDF(FPDF):
 # ==========================================
 
 def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
-    """Genera el PDF del informe Profesional SAPP replicando las barras visuales."""
     pdf = AudeoPDF()
     pdf.add_page()
     
     modulo = results.get('module', 'General').upper()
     comps = results.get('competencies', {})
 
-    # Título del Documento
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(0, 0, 0)
@@ -90,7 +95,6 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
     pdf.cell(0, 8, f"Módulo Evaluado: {modulo}", 0, 1, 'C')
     pdf.ln(10)
 
-    # Bloque de Identificación
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font('Arial', 'B', 10)
     pdf.set_text_color(0, 0, 0)
@@ -104,7 +108,6 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
     pdf.cell(150, 8, str(user_info.get('org_id', 'N/A')), border=1)
     pdf.ln(15)
 
-    # Matriz de Competencias (Barras Horizontales)
     pdf.set_text_color(0, 0, 0)
     pdf.set_font('Arial', 'B', 14)
     pdf.cell(0, 10, "RESULTADOS POR COMPETENCIA", 0, 1, 'L')
@@ -118,25 +121,22 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
             pct = data.get('percentage', 0)
             raw = data.get('raw_score', 0)
             
-            # Formateo del nombre
             nombre_limpio = SAPP_LABELS.get(comp_name, str(comp_name).replace('_', ' ').title())
             
-            # Textos
             pdf.set_font('Arial', 'B', 11)
             pdf.set_text_color(0, 0, 0)
             pdf.cell(120, 8, nombre_limpio, 0, 0, 'L')
             pdf.set_font('Arial', 'B', 11)
             pdf.cell(0, 8, f"{pct}% (Puntos: {raw})", 0, 1, 'R')
             
-            # Colores
             if pct <= 0:
-                r, g, b = 239, 68, 68     
+                r, g, b = 239, 68, 68    
             elif pct <= 50:
-                r, g, b = 234, 179, 8     
+                r, g, b = 234, 179, 8    
             elif pct <= 75:
                 r, g, b = 150, 200, 50    
             else:
-                r, g, b = 22, 163, 74     
+                r, g, b = 22, 163, 74    
                 
             x_start = 10
             y_bar = pdf.get_y()
@@ -154,7 +154,6 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
                 
             pdf.ln(12)
 
-    # --- CLÁUSULA LEGAL SAPP ---
     pdf.ln(10)
     pdf.set_fill_color(245, 245, 245)
     pdf.set_draw_color(200, 200, 200)
@@ -170,15 +169,13 @@ def generar_informe_sapp(user_info: Dict, results: Dict, filepath: str):
     return filepath
 
 # ==========================================
-# 4. MOTOR GENERADOR SAPE (ACTUALIZADO)
+# 4. MOTOR GENERADOR SAPE
 # ==========================================
 
 def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
-    """Genera el PDF del informe de Personalidad SAPE con los nuevos KPIs."""
     pdf = AudeoPDF()
     pdf.add_page()
     
-    # Título Principal
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(0, 0, 0)
@@ -189,7 +186,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.cell(0, 8, f"Candidato: {user_info.get('username', 'Anónimo')} | Org: {user_info.get('org_id', 'N/A').upper()}", 0, 1, 'C')
     pdf.ln(10)
     
-    # 1. BLOQUE DE KPIs
     potencial = results.get('potencial', 0.0)
     ire = results.get('ire', 0.0)
     friccion = results.get('friccion', 0.0)
@@ -199,10 +195,8 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 10, "MÉTRICAS PRINCIPALES (KPIs)", 0, 1, 'L')
     
-    # Dibujar cajas de KPI
     pdf.set_font('Arial', 'B', 11)
     
-    # Fila 1: Potencial e IRE
     y_kpi = pdf.get_y()
     pdf.set_fill_color(240, 240, 245)
     
@@ -210,7 +204,7 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.set_xy(10, y_kpi + 5)
     pdf.cell(45, 10, "Potencial:", 0, 0, 'C')
     pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(13, 36, 141) # Azul oscuro
+    pdf.set_text_color(13, 36, 141) 
     pdf.cell(45, 10, f"{potencial}%", 0, 0, 'C')
     
     pdf.set_font('Arial', 'B', 11)
@@ -219,10 +213,9 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.set_xy(110, y_kpi + 5)
     pdf.cell(45, 10, "IRE (Resiliencia):", 0, 0, 'C')
     pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(34, 197, 94) # Verde
+    pdf.set_text_color(34, 197, 94) 
     pdf.cell(45, 10, f"{ire}%", 0, 1, 'C')
     
-    # Fila 2: Fricción y Delta
     pdf.ln(5)
     y_kpi = pdf.get_y()
     
@@ -232,7 +225,7 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.set_xy(10, y_kpi + 5)
     pdf.cell(45, 10, "Fricción:", 0, 0, 'C')
     pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(239, 68, 68) # Rojo
+    pdf.set_text_color(239, 68, 68) 
     pdf.cell(45, 10, f"{friccion}", 0, 0, 'C')
     
     pdf.set_font('Arial', 'B', 11)
@@ -241,10 +234,9 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.set_xy(110, y_kpi + 5)
     pdf.cell(45, 10, "Delta:", 0, 0, 'C')
     pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(234, 179, 8) # Naranja
+    pdf.set_text_color(234, 179, 8) 
     pdf.cell(45, 10, f"{delta}", 0, 1, 'C')
 
-    # 2. DESGLOSE DEL OCTÓGONO (8 RASGOS)
     pdf.ln(10)
     pdf.set_font('Arial', 'B', 14)
     pdf.set_text_color(0, 0, 0)
@@ -252,22 +244,20 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.ln(2)
     
     for key, dict_textos in TEXTOS_RASGOS.items():
-        valor = results.get(key, 50.0) # 50 por defecto si no lo encuentra
+        valor = results.get(key, 50.0) 
         
         pdf.set_font('Arial', 'B', 10)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(120, 6, dict_textos['nombre'], 0, 0, 'L')
         pdf.cell(0, 6, f"{valor}%", 0, 1, 'R')
         
-        # Barra visual pequeña
         pdf.set_fill_color(230, 230, 230)
         pdf.rect(10, pdf.get_y(), 190, 3, 'F')
         if valor > 0:
-            pdf.set_fill_color(131, 171, 241) # Azul claro
+            pdf.set_fill_color(131, 171, 241) 
             pdf.rect(10, pdf.get_y(), (valor/100)*190, 3, 'F')
         pdf.ln(5)
 
-    # 3. PATRONES CLÍNICOS (DESCARRILADORES)
     patrones = results.get('patrones_clinicos', [])
     if patrones:
         pdf.ln(5)
@@ -282,8 +272,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
             pdf.multi_cell(0, 5, pat.get('desc', ''))
             pdf.ln(2)
 
-    # --- 4. CLÁUSULA LEGAL (ART. 22 RGPD) ---
-    # Lo empujamos hacia el final de la página
     pdf.set_y(-45)
     pdf.set_fill_color(245, 245, 245)
     pdf.set_draw_color(200, 200, 200)
@@ -298,7 +286,6 @@ def generar_informe_sape(user_info: Dict, results: Dict, filepath: str):
     pdf.output(filepath)
     return filepath
 
-# ALIAS PARA RETROCOMPATIBILIDAD CON CÓDIGO ANTIGUO
 generar_pdf_sape = generar_informe_sape 
 
 # ==========================================
@@ -306,13 +293,11 @@ generar_pdf_sape = generar_informe_sape
 # ==========================================
 
 def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
-    """Genera el PDF de la Factura Proforma Comercial alineada con los T&C"""
     pdf = AudeoPDF()
     pdf.add_page()
     
     azul_audeo = (13, 36, 141) # #0D248D
 
-    # --- CABECERA FINANCIERA ---
     pdf.set_y(40)
     pdf.set_font('Arial', 'B', 20)
     pdf.set_text_color(*azul_audeo)
@@ -324,10 +309,8 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.cell(0, 6, f"Referencia: AUD-{str(order_data.get('id', '000'))[:8].upper()}", 0, 1, 'R')
     pdf.ln(10)
 
-    # --- DATOS FISCALES (EMISOR Y RECEPTOR) ---
     y_current = pdf.get_y()
     
-    # Emisor (Audeo)
     pdf.set_font('Arial', 'B', 10)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(95, 6, "EMISOR:", 0, 1, 'L')
@@ -338,7 +321,6 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.cell(95, 5, "Ciudad y Codigo Postal: **********", 0, 1, 'L')
     pdf.cell(95, 5, "facturacion@audeo.es", 0, 1, 'L')
     
-    # Receptor (El Cliente B2B)
     pdf.set_y(y_current)
     pdf.set_x(110)
     pdf.set_font('Arial', 'B', 10)
@@ -355,7 +337,6 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     
     pdf.ln(15)
 
-    # --- TABLA DE LICENCIAS ---
     pdf.set_fill_color(*azul_audeo)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Arial', 'B', 10)
@@ -372,7 +353,6 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     precio_ud = order_data.get('precio_unitario', 0.0)
     subtotal = order_data.get('subtotal', 0.0)
     
-    # Texto unificado con los T&C
     pdf.cell(100, 10, " Licencia Audeo: Ciclo Evolutivo Completo (3 pasaciones)", 1, 0, 'L')
     pdf.cell(25, 10, f" {cantidad}", 1, 0, 'C')
     pdf.cell(30, 10, f" {precio_ud:.2f} EUR", 1, 0, 'C')
@@ -380,7 +360,6 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
 
     pdf.ln(10)
 
-    # --- DESGLOSE FINANCIERO TOTALES ---
     pdf.set_x(130)
     pdf.set_font('Arial', 'B', 10)
     pdf.cell(35, 8, "Base Imponible:", 0, 0, 'R')
@@ -401,7 +380,6 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     pdf.cell(35, 10, "TOTAL A PAGAR:", 0, 0, 'R')
     pdf.cell(35, 10, f"{total:.2f} EUR", 0, 1, 'R')
 
-    # --- INSTRUCCIONES DE PAGO Y CONDICIONES ---
     pdf.set_y(-65)
     pdf.set_text_color(50, 50, 50)
     pdf.set_font('Arial', 'B', 9)
@@ -421,27 +399,128 @@ def generar_proforma(org_data: Dict, order_data: Dict, filepath: str):
     return filepath
 
 # ==========================================
-# 5. ENRUTADOR PRINCIPAL (POLIMORFISMO)
+# 4.8 MOTOR GENERADOR SAIV (NUEVO)
+# ==========================================
+
+def generar_informe_saiv(user_info: Dict, results: Dict, filepath: str):
+    """Genera el PDF del informe de Orientación Vocacional SAIV usando FPDF."""
+    pdf = AudeoPDF()
+    pdf.add_page()
+    
+    riasec_code = results.get('riasec_code', '---')
+    scores = results.get('scores', {})
+    
+    pdf.set_y(40)
+    pdf.set_font('Arial', 'B', 16)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, "INFORME DE ORIENTACIÓN VOCACIONAL S.A.I.V.", 0, 1, 'C')
+    
+    pdf.set_font('Arial', 'I', 11)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 8, f"Candidato: {user_info.get('username', 'Anónimo').upper()}", 0, 1, 'C')
+    pdf.ln(10)
+    
+    # Destacado RIASEC
+    pdf.set_fill_color(13, 36, 141) # Azul corporativo #0D248D
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 15, f"  TU CÓDIGO VOCACIONAL DOMINANTE: {riasec_code}", 0, 1, 'C', 1)
+    pdf.ln(10)
+    
+    # Gráfico de Barras RIASEC
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, "Distribución de Intereses", 0, 1, 'L')
+    pdf.ln(2)
+    
+    for letra in ['R', 'I', 'A', 'S', 'E', 'C']:
+        nombre = RIASEC_DESC[letra]['nombre']
+        
+        # Extracción segura de datos
+        pct = 0
+        if isinstance(results.get('metrics', {}).get(letra), dict):
+            pct = results['metrics'][letra].get('percentage', 0)
+        elif scores:
+            max_val = max(scores.values()) if scores.values() else 1
+            pct = int((scores.get(letra, 0) / max_val) * 100) if max_val > 0 else 0
+            
+        pdf.set_font('Arial', 'B', 10)
+        pdf.cell(60, 8, nombre, 0, 0)
+        
+        x_start = pdf.get_x()
+        y_bar = pdf.get_y() + 2
+        
+        pdf.set_fill_color(230, 230, 230)
+        pdf.rect(x_start, y_bar, 100, 4, 'F')
+        
+        if pct > 0:
+            pct_draw = min(pct, 100)
+            pdf.set_fill_color(131, 171, 241)
+            pdf.rect(x_start, y_bar, pct_draw, 4, 'F')
+            
+        pdf.set_x(x_start + 105)
+        pdf.set_font('Arial', '', 10)
+        pdf.cell(20, 8, f"{pct}%", 0, 1)
+
+    # Detalle de Roles (Top 3)
+    pdf.ln(10)
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, "Análisis de tu Perfil Principal", "B", 1, 'L')
+    pdf.ln(5)
+    
+    if len(riasec_code) >= 1 and riasec_code != '---':
+        for idx, letra in enumerate(riasec_code):
+            if letra in RIASEC_DESC:
+                pdf.set_font('Arial', 'B', 12)
+                pdf.set_text_color(13, 36, 141)
+                pdf.cell(0, 8, f"{idx+1}. {RIASEC_DESC[letra]['nombre']} ({letra})", 0, 1)
+                
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font('Arial', '', 11)
+                pdf.multi_cell(0, 6, RIASEC_DESC[letra]['desc'])
+                
+                pdf.set_font('Arial', 'I', 10)
+                pdf.set_text_color(100, 100, 100)
+                pdf.multi_cell(0, 6, f"Roles afines: {RIASEC_DESC[letra]['roles']}")
+                pdf.ln(4)
+                
+    # Legal
+    pdf.set_y(-50)
+    pdf.set_fill_color(245, 245, 245)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.rect(10, pdf.get_y(), 190, 25, 'FD')
+    pdf.set_y(pdf.get_y() + 2)
+    pdf.set_font('Arial', 'B', 8)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 5, "AVISO LEGAL Y DEONTOLÓGICO (Art. 22 RGPD):", 0, 1, 'L')
+    pdf.set_font('Arial', '', 8)
+    pdf.multi_cell(186, 4, "Este informe ha sido generado de forma automatizada. Los resultados son orientativos y no determinan habilidades innatas ni garantizan el éxito profesional. No constituye una decisión vinculante y debe usarse como herramienta de apoyo.")
+
+    pdf.output(filepath)
+    return filepath
+
+# ==========================================
+# 5. ENRUTADOR PRINCIPAL (POLIMORFISMO TOTAL)
 # ==========================================
 
 def generar_informe(user_info: Dict, results: Dict, test_type: str = 'SAPE') -> str:
     """
     Función de entrada unificada. Determina qué generador llamar.
-    Retorna la ruta absoluta del archivo generado.
     """
-    
     if test_type.upper() == 'PROFORMA':
         filename = f"Proforma_Audeo_{user_info.get('id', 'B2B')[:8]}_{datetime.now().strftime('%Y%m%d')}.pdf"
         filepath = os.path.join(os.getcwd(), filename)
         return generar_proforma(user_info, results, filepath)
         
-    filename = f"Informe_{test_type}_{user_info.get('username', 'User')}_{datetime.now().strftime('%Y%m%d%H%M')}.pdf"
+    os.makedirs('temp_reports', exist_ok=True)
+    filename = f"Informe_{test_type.upper()}_{user_info.get('username', 'User')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     filename = filename.replace(" ", "_").replace("/", "-")
-    filepath = os.path.join(os.getcwd(), filename)
+    filepath = os.path.join(os.getcwd(), 'temp_reports', filename)
     
     if test_type.upper() == 'SAPP':
         return generar_informe_sapp(user_info, results, filepath)
-    elif test_type.upper() == 'SAPE':
-        return generar_informe_sape(user_info, results, filepath)
+    elif test_type.upper() == 'SAIV':
+        return generar_informe_saiv(user_info, results, filepath)
     else:
+        # Por defecto siempre será SAPE (Mantiene compatibilidad con ORYON)
         return generar_informe_sape(user_info, results, filepath)

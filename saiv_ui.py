@@ -8,7 +8,9 @@ from nicegui import ui, app
 # Importaciones de la lógica y la interfaz visual
 from logic_saiv import SAIVRefinery 
 from ui_results_saiv import render_dashboard_saiv
-import pdf_generator_saiv
+
+# AHORA IMPORTAMOS EL GENERADOR UNIFICADO
+import pdf_generator
 
 BG_COLOR = "#0E1117"
 
@@ -210,7 +212,8 @@ class SAIVInterface:
                         
                         try:
                             ui.notify('Generando informe vocacional SAIV...', type='info')
-                            ruta_pdf = pdf_generator_saiv.generar_informe_saiv(u_info, results)
+                            # Usamos el generador unificado con el test_type 'SAIV'
+                            ruta_pdf = pdf_generator.generar_informe(u_info, results, test_type='SAIV')
                             ui.download(ruta_pdf)
                             ui.notify('Informe SAIV descargado con éxito', type='positive')
                         except Exception as e:

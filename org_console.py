@@ -6,8 +6,9 @@ from datetime import datetime
 from nicegui import ui, app
 from supabase import create_client, Client
 from dotenv import load_dotenv
-import pdf_generator
-import pdf_generator_saiv 
+
+# AHORA SOLO IMPORTAMOS EL GENERADOR UNIFICADO
+import pdf_generator 
 
 load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -32,22 +33,23 @@ def descargar_informe_desde_consola(row_data):
     
     user_info = {
         'user_id': ev_data.get('user_id', 'N/A'),
-        'username': row_data.get('user', 'Candidato Evaluación') # Usar el nombre de la tabla si es posible
+        'username': row_data.get('user', 'Candidato Evaluación') 
     }
     
     try:
         ui.notify(f"Generando informe {test_type}...", color="info")
         
-        # Enrutamiento según el tipo de test
+        # Enrutamiento Unificado a través de pdf_generator
         if test_type == 'SAIV':
-            results = ev_data.get('refined_metrics', {})
-            ruta_pdf = pdf_generator_saiv.generar_informe_saiv(user_info, results)
+            # SAIV puede tener los datos en refined_metrics o en la raíz, lo aseguramos
+            results = ev_data.get('refined_metrics', ev_data.get('results', {}))
+        elif test_type == 'SAPP':
+            results = ev_data.get('refined_metrics', ev_data.get('results', {}))
         else:
-            if test_type == 'SAPP':
-                results = ev_data.get('refined_metrics', ev_data.get('results', {}))
-            else:
-                results = ev_data.get('results', ev_data.get('calculated_scores', {}))
-            ruta_pdf = pdf_generator.generar_informe(user_info, results, test_type=test_type)
+            results = ev_data.get('results', ev_data.get('calculated_scores', {}))
+            
+        # Llamada única y limpia
+        ruta_pdf = pdf_generator.generar_informe(user_info, results, test_type=test_type)
             
         ui.download(ruta_pdf)
     except Exception as e:
@@ -66,7 +68,6 @@ class ConsolaOrganizacion:
         self.qr_events_data = [] 
         self.editing_user = None
         self.dialogo_checkout = None
-        # NUEVO: Estado del filtro
         self.filtro_evento = 'Todos'
 
     def cargar_datos(self):
@@ -110,10 +111,9 @@ class ConsolaOrganizacion:
         ui.navigate.to('/')
 
     # ==========================================
-    # NUEVO: PANEL DE EVENTOS QR (Con 3 Cajones)
+    # PANEL DE EVENTOS QR (Con 3 Cajones)
     # ==========================================
     def render_panel_qr(self):
-        # Leemos los tres saldos
         sape_bal = self.org_data.get('sape_balance', 0)
         sapp_bal = self.org_data.get('sapp_balance', 0)
         saiv_bal = self.org_data.get('saiv_balance', 0)
@@ -149,7 +149,6 @@ class ConsolaOrganizacion:
                         ui.notify('Debes ponerle un nombre al evento', type='warning')
                         return
                     
-                    # Verificamos si hay saldo en el cajón correspondiente
                     if tipo == 'SAPE' and plazas > sape_bal:
                         ui.notify(f'No tienes licencias suficientes. Saldo SAPE: {sape_bal}', type='negative')
                         return
@@ -287,7 +286,6 @@ class ConsolaOrganizacion:
         sectores_seleccionados = inputs['u_sectores'].value if inputs['u_sectores'].value else []
         perfiles_seleccionados = inputs['u_perfil'].value if inputs['u_perfil'].value else []
 
-        # REGLA DE NEGOCIO: 3 Intentos para Evolutivas, 1 Intento para SAIV
         profile_data = {
             "sape_attempts_allowed": 3 if sape_active else 0,
             "sapp_attempts_allowed": 3 if sapp_active else 0,
@@ -325,7 +323,6 @@ class ConsolaOrganizacion:
                 ui.notify('Usuario actualizado correctamente', type='positive')
                 self.limpiar_formulario(inputs)
             else:
-                # COMPROBACIÓN DE CAJONES
                 bal_sape = self.org_data.get('sape_balance', 0)
                 bal_sapp = self.org_data.get('sapp_balance', 0)
                 bal_saiv = self.org_data.get('saiv_balance', 0)
@@ -342,7 +339,6 @@ class ConsolaOrganizacion:
 
                 res_insert = supabase.table('users').insert(payload).execute()
                 
-                # DESCUENTO DE CAJONES
                 update_payload = {}
                 if sape_active: update_payload['sape_balance'] = bal_sape - 1
                 if sapp_active: update_payload['sapp_balance'] = bal_sapp - 1
@@ -408,7 +404,6 @@ class ConsolaOrganizacion:
             bal_saiv = self.org_data.get('saiv_balance', 0)
             can_assign_saiv = self.privilegios.get('can_assign_saiv', False)
 
-            # Contar licencias requeridas por test
             req_sape = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPE", "AMBAS", "TODAS"]))
             req_sapp = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAPP", "AMBAS", "TODAS"]))
             req_saiv = sum(1 for _, r in df.iterrows() if any(x in str(r['tests']).upper() for x in ["SAIV", "TODAS"]))
@@ -418,7 +413,7 @@ class ConsolaOrganizacion:
                 return
 
             count_creados = 0
-            errores = 0
+            erroores = 0
             
             for _, row in df.iterrows():
                 tests = str(row['tests']).upper()
@@ -464,9 +459,8 @@ class ConsolaOrganizacion:
                         count_creados += 1
                 except Exception as ex_u:
                     print(f"Error insertando {payload['username']}: {ex_u}")
-                    errores += 1
+                    erroores += 1
 
-            # Descontar los tres cajones a la vez
             nuevo_sape = bal_sape - req_sape
             nuevo_sapp = bal_sapp - req_sapp
             nuevo_saiv = bal_saiv - req_saiv
@@ -484,7 +478,7 @@ class ConsolaOrganizacion:
             self.registrar_log('LICENSE_CONSUMED', f'Carga Masiva: -{req_sape}S -{req_sapp}P -{req_saiv}V', 'green-yellow')
             self.registrar_log('BULK_UPLOAD', f'{count_creados} creados', 'green-blue')
 
-            ui.notify(f'Proceso finalizado: {count_creados} creados.', type='positive' if errores==0 else 'warning')
+            ui.notify(f'Proceso finalizado: {count_creados} creados.', type='positive' if erroores==0 else 'warning')
             self.render()
 
         except Exception as ex:
